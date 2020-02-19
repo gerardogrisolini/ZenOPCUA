@@ -1,0 +1,36 @@
+//
+//  CloseSecureChannelRequest.swift
+//  
+//
+//  Created by Gerardo Grisolini on 19/02/2020.
+//
+
+class CloseSecureChannelRequest: MessageBase, OPCUAEncodable {
+
+    let typeId: TypeId = TypeId(identifierNumeric: .closeSecureChannelRequest)
+    let requestHeader: RequestHeader
+
+    var bytes: [UInt8] {
+        return secureChannelId.bytes +
+            tokenId.bytes +
+            sequenceNumber.bytes +
+            requestId.bytes +
+            typeId.bytes +
+            requestHeader.bytes
+    }
+    
+    init(
+        secureChannelId: UInt32,
+        tokenId: UInt32,
+        sequenceNumber: UInt32,
+        requestId: UInt32,
+        requestHandle: UInt32
+    ) {
+        self.requestHeader = RequestHeader(requestHandle: requestHandle)
+        super.init()
+        self.secureChannelId = secureChannelId
+        self.tokenId = tokenId
+        self.sequenceNumber = sequenceNumber
+        self.requestId = requestId
+    }
+}
