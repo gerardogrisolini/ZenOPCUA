@@ -12,7 +12,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     let clientSignature: SignatureData = SignatureData()
     let clientSowtwareCertificates: String? = nil
     let localeIds: String? = nil
-    let userIdentityToken: UserIdentityToken = UserIdentityToken()
+    let userIdentityToken: UserIdentityToken
     let userTokenSignature: SignatureData = SignatureData()
 
     var bytes: [UInt8] {
@@ -38,6 +38,12 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
         endpointUrl: String
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle)
+        if let username = ZenOPCUA.username, let password = ZenOPCUA.password {
+            let identityToken = UserNameIdentityToken(username: username, password: password)
+            userIdentityToken = UserIdentityToken(identityToken: identityToken)
+        } else {
+            userIdentityToken = UserIdentityToken(identityToken: AnonymousIdentityToken())
+        }
         super.init()
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
@@ -49,10 +55,14 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
 struct UserIdentityToken: OPCUAEncodable {
     let typeId: TypeId = TypeId(identifierNumeric: .userIdentityToken)
     let encodingMask: UInt8 = 0x01
-    let anonymousIdentityToken: AnonymousIdentityToken = AnonymousIdentityToken()
+    let identityToken: OPCUAEncodable
 
+    init(identityToken: OPCUAEncodable) {
+        self.identityToken = identityToken
+    }
+    
     var bytes: [UInt8] {
-        let data = anonymousIdentityToken.bytes
+        let data = identityToken.bytes
         return typeId.bytes + [encodingMask] + UInt32(data.count).bytes + data
     }
 }
@@ -62,5 +72,25 @@ struct AnonymousIdentityToken: OPCUAEncodable {
 
     var bytes: [UInt8] {
         return policyId.bytes
+    }
+}
+
+struct UserNameIdentityToken: OPCUAEncodable {
+    let policyId: String = "UserName"
+    let username: String
+    let password: String
+    let encryptionAlgorithm: String?
+
+    init(username: String, password: String, encryptionAlgorithm: String? = nil) {
+        self.username = username
+        self.password = password
+        self.encryptionAlgorithm = encryptionAlgorithm
+    }
+    
+    var bytes: [UInt8] {
+        return policyId.bytes +
+            username.bytes +
+            password.bytes +
+            encryptionAlgorithm.bytes
     }
 }

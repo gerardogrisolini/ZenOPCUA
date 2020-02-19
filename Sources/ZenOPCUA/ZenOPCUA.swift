@@ -16,14 +16,15 @@ enum OPCUAError : Error {
 }
 
 public class ZenOPCUA {
+
     public static var host: String = ""
     public static var port: Int = 4842
+    public static var username: String? = nil
+    public static var password: String? = nil
+    
     private let eventLoopGroup: EventLoopGroup
     private var channel: Channel? = nil
     private let handler = OPCUAHandler()
-    
-    private var username: String?
-    private var password: String?
     private var autoreconnect: Bool = false
 
     public var onMessageReceived: OPCUAMessageReceived? = nil
@@ -85,8 +86,8 @@ public class ZenOPCUA {
     }
 
     public func connect(username: String? = nil, password: String? = nil) -> EventLoopFuture<Void> {
-        self.username = username
-        self.password = password
+        ZenOPCUA.username = username
+        ZenOPCUA.password = password
 
         handler.messageReceived = onMessageReceived
         handler.errorCaught = onErrorCaught
