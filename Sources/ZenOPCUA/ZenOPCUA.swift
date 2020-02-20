@@ -11,7 +11,6 @@ import NIO
 
 enum OPCUAError : Error {
     case connectionError
-    case invalidSession
     case generic(_ text: String)
 }
 
@@ -114,31 +113,74 @@ public class ZenOPCUA {
     }
 
     private func closeSession(deleteSubscriptions: Bool) -> EventLoopFuture<Void> {
-        guard let channel = channel else {
+        guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
-        guard let session = handler.sessionActive else {
-            return channel.eventLoop.makeFailedFuture(OPCUAError.invalidSession)
-        }
-
-        handler.promise = channel.eventLoop.makePromise()
+        let requestId = handler.nextMessageID()
+        handler.promises[requestId] = channel.eventLoop.makePromise()
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-        let requestId = handler.nextMessageID()
         let body = CloseSessionRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
             sequenceNumber: requestId,
             requestId: requestId,
-            requestHandle: 0,
+            requestHandle: requestId,
             deleteSubscriptions: deleteSubscriptions
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
         channel.writeAndFlush(frame, promise: nil)
         
-        return handler.promise!.futureResult
+        return handler.promises[requestId]!.futureResult
+    }
+
+    public func browse() -> EventLoopFuture<Void> {
+        guard let channel = channel, let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        }
+
+        let requestId = handler.nextMessageID()
+        handler.promises[requestId] = channel.eventLoop.makePromise()
+
+        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+        let body = BrowseRequest(
+            secureChannelId: session.secureChannelId,
+            tokenId: session.tokenId,
+            sequenceNumber: requestId,
+            requestId: requestId,
+            requestHandle: requestId
+        )
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+        
+        channel.writeAndFlush(frame, promise: nil)
+        
+        return handler.promises[requestId]!.futureResult
+    }
+
+    public func read(nodes: [ReadValueId]) -> EventLoopFuture<Void> {
+        guard let channel = channel, let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        }
+
+        let requestId = handler.nextMessageID()
+        handler.promises[requestId] = channel.eventLoop.makePromise()
+
+        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+        let body = ReadRequest(
+            secureChannelId: session.secureChannelId,
+            tokenId: session.tokenId,
+            sequenceNumber: requestId,
+            requestId: requestId,
+            requestHandle: requestId,
+            nodesToRead: nodes
+        )
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+        
+        channel.writeAndFlush(frame, promise: nil)
+        
+        return handler.promises[requestId]!.futureResult
     }
 }
 

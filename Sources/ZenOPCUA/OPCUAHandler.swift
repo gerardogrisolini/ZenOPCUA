@@ -23,7 +23,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public var errorCaught: OPCUAErrorCaught? = nil
 
     public var sessionActive: ActivateSessionResponse? = nil
-    public var promise: EventLoopPromise<Void>? = nil
+    public var promises = Dictionary<UInt32, EventLoopPromise<Void>>()
     
     public init() {
     }
@@ -44,8 +44,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         case .openChannel:
             getEndpoints(context: context, response: OpenSecureChannelResponse(bytes: frame.body))
         case .error:
-            var error = "undefined"
             let codeId = UInt32(littleEndianBytes: frame.body[0...3])
+            var error = "error code: \(codeId)"
             if let err = ErrorResponse(rawValue: codeId) {
                 error = "\(err)"
             }
@@ -62,6 +62,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 sessionActive = ActivateSessionResponse(bytes: frame.body)
             case .closeSessionResponse:
                 closeSecureChannel(context: context, response: CloseSessionResponse(bytes: frame.body))
+            case .browseResponse:
+                print(BrowseResponse(bytes: frame.body))
+            case .readResponse:
+                print(ReadResponse(bytes: frame.body))
             default:
                 break
             }
@@ -101,7 +105,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        context.writeAndFlush(self.wrapOutboundOut(frame), promise: promise)
+        context.writeAndFlush(self.wrapOutboundOut(frame), promise: promises[response.requestId])
     }
 
     fileprivate func getEndpoints(context: ChannelHandlerContext, response: OpenSecureChannelResponse) {
@@ -151,7 +155,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
-
+    
     private var messageID = UInt32(1)
     
     public func nextMessageID() -> UInt32 {

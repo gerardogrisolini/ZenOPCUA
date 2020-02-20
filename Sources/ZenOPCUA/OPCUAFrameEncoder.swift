@@ -50,3 +50,9 @@ extension Bool {
         return [self ? 0x01 : 0x00]
     }
 }
+
+extension Array where Element: OPCUAEncodable {
+    var bytes: [UInt8] {
+        return self.map { $0.bytes }.reduce([], +)
+    }
+}

@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
-enum Nodes: UInt16 {
+public enum Nodes: UInt16 {
     case userIdentityToken = 321
     case openSecureChannelRequest = 446
     case openSecureChannelResponse = 449
@@ -18,4 +18,8 @@ enum Nodes: UInt16 {
     case closeSessionRequest = 473
     case closeSessionResponse = 476
     case closeSecureChannelRequest = 452
+    case browseRequest = 527
+    case browseResponse = 530
+    case readRequest = 631
+    case readResponse = 634
 }

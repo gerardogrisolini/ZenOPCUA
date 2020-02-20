@@ -20,6 +20,7 @@ final class ZenOPCUATests: XCTestCase {
         }
         opcua.onHandlerRemoved = {
             print("Handler removed")
+            try? opcua.disconnect().wait()
         }
         opcua.onErrorCaught = { error in
             print(error)
@@ -27,7 +28,14 @@ final class ZenOPCUATests: XCTestCase {
         
         do {
             try opcua.connect().wait()
+            sleep(3)
+            try opcua.browse().wait()
             sleep(5)
+            let nodes = [
+                ReadValueId(nodeId: TypeId(nameSpace: 2, identifierNumeric: 20171), attributeId: 0x0000000d)
+            ]
+            try opcua.read(nodes: nodes).wait()
+            sleep(3)
             try opcua.disconnect().wait()
         } catch {
             XCTFail(error.localizedDescription)

@@ -16,7 +16,7 @@ struct ApplicationDescription {
 }
 
 struct LocalizedText {
-    var encodingMask: UInt8
-    var locale: String
-    var text: String
+    var encodingMask: UInt8 = 0x00
+    var locale: String = ""
+    var text: String = ""
 }
