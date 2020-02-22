@@ -30,23 +30,23 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     }
     
     init(
-        secureChannelId: UInt32,
-        tokenId: UInt32,
         sequenceNumber: UInt32,
         requestId: UInt32,
-        requestHandle: UInt32,
-        endpointUrl: String
+        session: CreateSessionResponse
     ) {
-        self.requestHeader = RequestHeader(requestHandle: requestHandle)
+        self.requestHeader = RequestHeader(requestHandle: requestId, authenticationToken: session.authenticationToken)
+        
         if let username = ZenOPCUA.username, let password = ZenOPCUA.password {
-            let identityToken = UserNameIdentityToken(username: username, password: password)
+            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.userTokenType == 0x00000001 })!.policyId
+            let identityToken = UserNameIdentityToken(policyId: policyId, username: username, password: password)
             userIdentityToken = UserIdentityToken(identityToken: identityToken)
         } else {
-            userIdentityToken = UserIdentityToken(identityToken: AnonymousIdentityToken())
+            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.userTokenType == 0x00000000 })!.policyId
+            userIdentityToken = UserIdentityToken(identityToken: AnonymousIdentityToken(policyId: policyId))
         }
         super.init()
-        self.secureChannelId = secureChannelId
-        self.tokenId = tokenId
+        self.secureChannelId = session.secureChannelId
+        self.tokenId = session.tokenId
         self.sequenceNumber = sequenceNumber
         self.requestId = requestId
     }
@@ -68,20 +68,25 @@ struct UserIdentityToken: OPCUAEncodable {
 }
 
 struct AnonymousIdentityToken: OPCUAEncodable {
-    let policyId: String = "Anonymous"
-
+    let policyId: String
+    
+    init(policyId: String) {
+        self.policyId = policyId
+    }
+    
     var bytes: [UInt8] {
         return policyId.bytes
     }
 }
 
 struct UserNameIdentityToken: OPCUAEncodable {
-    let policyId: String = "UserName"
+    let policyId: String
     let username: String
     let password: String
     let encryptionAlgorithm: String?
 
-    init(username: String, password: String, encryptionAlgorithm: String? = nil) {
+    init(policyId: String, username: String, password: String, encryptionAlgorithm: String? = nil) {
+        self.policyId = policyId
         self.username = username
         self.password = password
         self.encryptionAlgorithm = encryptionAlgorithm

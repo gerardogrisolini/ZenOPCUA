@@ -22,7 +22,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public var handlerRemoved: OPCUAHandlerRemoved? = nil
     public var errorCaught: OPCUAErrorCaught? = nil
 
-    public var sessionActive: ActivateSessionResponse? = nil
+    public var sessionActive: CreateSessionResponse? = nil
     public var promises = Dictionary<UInt32, EventLoopPromise<Void>>()
     
     public init() {
@@ -57,15 +57,20 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
             case .createSessionResponse:
-                activateSession(context: context, response: CreateSessionResponse(bytes: frame.body))
+                sessionActive = CreateSessionResponse(bytes: frame.body)
+                activateSession(context: context)
             case .activateSessionResponse:
-                sessionActive = ActivateSessionResponse(bytes: frame.body)
+                let response = ActivateSessionResponse(bytes: frame.body)
+                print(response.responseHeader.serviceDiagnistics)
             case .closeSessionResponse:
                 closeSecureChannel(context: context, response: CloseSessionResponse(bytes: frame.body))
             case .browseResponse:
-                print(BrowseResponse(bytes: frame.body))
+                let response = BrowseResponse(bytes: frame.body)
+                promises[response.requestId]?.succeed(())
+                print(response.results)
             case .readResponse:
-                print(ReadResponse(bytes: frame.body))
+                let response = ReadResponse(bytes: frame.body)
+                promises[response.requestId]?.succeed(())
             default:
                 break
             }
@@ -140,16 +145,15 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
 
-    fileprivate func activateSession(context: ChannelHandlerContext, response: CreateSessionResponse) {
+    fileprivate func activateSession(context: ChannelHandlerContext) {
+        guard  let session = sessionActive else { return }
+        
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let requestId = nextMessageID()
         let body = ActivateSessionRequest(
-            secureChannelId: response.secureChannelId,
-            tokenId: response.tokenId,
             sequenceNumber: requestId,
             requestId: requestId,
-            requestHandle: response.requestId,
-            endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)"
+            session: session
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         

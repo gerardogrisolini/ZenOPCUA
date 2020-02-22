@@ -5,24 +5,23 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
-class BrowseResponse: MessageBase, OPCUADecodable {
+class BrowseResponse: MessageBase {
     let typeId: TypeId
     let responseHeader: ResponseHeader
     var results: [BrowseResult] = []
     var diagnosticInfos: [DiagosticInfo] = []
     
-    required init(bytes: [UInt8]) {
+    required override init(bytes: [UInt8]) {
         typeId = TypeId(identifierNumeric: .browseResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
-        super.init()
-        secureChannelId = UInt32(littleEndianBytes: bytes[0...3])
-        tokenId = UInt32(littleEndianBytes: bytes[4...7])
+        super.init(bytes: bytes[0...15].map { $0 })
 
         var index = 44
         var len = 0
         
         var count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        if count == UInt32.max { count = 0 }
         index += 4
         for _ in 0..<count {
             let statusCode = StatusCodes(rawValue: UInt32(littleEndianBytes: bytes[index..<(index+4)]))!
@@ -82,14 +81,16 @@ class BrowseResponse: MessageBase, OPCUADecodable {
 
         count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
         index += 4
-        for _ in 0..<count {
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
-            index += 4
-            if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
-                let info = DiagosticInfo(info: text)
-                diagnosticInfos.append(info)
+        if count < UInt32.max {
+            for _ in 0..<count {
+                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                index += 4
+                if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
+                    let info = DiagosticInfo(info: text)
+                    diagnosticInfos.append(info)
+                }
+                index += len
             }
-            index += len
         }
     }
 }

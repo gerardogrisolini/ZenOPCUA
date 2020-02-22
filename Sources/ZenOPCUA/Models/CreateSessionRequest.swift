@@ -15,8 +15,8 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
     var sessionName: String? = nil
     var clientNonce: String? = nil
     var clientCertificate: String? = nil
-    var requestedSessionTimeout: UInt64 = 1200000
-    var maxResponseMessageSize: UInt32 = 2147483647
+    let requestedSessionTimeout: [UInt8] = Int64(1200000).bytes
+    let maxResponseMessageSize: UInt32 = 2147483647
     
     var bytes: [UInt8] {
         return secureChannelId.bytes +
@@ -31,7 +31,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
             sessionName.bytes +
             clientNonce.bytes +
             clientCertificate.bytes +
-            requestedSessionTimeout.bytes +
+            requestedSessionTimeout +
             maxResponseMessageSize.bytes
     }
     
@@ -45,7 +45,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle)
         self.endpointUrl = endpointUrl
-        super.init()
+        super.init(bytes: [])
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
         self.sequenceNumber = sequenceNumber

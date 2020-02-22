@@ -127,6 +127,7 @@ public class ZenOPCUA {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
+            authenticationToken: session.authenticationToken,
             deleteSubscriptions: deleteSubscriptions
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -150,7 +151,8 @@ public class ZenOPCUA {
             tokenId: session.tokenId,
             sequenceNumber: requestId,
             requestId: requestId,
-            requestHandle: requestId
+            requestHandle: requestId,
+            authenticationToken: session.authenticationToken
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
@@ -174,6 +176,7 @@ public class ZenOPCUA {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
+            authenticationToken: session.authenticationToken,
             nodesToRead: nodes
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)

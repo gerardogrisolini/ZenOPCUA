@@ -16,6 +16,7 @@ class BrowseRequest: MessageBase, OPCUAEncodable {
     var nodesToBrowse: [BrowseDescription] = []
     
     var bytes: [UInt8] {
+        let part = UInt32(nodesToBrowse.count).bytes
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
@@ -23,7 +24,8 @@ class BrowseRequest: MessageBase, OPCUAEncodable {
             typeId.bytes +
             requestHeader.bytes +
             view.bytes +
-            requestedMaxReferencesPerNode.bytes
+            requestedMaxReferencesPerNode.bytes +
+            part + nodesToBrowse.bytes
     }
     
     init(
@@ -31,20 +33,22 @@ class BrowseRequest: MessageBase, OPCUAEncodable {
         tokenId: UInt32,
         sequenceNumber: UInt32,
         requestId: UInt32,
-        requestHandle: UInt32
+        requestHandle: UInt32,
+        authenticationToken: NodeSessionId
     ) {
-        self.requestHeader = RequestHeader(requestHandle: requestHandle)
-        super.init()
+        self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
+        super.init(bytes: [])
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
         self.sequenceNumber = sequenceNumber
         self.requestId = requestId
+        nodesToBrowse.append(BrowseDescription())
     }
 }
 
 struct ViewDescription: OPCUAEncodable {
     var viewId: NodeId = NodeId()
-    var timestamp: Date = Date()
+    var timestamp: UInt64 = 0
     var viewVersion: UInt32 = 0
 
     var bytes: [UInt8] {

@@ -13,13 +13,11 @@ class ReadResponse: MessageBase, OPCUADecodable {
     var results: [DataValue] = []
     var diagnosticInfos: [DiagosticInfo] = []
     
-    required init(bytes: [UInt8]) {
+    required override init(bytes: [UInt8]) {
         typeId = TypeId(identifierNumeric: .browseResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
-        super.init()
-        secureChannelId = UInt32(littleEndianBytes: bytes[0...3])
-        tokenId = UInt32(littleEndianBytes: bytes[4...7])
+        super.init(bytes: bytes[0...15].map { $0 })
 
         var index = 44
         var len = 0
@@ -39,7 +37,7 @@ class ReadResponse: MessageBase, OPCUADecodable {
                 index += len
             }
 
-            data.sourceTimestamp = UInt64(littleEndianBytes: bytes[index..<(index+8)]).date
+            data.sourceTimestamp = Int64(littleEndianBytes: bytes[index..<(index+8)]).date
             index += 8
 
             results.append(data)

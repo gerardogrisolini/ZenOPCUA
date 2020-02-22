@@ -11,5 +11,14 @@ class MessageBase {
     var sequenceNumber: UInt32 = 0
     var requestId: UInt32 = 0
     
-    init() { }
+    init() {
+    }
+    
+    init(bytes: [UInt8]) {
+        guard bytes.count == 16 else { return }
+        secureChannelId = UInt32(littleEndianBytes: bytes[0...3])
+        tokenId = UInt32(littleEndianBytes: bytes[4...7])
+        sequenceNumber = UInt32(littleEndianBytes: bytes[8...11])
+        requestId = UInt32(littleEndianBytes: bytes[12...15])
+    }
 }

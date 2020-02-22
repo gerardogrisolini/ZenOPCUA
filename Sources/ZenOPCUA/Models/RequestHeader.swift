@@ -8,16 +8,17 @@
 import Foundation
 
 struct RequestHeader: OPCUAEncodable {
-    var authenticationToken: NodeId = NodeId()
-    var timestamp: Date = Date()
-    var requestHandle: UInt32 = 0
-    var returnDiagnostics: UInt32 = 0 //0x00000000
-    var auditEntryId: String? = nil //ff ff ff ff
-    var timeoutHint: UInt32 = 0
-    var additionalHeader: AdditionalHeader = AdditionalHeader()
+    let authenticationToken: OPCUAEncodable
+    let timestamp: Date = Date()
+    let requestHandle: UInt32
+    let returnDiagnostics: UInt32 = 0 //0x00000000
+    let auditEntryId: String? = nil //ff ff ff ff
+    let timeoutHint: UInt32 = 0
+    let additionalHeader: AdditionalHeader = AdditionalHeader()
 
-    init(requestHandle: UInt32) {
+    init(requestHandle: UInt32, authenticationToken: OPCUAEncodable = NodeId()) {
         self.requestHandle = requestHandle
+        self.authenticationToken = authenticationToken
     }
     
     var bytes: [UInt8] {

@@ -27,11 +27,12 @@ class CloseSessionRequest: MessageBase, OPCUAEncodable {
         sequenceNumber: UInt32,
         requestId: UInt32,
         requestHandle: UInt32,
+        authenticationToken: NodeSessionId,
         deleteSubscriptions: Bool
     ) {
         self.deleteSubscriptions = deleteSubscriptions
-        self.requestHeader = RequestHeader(requestHandle: requestHandle)
-        super.init()
+        self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
+        super.init(bytes: [])
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
         self.sequenceNumber = sequenceNumber

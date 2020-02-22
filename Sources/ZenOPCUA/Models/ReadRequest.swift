@@ -31,9 +31,10 @@ class ReadRequest: MessageBase, OPCUAEncodable {
         sequenceNumber: UInt32,
         requestId: UInt32,
         requestHandle: UInt32,
+        authenticationToken: NodeSessionId,
         nodesToRead: [ReadValueId]
     ) {
-        self.requestHeader = RequestHeader(requestHandle: requestHandle)
+        self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
         self.nodesToRead = nodesToRead
         super.init()
         self.secureChannelId = secureChannelId

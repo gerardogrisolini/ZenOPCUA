@@ -16,7 +16,7 @@ struct ResponseHeader: OPCUADecodable {
     var additionalHeader: AdditionalHeader
     
     init(bytes: [UInt8]) {
-        timestamp = UInt64(littleEndianBytes: bytes[0...7]).date
+        timestamp = Int64(littleEndianBytes: bytes[0...7]).date
         requestHandle = UInt32(littleEndianBytes: bytes[8...11])
         serviceResult = UInt32(littleEndianBytes: bytes[12...15])
         serviceDiagnistics = bytes[16]

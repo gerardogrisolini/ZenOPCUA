@@ -42,9 +42,28 @@ extension Optional where Wrapped == String {
     }
 }
 
+//* An instance in time. A DateTime value is encoded as a 64-bit signed integer
+//* which represents the number of 100 nanosecond intervals since January 1, 1601
+//* (UTC).
+
 extension Date : OPCUAEncodable {
-    var ticks: UInt64 {
-        return UInt64((self.timeIntervalSince1970 + 62_135_596_800) * 10_000_000)
+    var ticks: Int64 {
+        //return UInt64((self.timeIntervalSince1970 + 62_135_596_800) * 10_000_000)
+        //return UInt64(self.timeIntervalSince1970 * 1000)
+
+        let calendar = Calendar.current
+        let dstComponents = DateComponents(year: 1601,
+            month: 1,
+            day: 1)
+        if #available(OSX 10.12, *) {
+            let interval = DateInterval(start: calendar.date(from: dstComponents)!, end: self)
+            //let interval = calendar.dateInterval(of: .nanosecond, for: calendar.date(from: dstComponents)!)!.duration
+
+            return Int64(interval.duration / 100)
+        } else {
+            // Fallback on earlier versions
+            return 0
+        }
     }
 
     var bytes: [UInt8] {
@@ -52,8 +71,58 @@ extension Date : OPCUAEncodable {
     }
 }
 
-extension UInt64 {
+extension Int64: OPCUAEncodable{
     var date: Date {
-        Date(timeIntervalSince1970: TimeInterval(self/1000))
+        Date(timeIntervalSince1970: TimeInterval(self / 1000))
+    }
+    
+    var bytes: [UInt8] {
+        var _endian = littleEndian
+        let bytePtr = withUnsafePointer(to: &_endian) {
+            $0.withMemoryRebound(to: UInt8.self, capacity: 8) {
+                UnsafeBufferPointer(start: $0, count: 8)
+            }
+        }
+        return [UInt8](bytePtr)
+    }
+}
+
+extension FixedWidthInteger {
+    init<I>(littleEndianBytes iterator: inout I) where I: IteratorProtocol, I.Element == UInt8 {
+        self = stride(from: 0, to: Self.bitWidth, by: 8).reduce(into: 0) {
+          $0 |= Self(truncatingIfNeeded: iterator.next()!) &<< $1
+        }
+    }
+      
+    init<C>(littleEndianBytes bytes: C) where C: Collection, C.Element == UInt8 {
+        precondition(bytes.count == (Self.bitWidth+7)/8)
+        var iter = bytes.makeIterator()
+        self.init(littleEndianBytes: &iter)
+    }
+    
+    var bytes: [UInt8] {
+        var _endian = littleEndian
+        let bytePtr = withUnsafePointer(to: &_endian) {
+            $0.withMemoryRebound(to: UInt8.self, capacity: MemoryLayout<Self>.size) {
+                UnsafeBufferPointer(start: $0, count: MemoryLayout<Self>.size)
+            }
+        }
+        return [UInt8](bytePtr)
+    }
+}
+
+extension Bool {
+    init(byte: UInt8) {
+        self = byte == 0x01 ? true : false
+    }
+
+    var bytes: [UInt8] {
+        return [self ? 0x01 : 0x00]
+    }
+}
+
+extension Array where Element: OPCUAEncodable {
+    var bytes: [UInt8] {
+        return self.map { $0.bytes }.reduce([], +)
     }
 }

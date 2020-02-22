@@ -35,7 +35,7 @@ class GetEndpointsRequest: MessageBase, OPCUAEncodable {
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle)
         self.endpointUrl = endpointUrl
-        super.init()
+        super.init(bytes: [])
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
         self.sequenceNumber = sequenceNumber

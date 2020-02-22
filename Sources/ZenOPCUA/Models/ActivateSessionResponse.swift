@@ -16,13 +16,11 @@ class ActivateSessionResponse: MessageBase, OPCUADecodable {
     var results: [StatusCodes] = []
     var diagnosticInfos: [DiagosticInfo] = []
     
-    required init(bytes: [UInt8]) {
+    required override init(bytes: [UInt8]) {
         typeId = TypeId(identifierNumeric: .activateSessionResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
-        super.init()
-        secureChannelId = UInt32(littleEndianBytes: bytes[0...3])
-        tokenId = UInt32(littleEndianBytes: bytes[4...7])
+        super.init(bytes: bytes[0...15].map { $0 })
 
         var index = 44
 
@@ -35,23 +33,27 @@ class ActivateSessionResponse: MessageBase, OPCUADecodable {
 
         var count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
         index += 4
-        for _ in 0..<count {
-            if let statusCode = StatusCodes(rawValue: UInt32(littleEndianBytes: bytes[index..<(index+4)])) {
-                results.append(statusCode)
+        if count < UInt32.max {
+            for _ in 0..<count {
+                if let statusCode = StatusCodes(rawValue: UInt32(littleEndianBytes: bytes[index..<(index+4)])) {
+                    results.append(statusCode)
+                }
+                index += 4
             }
-            index += 4
         }
-
+        
         count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
         index += 4
-        for _ in 0..<count {
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
-            index += 4
-            if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
-                let info = DiagosticInfo(info: text)
-                diagnosticInfos.append(info)
+        if count < UInt32.max {
+            for _ in 0..<count {
+                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                index += 4
+                if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
+                    let info = DiagosticInfo(info: text)
+                    diagnosticInfos.append(info)
+                }
+                index += len
             }
-            index += len
         }
     }
 }
