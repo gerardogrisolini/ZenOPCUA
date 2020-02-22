@@ -161,29 +161,29 @@ public class ZenOPCUA {
         return handler.promises[requestId]!.futureResult
     }
 
-    public func read(nodes: [ReadValueId]) -> EventLoopFuture<Void> {
-        guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
-        }
-
-        let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise()
-
-        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-        let body = ReadRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
-            sequenceNumber: requestId,
-            requestId: requestId,
-            requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
-            nodesToRead: nodes
-        )
-        let frame = OPCUAFrame(head: head, body: body.bytes)
-        
-        channel.writeAndFlush(frame, promise: nil)
-        
-        return handler.promises[requestId]!.futureResult
-    }
+//    public func read<T>(nodes: [ReadValueId<T>]) -> EventLoopFuture<Void> {
+//        guard let channel = channel, let session = handler.sessionActive else {
+//            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+//        }
+//
+//        let requestId = handler.nextMessageID()
+//        handler.promises[requestId] = channel.eventLoop.makePromise()
+//
+//        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+//        let body = ReadRequest(
+//            secureChannelId: session.secureChannelId,
+//            tokenId: session.tokenId,
+//            sequenceNumber: requestId,
+//            requestId: requestId,
+//            requestHandle: requestId,
+//            authenticationToken: session.authenticationToken,
+//            nodesToRead: nodes
+//        )
+//        let frame = OPCUAFrame(head: head, body: body.bytes)
+//        
+//        channel.writeAndFlush(frame, promise: nil)
+//        
+//        return handler.promises[requestId]!.futureResult
+//    }
 }
 

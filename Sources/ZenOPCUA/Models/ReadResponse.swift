@@ -8,13 +8,13 @@
 import Foundation
 
 class ReadResponse: MessageBase, OPCUADecodable {
-    let typeId: TypeId
+    let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var results: [DataValue] = []
     var diagnosticInfos: [DiagosticInfo] = []
     
     required override init(bytes: [UInt8]) {
-        typeId = TypeId(identifierNumeric: .browseResponse)
+        typeId = NodeIdNumeric(identifier: .browseResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         super.init(bytes: bytes[0...15].map { $0 })

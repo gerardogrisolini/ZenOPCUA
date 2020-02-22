@@ -29,7 +29,7 @@ public struct OPCUAFrame: Equatable {
     }
 }
 
-extension String {
+extension String: OPCUAEncodable {
     var bytes: [UInt8] {
         let len = self.isEmpty ? UInt32.max : UInt32(self.utf8.count)
         return len.bytes + self.utf8.map { $0 }
@@ -48,20 +48,14 @@ extension Optional where Wrapped == String {
 
 extension Date : OPCUAEncodable {
     var ticks: Int64 {
-        //return UInt64((self.timeIntervalSince1970 + 62_135_596_800) * 10_000_000)
-        //return UInt64(self.timeIntervalSince1970 * 1000)
-
         let calendar = Calendar.current
         let dstComponents = DateComponents(year: 1601,
             month: 1,
             day: 1)
         if #available(OSX 10.12, *) {
-            let interval = DateInterval(start: calendar.date(from: dstComponents)!, end: self)
-            //let interval = calendar.dateInterval(of: .nanosecond, for: calendar.date(from: dstComponents)!)!.duration
-
-            return Int64(interval.duration / 100)
+            let interval = DateInterval(start: calendar.date(from: dstComponents)!, end: self).duration
+            return Int64(TimeInterval(interval * 10000000))
         } else {
-            // Fallback on earlier versions
             return 0
         }
     }
@@ -73,17 +67,11 @@ extension Date : OPCUAEncodable {
 
 extension Int64: OPCUAEncodable{
     var date: Date {
-        Date(timeIntervalSince1970: TimeInterval(self / 1000))
-    }
-    
-    var bytes: [UInt8] {
-        var _endian = littleEndian
-        let bytePtr = withUnsafePointer(to: &_endian) {
-            $0.withMemoryRebound(to: UInt8.self, capacity: 8) {
-                UnsafeBufferPointer(start: $0, count: 8)
-            }
-        }
-        return [UInt8](bytePtr)
+        let dstComponents = DateComponents(year: 1601,
+            month: 1,
+            day: 1)
+        let start = Calendar.current.date(from: dstComponents)!
+        return Date(timeInterval: TimeInterval(self / 1000), since: start)
     }
 }
 
@@ -93,16 +81,36 @@ extension FixedWidthInteger {
           $0 |= Self(truncatingIfNeeded: iterator.next()!) &<< $1
         }
     }
-      
+
     init<C>(littleEndianBytes bytes: C) where C: Collection, C.Element == UInt8 {
         precondition(bytes.count == (Self.bitWidth+7)/8)
         var iter = bytes.makeIterator()
         self.init(littleEndianBytes: &iter)
     }
-    
+
     var bytes: [UInt8] {
         var _endian = littleEndian
         let bytePtr = withUnsafePointer(to: &_endian) {
+            $0.withMemoryRebound(to: UInt8.self, capacity: MemoryLayout<Self>.size) {
+                UnsafeBufferPointer(start: $0, count: MemoryLayout<Self>.size)
+            }
+        }
+        return [UInt8](bytePtr)
+    }
+}
+
+extension UInt16: OPCUAEncodable {
+}
+
+extension Double: OPCUAEncodable, OPCUADecodable {
+    init(bytes: [UInt8]) {
+        precondition(bytes.count == 8)
+        self = bytes.withUnsafeBytes{ $0.load(as: Double.self) }
+    }
+
+    var bytes: [UInt8] {
+        var _self = self
+        let bytePtr = withUnsafePointer(to: &_self) {
             $0.withMemoryRebound(to: UInt8.self, capacity: MemoryLayout<Self>.size) {
                 UnsafeBufferPointer(start: $0, count: MemoryLayout<Self>.size)
             }

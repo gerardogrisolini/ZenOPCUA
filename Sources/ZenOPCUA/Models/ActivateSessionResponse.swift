@@ -10,14 +10,14 @@ struct DiagosticInfo {
 }
 
 class ActivateSessionResponse: MessageBase, OPCUADecodable {
-    let typeId: TypeId
+    let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
-    var serverNonce: String? = nil
+    var serverNonce: [UInt8] = []
     var results: [StatusCodes] = []
     var diagnosticInfos: [DiagosticInfo] = []
     
     required override init(bytes: [UInt8]) {
-        typeId = TypeId(identifierNumeric: .activateSessionResponse)
+        typeId = NodeIdNumeric(identifier: .activateSessionResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         super.init(bytes: bytes[0...15].map { $0 })
@@ -27,7 +27,7 @@ class ActivateSessionResponse: MessageBase, OPCUADecodable {
         var len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
         index += 4
         if len < UInt32.max {
-            serverNonce = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
+            serverNonce = bytes[index..<(index+len)].map { $0 }
             index += len
         }
 

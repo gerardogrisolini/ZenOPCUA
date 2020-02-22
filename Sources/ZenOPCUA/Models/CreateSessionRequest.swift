@@ -7,7 +7,7 @@
 
 class CreateSessionRequest: MessageBase, OPCUAEncodable {
 
-    let typeId: TypeId = TypeId(identifierNumeric: .createSessionRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .createSessionRequest)
     let requestHeader: RequestHeader
     let clientDescription: ClientDescription = ClientDescription()
     var serverUri: String? = nil
@@ -15,7 +15,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
     var sessionName: String? = nil
     var clientNonce: String? = nil
     var clientCertificate: String? = nil
-    let requestedSessionTimeout: [UInt8] = Int64(1200000).bytes
+    let requestedSessionTimeout: Double = 1200000.0
     let maxResponseMessageSize: UInt32 = 2147483647
     
     var bytes: [UInt8] {
@@ -31,7 +31,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
             sessionName.bytes +
             clientNonce.bytes +
             clientCertificate.bytes +
-            requestedSessionTimeout +
+            requestedSessionTimeout.bytes +
             maxResponseMessageSize.bytes
     }
     

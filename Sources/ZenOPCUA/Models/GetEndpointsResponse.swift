@@ -6,12 +6,12 @@
 //
 
 class GetEndpointsResponse: MessageBase, OPCUADecodable {
-    let typeId: TypeId
+    let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var endpoints: [EndpointDescription]
 
     required override init(bytes: [UInt8]) {
-        typeId = TypeId(identifierNumeric: .getEndpointsResponse)
+        typeId = NodeIdNumeric(identifier: .getEndpointsResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         endpoints = []

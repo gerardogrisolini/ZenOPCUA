@@ -6,13 +6,30 @@
 //
 
 class ReadRequest: MessageBase, OPCUAEncodable {
-
-    let typeId: TypeId = TypeId(identifierNumeric: .browseRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .browseRequest)
     let requestHeader: RequestHeader
     let maxAge: UInt64 = 0
     let timestampsToReturn: UInt32 = 0x00000000
-    let nodesToRead: [ReadValueId]
+    let nodesToRead: [UInt8]
     
+    init(
+        secureChannelId: UInt32,
+        tokenId: UInt32,
+        sequenceNumber: UInt32,
+        requestId: UInt32,
+        requestHandle: UInt32,
+        authenticationToken: NodeSessionId,
+        nodesToRead: [OPCUAEncodable]
+    ) {
+        self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
+        self.nodesToRead = nodesToRead.map { $0.bytes }.reduce([], +)
+        super.init()
+        self.secureChannelId = secureChannelId
+        self.tokenId = tokenId
+        self.sequenceNumber = sequenceNumber
+        self.requestId = requestId
+    }
+
     var bytes: [UInt8] {
         return secureChannelId.bytes +
             tokenId.bytes +
@@ -22,36 +39,19 @@ class ReadRequest: MessageBase, OPCUAEncodable {
             requestHeader.bytes +
             maxAge.bytes +
             timestampsToReturn.bytes +
-            nodesToRead.bytes
-    }
-    
-    init(
-        secureChannelId: UInt32,
-        tokenId: UInt32,
-        sequenceNumber: UInt32,
-        requestId: UInt32,
-        requestHandle: UInt32,
-        authenticationToken: NodeSessionId,
-        nodesToRead: [ReadValueId]
-    ) {
-        self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
-        self.nodesToRead = nodesToRead
-        super.init()
-        self.secureChannelId = secureChannelId
-        self.tokenId = tokenId
-        self.sequenceNumber = sequenceNumber
-        self.requestId = requestId
+            nodesToRead
     }
 }
 
-public struct ReadValueId: OPCUAEncodable {
-    public let nodeId: TypeId
-    public let attributeId: UInt32
-    public var indexRange: String? = nil
-    public let dataEncoding: QualifiedName
+struct ReadValueId: OPCUAEncodable {
+    typealias T = OPCUAEncodable
+    private let nodeId: OPCUAEncodable
+    private let attributeId: UInt32
+    private var indexRange: String? = nil
+    private let dataEncoding: QualifiedName
     
     init(
-        nodeId: TypeId,
+        nodeId: OPCUAEncodable,
         attributeId: UInt32,
         dataEncoding: QualifiedName = QualifiedName()
     ) {

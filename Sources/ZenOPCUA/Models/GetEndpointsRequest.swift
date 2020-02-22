@@ -7,11 +7,11 @@
 
 class GetEndpointsRequest: MessageBase, OPCUAEncodable {
 
-    let typeId: TypeId = TypeId(identifierNumeric: .getEndpointsRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .getEndpointsRequest)
     let requestHeader: RequestHeader
     let endpointUrl: String
-    var localeIds: String? = nil //ff ff ff ff
-    var profileUris: String? = nil //ff ff ff ff
+    var localeIds: String? = nil
+    var profileUris: String? = nil
     
     var bytes: [UInt8] {
         return secureChannelId.bytes +

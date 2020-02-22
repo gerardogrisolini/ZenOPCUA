@@ -6,7 +6,7 @@
 //
 
 class CreateSessionResponse: MessageBase {
-    let typeId: TypeId
+    let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     let sessionId: NodeSessionId
     let authenticationToken: NodeSessionId
@@ -19,7 +19,7 @@ class CreateSessionResponse: MessageBase {
     var maxRequestMessageSize: UInt32 = 0
     
     required override init(bytes: [UInt8]) {
-        typeId = TypeId(identifierNumeric: .createSessionResponse)
+        typeId = NodeIdNumeric(identifier: .createSessionResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         let part2 = bytes[44...62].map { $0 }
@@ -70,13 +70,16 @@ class CreateSessionResponse: MessageBase {
 
             len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
             index += 4
-            item.server.applicationName.locale = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
-            index += len
-
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
-            index += 4
-            item.server.applicationName.text = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
-            index += len
+            if item.server.applicationName.encodingMask == 0x03 && len < UInt32.max {
+                item.server.applicationName.locale = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
+                index += len
+                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                index += 4
+            }
+            if len < UInt32.max {
+                item.server.applicationName.text = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
+                index += len
+            }
 
             item.server.applicationType = UInt32(littleEndianBytes: bytes[index..<(index+4)])
             index += 4

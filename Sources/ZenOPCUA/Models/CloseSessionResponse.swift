@@ -6,11 +6,11 @@
 //
 
 class CloseSessionResponse: MessageBase {
-    let typeId: TypeId
+    let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     
     required override init(bytes: [UInt8]) {
-        typeId = TypeId(identifierNumeric: .closeSessionResponse)
+        typeId = NodeIdNumeric(identifier: .closeSessionResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         super.init(bytes: bytes[0...15].map { $0 })

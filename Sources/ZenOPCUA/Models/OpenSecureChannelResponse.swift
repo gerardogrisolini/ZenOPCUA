@@ -6,14 +6,14 @@
 //
 
 class OpenSecureChannelResponse: OpenSecureChannel, OPCUADecodable {
-    var typeId: TypeId
+    var typeId: NodeIdNumeric
     var responseHeader: ResponseHeader
     var serverProtocolVersion: UInt32
     var securityToken: SecurityToken
     var serverNonce: String?
 
     required init(bytes: [UInt8]) {
-        typeId = TypeId(identifierNumeric: .openSecureChannelResponse)
+        typeId = NodeIdNumeric(identifier: .openSecureChannelResponse)
         let part = bytes[75...98].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         serverProtocolVersion = UInt32(littleEndianBytes: bytes[99...102])

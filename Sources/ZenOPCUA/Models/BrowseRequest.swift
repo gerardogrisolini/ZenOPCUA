@@ -9,7 +9,7 @@ import Foundation
 
 class BrowseRequest: MessageBase, OPCUAEncodable {
 
-    let typeId: TypeId = TypeId(identifierNumeric: .browseRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .browseRequest)
     let requestHeader: RequestHeader
     let view: ViewDescription = ViewDescription()
     let requestedMaxReferencesPerNode: UInt32 = 0

@@ -7,7 +7,7 @@
 
 class CloseSecureChannelRequest: MessageBase, OPCUAEncodable {
 
-    let typeId: TypeId = TypeId(identifierNumeric: .closeSecureChannelRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .closeSecureChannelRequest)
     let requestHeader: RequestHeader
 
     var bytes: [UInt8] {
