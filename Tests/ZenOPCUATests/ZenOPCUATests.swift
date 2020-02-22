@@ -29,12 +29,13 @@ final class ZenOPCUATests: XCTestCase {
         do {
             try opcua.connect().wait()
             sleep(3)
-            try opcua.browse().wait()
+            //try opcua.browse().wait()
+
+            let nodes = [
+                ReadValueId(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20171), attributeId: 0x0000000d)
+            ]
+            try opcua.read(nodes: nodes).wait()
             sleep(3)
-//            let nodes = [
-//                ReadValueId(nodeId: TypeId(nameSpace: 2, identifierNumeric: 20171), attributeId: 0x0000000d)
-//            ]
-//            try opcua.read(nodes: nodes).wait()
             try opcua.disconnect().wait()
         } catch {
             XCTFail(error.localizedDescription)
@@ -65,6 +66,14 @@ final class ZenOPCUATests: XCTestCase {
 
     func testBrowseResponse() {
         let response = BrowseResponse(bytes: browseResponse)
+        print("Endpoints found: \(response.results.count)")
+        response.results.forEach { item in
+            print("... \(item.statusCode)")
+            item.references.forEach { ref in
+                print("... \(ref.nodeId)")
+                print("... \(ref.displayName.text)")
+            }
+        }
         XCTAssertTrue(response.results.count > 0)
     }
 

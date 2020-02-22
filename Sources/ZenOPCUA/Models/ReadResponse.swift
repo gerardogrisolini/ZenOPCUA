@@ -25,34 +25,41 @@ class ReadResponse: MessageBase, OPCUADecodable {
         var count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
         index += 4
         for _ in 0..<count {
-            
-            var data = DataValue(variant: Variant(type: bytes[index+1]))
-            data.encodingMask = bytes[index]
-            index += 2
+            if bytes[index] == 0x02 {
+                index += 1
+                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                print("Error: \(len) - BadNodeIdUnknow")
+                index += 4
+            } else {
+                var data = DataValue(variant: Variant(type: bytes[index+1]))
+                data.encodingMask = bytes[index]
+                index += 2
 
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
-            index += 4
-            if len < UInt32.max {
-                data.variant.value = bytes[index..<(index+len)].map { $0 }
-                index += len
+                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                index += 4
+                if len < UInt32.max {
+                    data.variant.value = bytes[index..<(index+len)].map { $0 }
+                    index += len
+                }
+                data.sourceTimestamp = Int64(littleEndianBytes: bytes[index..<(index+8)]).date
+                index += 8
+
+                results.append(data)
             }
-
-            data.sourceTimestamp = Int64(littleEndianBytes: bytes[index..<(index+8)]).date
-            index += 8
-
-            results.append(data)
         }
 
         count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
         index += 4
-        for _ in 0..<count {
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
-            index += 4
-            if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
-                let info = DiagosticInfo(info: text)
-                diagnosticInfos.append(info)
+        if count < UInt32.max {
+            for _ in 0..<count {
+                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                index += 4
+                if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
+                    let info = DiagosticInfo(info: text)
+                    diagnosticInfos.append(info)
+                }
+                index += len
             }
-            index += len
         }
     }
 }
