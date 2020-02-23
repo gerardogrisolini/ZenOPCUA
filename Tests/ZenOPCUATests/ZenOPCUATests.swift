@@ -42,10 +42,10 @@ final class ZenOPCUATests: XCTestCase {
                 }
             }
 
-//            let nodes = [ReadValueId(nodeId: NodeIdNumeric(nameSpace: 1, identifier: 62541))]
-//            let value = try opcua.read(nodes: nodes).wait()
-//            print(value)
-//            sleep(3)
+            let nodes = [ReadValueId(nodeId: NodeIdNumeric(nameSpace: 1, identifier: 62541))]
+            let value = try opcua.read(nodes: nodes).wait()
+            print(value)
+            sleep(3)
             
             try opcua.disconnect().wait()
         } catch {

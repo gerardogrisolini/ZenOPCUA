@@ -31,19 +31,7 @@ class ReadResponse: MessageBase, OPCUADecodable {
                 print("Error: \(len) - BadNodeIdUnknow")
                 index += 4
             } else {
-                var data = DataValue(variant: Variant(type: bytes[index+1]))
-                data.encodingMask = bytes[index]
-                index += 2
-
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
-                index += 4
-                if len < UInt32.max {
-                    data.variant.value = bytes[index..<(index+len)].map { $0 }
-                    index += len
-                }
-                data.sourceTimestamp = Int64(littleEndianBytes: bytes[index..<(index+8)]).date
-                index += 8
-
+                let data = DataValue(bytes: bytes, index: &index)
                 results.append(data)
             }
         }
@@ -64,10 +52,57 @@ class ReadResponse: MessageBase, OPCUADecodable {
     }
 }
 
-public struct DataValue: Promisable {
+public class DataValue: Promisable {
     public var encodingMask: UInt8 = 0x05
     public var variant: Variant
     public var sourceTimestamp: Date = Date()
+    
+    init(bytes: [UInt8], index: inout Int) {
+        encodingMask = bytes[index]
+        variant = Variant(type: bytes[index+1])
+        index += 2
+
+        switch variant.type {
+        case 0x00:
+            variant.bytes = bytes[index..<(index+2)].map { $0 }
+            index += 2
+        case 0x01:
+            variant.bytes = bytes[index..<(index+4)].map { $0 }
+            index += 4
+        case 0x03:
+            let len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            index += 4
+            if len < UInt32.max {
+                variant.bytes = bytes[index..<(index+len)].map { $0 }
+                index += len
+            }
+        default:
+            break
+        }
+        
+        sourceTimestamp = Int64(littleEndianBytes: bytes[index..<(index+8)]).date
+        index += 8
+    }
+}
+
+public struct Variant {
+    public var type: UInt8
+    var bytes: [UInt8] = []
+    
+    public var value: Any {
+        return bytes.withUnsafeBytes {
+            switch type {
+            case 0x00:
+                return $0.load(as: UInt16.self)
+            case 0x01:
+                return $0.load(as: UInt32.self)
+            case 0x03:
+                return $0.load(as: String.self)
+            default:
+                return bytes
+            }
+        }
+    }
 }
 
 //protocol VariantProtocol {
@@ -75,8 +110,3 @@ public struct DataValue: Promisable {
 //    var type: UInt8 { get set }
 //    var value: T { get set }
 //}
-
-public struct Variant {
-    public var type: UInt8
-    public var value: [UInt8] = []
-}
