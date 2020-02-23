@@ -51,9 +51,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             }
             errorCaught(context: context, error: OPCUAError.generic(error))
         default:
-            guard let node = Nodes(rawValue: UInt16(littleEndianBytes: frame.body[18..<20])) else { return }
-            print(node)
-            switch node {
+            guard let method = Methods(rawValue: UInt16(littleEndianBytes: frame.body[18..<20])) else { return }
+            print(method)
+            switch method {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
             case .createSessionResponse:
@@ -67,7 +67,26 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .browseResponse:
                 let response = BrowseResponse(bytes: frame.body)
                 promises[response.requestId]?.succeed(())
-                print(response.results)
+                
+                response.results.forEach { item in
+                    
+                    print(item.statusCode)
+                    
+                    item.references.forEach { ref in
+                    
+                        print(ref.displayName.text)
+
+                        switch ref.nodeId.encodingMask {
+                        case .numeric:
+                            print((ref.nodeId as! NodeIdNumeric).identifier)
+                            print((ref.nodeId as! NodeIdNumeric).nameSpace)
+                        case .string:
+                            print((ref.nodeId as! NodeIdString).identifier)
+                        default:
+                            print((ref.nodeId as! NodeId).identifierNumeric)
+                        }
+                    }
+                }
             case .readResponse:
                 let response = ReadResponse(bytes: frame.body)
                 promises[response.requestId]?.succeed(())

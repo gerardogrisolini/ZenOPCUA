@@ -6,7 +6,7 @@
 //
 
 class ReadRequest: MessageBase, OPCUAEncodable {
-    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .readRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .readRequest)
     let requestHeader: RequestHeader
     let maxAge: Double = 0
     let timestampsToReturn: UInt32 = 0x00000000
@@ -19,7 +19,7 @@ class ReadRequest: MessageBase, OPCUAEncodable {
         requestId: UInt32,
         requestHandle: UInt32,
         authenticationToken: NodeSessionId,
-        nodesToRead: [OPCUAEncodable]
+        nodesToRead: [ReadValueId]
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
         self.nodesToRead = UInt32(nodesToRead.count).bytes + nodesToRead.map { $0.bytes }.reduce([], +)
@@ -44,14 +44,14 @@ class ReadRequest: MessageBase, OPCUAEncodable {
 }
 
 public struct ReadValueId: OPCUAEncodable {
-    private let nodeId: OPCUAEncodable
+    private let nodeId: Node
     private let attributeId: UInt32
     private var indexRange: String? = nil
     private let dataEncoding: QualifiedName
     
     init(
-        nodeId: OPCUAEncodable,
-        attributeId: UInt32,
+        nodeId: Node,
+        attributeId: UInt32 = 0x0000000d,
         dataEncoding: QualifiedName = QualifiedName()
     ) {
         self.nodeId = nodeId

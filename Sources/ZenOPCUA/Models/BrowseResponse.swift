@@ -12,7 +12,7 @@ class BrowseResponse: MessageBase {
     var diagnosticInfos: [DiagosticInfo] = []
     
     required override init(bytes: [UInt8]) {
-        typeId = NodeIdNumeric(identifier: .browseResponse)
+        typeId = NodeIdNumeric(method: .browseResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         super.init(bytes: bytes[0...15].map { $0 })
@@ -39,7 +39,7 @@ class BrowseResponse: MessageBase {
             index += 4
             for _ in 0..<innerCount {
                 var reference = ReferenceDescription()
-                reference.referenceTypeId.encodingMask = bytes[index]
+                reference.referenceTypeId.encodingMask = Nodes(rawValue: bytes[index])!
                 index += 1
                 reference.referenceTypeId.identifierNumeric = bytes[index]
                 index += 1
@@ -66,7 +66,7 @@ class BrowseResponse: MessageBase {
                     }
                     index += 3 + 4
                 default:
-                    reference.nodeId = NodeId(bytes: bytes[index...(index+1)].map { $0 })
+                    reference.nodeId = NodeId(identifierNumeric: bytes[index+1])
                     index += 2
                 }
                 
@@ -98,7 +98,7 @@ class BrowseResponse: MessageBase {
                 index += 4
                 
                 if bytes[index] == 0x00 {
-                    reference.typeDefinition = NodeId(bytes: bytes[index...(index+1)].map { $0 })
+                    reference.typeDefinition = NodeId(identifierNumeric: bytes[index+1])
                     index += 2
                 } else {
                     let nodeId = NodeIdNumeric(
@@ -140,7 +140,7 @@ struct BrowseResult {
 struct ReferenceDescription {
     var referenceTypeId: NodeId = NodeId()
     var isForward: Bool = true
-    var nodeId: OPCUAEncodable!
+    var nodeId: Node = Node(.numeric)
     var browseName: QualifiedName = QualifiedName()
     var displayName: LocalizedText = LocalizedText()
     var nodeClass: UInt32 = 0

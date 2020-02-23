@@ -7,7 +7,7 @@
 
 class CloseSessionRequest: MessageBase, OPCUAEncodable {
 
-    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .closeSessionRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .closeSessionRequest)
     let requestHeader: RequestHeader
     let deleteSubscriptions: Bool
 

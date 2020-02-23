@@ -7,7 +7,7 @@
 
 class CreateSessionRequest: MessageBase, OPCUAEncodable {
 
-    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .createSessionRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .createSessionRequest)
     let requestHeader: RequestHeader
     let clientDescription: ClientDescription = ClientDescription()
     var serverUri: String? = nil

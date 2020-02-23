@@ -12,14 +12,14 @@ class CreateSessionResponse: MessageBase {
     let authenticationToken: NodeSessionId
     let revisedSessionTimeout: UInt64
     let serverNonce: [UInt8]
-    var serverCertificate: String? = nil
+    var serverCertificate: [UInt8] = []
     var serverEndpoints: [EndpointDescription] = []
     var serverSoftwareCertificates: String? = nil
     var serverSignature: SignatureData = SignatureData()
     var maxRequestMessageSize: UInt32 = 0
     
     required override init(bytes: [UInt8]) {
-        typeId = NodeIdNumeric(identifier: .createSessionResponse)
+        typeId = NodeIdNumeric(method: .createSessionResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         let part2 = bytes[44...62].map { $0 }
@@ -37,7 +37,7 @@ class CreateSessionResponse: MessageBase {
         len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
         index += 4
         if len < UInt32.max {
-            serverCertificate = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
+            serverCertificate = bytes[index..<(index+len)].map { $0 }
             index += len
         }
 

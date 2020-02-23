@@ -13,7 +13,7 @@ class OpenSecureChannelResponse: OpenSecureChannel, OPCUADecodable {
     var serverNonce: String?
 
     required init(bytes: [UInt8]) {
-        typeId = NodeIdNumeric(identifier: .openSecureChannelResponse)
+        typeId = NodeIdNumeric(method: .openSecureChannelResponse)
         let part = bytes[75...98].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         serverProtocolVersion = UInt32(littleEndianBytes: bytes[99...102])

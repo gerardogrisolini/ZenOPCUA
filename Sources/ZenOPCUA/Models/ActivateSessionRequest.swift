@@ -7,7 +7,7 @@
 
 class ActivateSessionRequest: MessageBase, OPCUAEncodable {
 
-    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .activateSessionRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .activateSessionRequest)
     let requestHeader: RequestHeader
     let clientSignature: SignatureData = SignatureData()
     let clientSowtwareCertificates: String? = nil
@@ -53,7 +53,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
 }
 
 struct UserIdentityToken: OPCUAEncodable {
-    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .userIdentityToken)
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .userIdentityToken)
     let encodingMask: UInt8 = 0x01
     let identityToken: OPCUAEncodable
 

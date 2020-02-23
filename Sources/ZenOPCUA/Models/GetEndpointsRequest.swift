@@ -7,7 +7,7 @@
 
 class GetEndpointsRequest: MessageBase, OPCUAEncodable {
 
-    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .getEndpointsRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .getEndpointsRequest)
     let requestHeader: RequestHeader
     let endpointUrl: String
     var localeIds: String? = nil

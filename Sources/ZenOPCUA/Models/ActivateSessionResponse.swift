@@ -17,7 +17,7 @@ class ActivateSessionResponse: MessageBase, OPCUADecodable {
     var diagnosticInfos: [DiagosticInfo] = []
     
     required override init(bytes: [UInt8]) {
-        typeId = NodeIdNumeric(identifier: .activateSessionResponse)
+        typeId = NodeIdNumeric(method: .activateSessionResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         super.init(bytes: bytes[0...15].map { $0 })

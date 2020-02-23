@@ -14,7 +14,7 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-        let opcua = ZenOPCUA(host: "opcuaserver.com", port: 48484, reconnect: false, eventLoopGroup: eventLoopGroup)
+        let opcua = ZenOPCUA(host: "opcua.rocks", port: 4840, reconnect: false, eventLoopGroup: eventLoopGroup)
         opcua.onMessageReceived = { message in
             print(String(bytes: message.body, encoding: .utf8)!)
         }
@@ -29,10 +29,10 @@ final class ZenOPCUATests: XCTestCase {
         do {
             try opcua.connect().wait()
             sleep(3)
-            //try opcua.browse().wait()
+//            try opcua.browse().wait()
 
             let nodes = [
-                ReadValueId(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20171), attributeId: 0x0000000d)
+                ReadValueId(nodeId: NodeIdNumeric(nameSpace: 1, identifier: 62541))
             ]
             try opcua.read(nodes: nodes).wait()
             sleep(3)
@@ -70,7 +70,6 @@ final class ZenOPCUATests: XCTestCase {
         response.results.forEach { item in
             print("... \(item.statusCode)")
             item.references.forEach { ref in
-                print("... \(ref.nodeId)")
                 print("... \(ref.displayName.text)")
             }
         }

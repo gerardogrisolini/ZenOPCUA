@@ -6,7 +6,7 @@
 //
 
 class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
-    let typeId: NodeIdNumeric = NodeIdNumeric(identifier: .openSecureChannelRequest)
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
     let requestHeader: RequestHeader
     var clientProtocolVersion: UInt32 = 0
     var securityTokenRequestType: UInt32 = 0 //0x00000000
