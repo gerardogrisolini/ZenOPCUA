@@ -27,8 +27,7 @@ final class ZenOPCUATests: XCTestCase {
         
         do {
             try opcua.connect().wait()
-            sleep(3)
-
+            
             let item = try opcua.browse().wait()
             item.references.forEach { ref in
                 print(ref.displayName.text)
@@ -42,7 +41,6 @@ final class ZenOPCUATests: XCTestCase {
                     print((ref.nodeId as! NodeId).identifierNumeric)
                 }
             }
-            sleep(5)
 
 //            let nodes = [ReadValueId(nodeId: NodeIdNumeric(nameSpace: 1, identifier: 62541))]
 //            let value = try opcua.read(nodes: nodes).wait()

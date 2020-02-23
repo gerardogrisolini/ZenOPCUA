@@ -57,6 +57,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         default:
             guard let method = Methods(rawValue: UInt16(littleEndianBytes: frame.body[18..<20])) else { return }
             //print(method)
+            
             switch method {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
@@ -70,8 +71,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 }
             case .activateSessionResponse:
                 let response = ActivateSessionResponse(bytes: frame.body)
-                if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
-                    errorCaught(context: context, error: OPCUAError.code(response.responseHeader.serviceResult))
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    promises[0]!.succeed(Empty())
+                } else {
+                    promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
                 }
             case .closeSessionResponse:
                 closeSecureChannel(context: context, response: CloseSessionResponse(bytes: frame.body))
@@ -92,13 +95,13 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
     
     public func handlerRemoved(context: ChannelHandlerContext) {
-        context.close(promise: nil)
-
         guard let handlerRemoved = handlerRemoved else { return }
         handlerRemoved()
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
+        context.close(promise: nil)
+
         guard let errorCaught = errorCaught else { return }
         errorCaught(error)
     }

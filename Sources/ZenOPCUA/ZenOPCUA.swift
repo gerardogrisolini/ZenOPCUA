@@ -53,8 +53,17 @@ public class ZenOPCUA {
                 channel.pipeline.addHandlers(handlers)
         }
         .connect(host: ZenOPCUA.host, port: ZenOPCUA.port)
-        .map { channel -> () in
+        .flatMap { channel -> EventLoopFuture<Void> in
             self.channel = channel
+            
+            self.handler.promises.removeValue(forKey: 0)
+            self.handler.promises[0] = channel.eventLoop.makePromise()
+            
+            self.sendHello()
+
+            return self.handler.promises[0]!.futureResult.map { promise -> () in
+                ()
+            }
         }
     }
     
@@ -69,20 +78,18 @@ public class ZenOPCUA {
         }
     }
 
+    fileprivate func sendHello() {
+        let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
+        let body = Hello(endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)")
+        send(frame: OPCUAFrame(head: head, body: body.bytes)).whenComplete { _ in }
+    }
+    
     private func send(frame: OPCUAFrame) -> EventLoopFuture<Void> {
         guard let channel = channel else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
         
         return channel.writeAndFlush(frame)
-    }
-
-    public func reconnect() -> EventLoopFuture<Void> {
-        return start().flatMap { () -> EventLoopFuture<Void> in
-            let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
-            let body = Hello(endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)")
-            return self.send(frame: OPCUAFrame(head: head, body: body.bytes))
-        }
     }
 
     public func connect(username: String? = nil, password: String? = nil) -> EventLoopFuture<Void> {
@@ -98,12 +105,12 @@ public class ZenOPCUA {
             
             if self.autoreconnect {
                 self.stop().whenComplete { _ in
-                    self.reconnect().whenComplete { _ in }
+                    self.start().whenComplete { _ in }
                 }
             }
         }
         
-        return reconnect()
+        return start()
     }
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
