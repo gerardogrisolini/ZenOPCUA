@@ -11,6 +11,7 @@ import NIO
 
 enum OPCUAError : Error {
     case connectionError
+    case code(_ status: StatusCodes)
     case generic(_ text: String)
 }
 
@@ -107,12 +108,12 @@ public class ZenOPCUA {
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
         autoreconnect = false
-        return closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { () -> EventLoopFuture<Void> in
+        return closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { (_) -> EventLoopFuture<Void> in
             return self.stop()
         }
     }
 
-    private func closeSession(deleteSubscriptions: Bool) -> EventLoopFuture<Void> {
+    private func closeSession(deleteSubscriptions: Bool) -> EventLoopFuture<Promisable> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -137,13 +138,13 @@ public class ZenOPCUA {
         return handler.promises[requestId]!.futureResult
     }
 
-    public func browse() -> EventLoopFuture<Void> {
+    public func browse() -> EventLoopFuture<BrowseResult> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise()
+        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = BrowseRequest(
@@ -158,16 +159,18 @@ public class ZenOPCUA {
         
         channel.writeAndFlush(frame, promise: nil)
         
-        return handler.promises[requestId]!.futureResult
+        return handler.promises[requestId]!.futureResult.map { promise -> BrowseResult in
+            promise as! BrowseResult
+        }
     }
 
-    public func read(nodes: [ReadValueId]) -> EventLoopFuture<Void> {
+    public func read(nodes: [ReadValueId]) -> EventLoopFuture<[DataValue]> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise()
+        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = ReadRequest(
@@ -183,7 +186,9 @@ public class ZenOPCUA {
         
         channel.writeAndFlush(frame, promise: nil)
         
-        return handler.promises[requestId]!.futureResult
+        return handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
+            promise as! [DataValue]
+        }
     }
 }
 

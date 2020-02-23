@@ -15,8 +15,8 @@ struct ApplicationDescription {
     var discoveryUrls: [String] = []
 }
 
-struct LocalizedText {
-    var encodingMask: UInt8 = 0x00
-    var locale: String = ""
-    var text: String = ""
+public struct LocalizedText {
+    public var encodingMask: UInt8 = 0x00
+    public var locale: String = ""
+    public var text: String = ""
 }

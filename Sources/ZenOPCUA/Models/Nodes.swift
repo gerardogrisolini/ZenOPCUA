@@ -24,14 +24,14 @@ public enum Methods: UInt16 {
     case readResponse = 634
 }
 
-enum Nodes: UInt8 {
+public enum Nodes: UInt8 {
     case base = 0x00
     case numeric = 0x01
     case string = 0x03
 }
 
-class Node: OPCUAEncodable {
-    var encodingMask: Nodes
+public class Node: OPCUAEncodable {
+    public var encodingMask: Nodes
     var bytes: [UInt8] { return [] }
 
     init(_ encodingMask: Nodes) {
@@ -39,8 +39,8 @@ class Node: OPCUAEncodable {
     }
 }
 
-class NodeId: Node {
-    var identifierNumeric: UInt8 = 0x00
+public class NodeId: Node {
+    public var identifierNumeric: UInt8 = 0x00
 
     init() {
         super.init(.base)
@@ -56,7 +56,7 @@ class NodeId: Node {
      }
 }
 
-class NodeIdNumeric: Node {
+public class NodeIdNumeric: Node {
     public var nameSpace: UInt8 = 0
     public var identifier: UInt16
 
@@ -76,7 +76,7 @@ class NodeIdNumeric: Node {
     }
 }
 
-class NodeIdString: Node {
+public class NodeIdString: Node {
     public var nameSpace: UInt16 = 1
     public var identifier: String
 

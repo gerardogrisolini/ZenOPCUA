@@ -13,6 +13,10 @@ public typealias OPCUAMessageReceived = (OPCUAFrame) -> ()
 public typealias OPCUAHandlerRemoved = () -> ()
 public typealias OPCUAErrorCaught = (Error) -> ()
 
+public protocol Promisable { }
+public struct Empty: Promisable { }
+extension Array: Promisable where Element : Promisable { }
+
 
 final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public typealias InboundIn = OPCUAFrame
@@ -23,26 +27,26 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public var errorCaught: OPCUAErrorCaught? = nil
 
     public var sessionActive: CreateSessionResponse? = nil
-    public var promises = Dictionary<UInt32, EventLoopPromise<Void>>()
+    public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
     
     public init() {
     }
 
     public func channelActive(context: ChannelHandlerContext) {
-        #if DEBUG
         print("OPCUA Client connected to \(context.remoteAddress!)")
-        #endif
+        print("SecurityPolicy not specified -> use default #None")
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
-        print(frame.head)
         
         switch frame.head.messageType {
         case .acknowledge:
             openSecureChannel(context: context)
         case .openChannel:
-            getEndpoints(context: context, response: OpenSecureChannelResponse(bytes: frame.body))
+            let response = OpenSecureChannelResponse(bytes: frame.body)
+            print("Opened SecureChannel with SecurityPolicy \(response.securityPolicyUri)")
+            getEndpoints(context: context, response: response)
         case .error:
             let codeId = UInt32(littleEndianBytes: frame.body[0...3])
             var error = "error code: \(codeId)"
@@ -52,44 +56,35 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             errorCaught(context: context, error: OPCUAError.generic(error))
         default:
             guard let method = Methods(rawValue: UInt16(littleEndianBytes: frame.body[18..<20])) else { return }
-            print(method)
+            //print(method)
             switch method {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
             case .createSessionResponse:
                 sessionActive = CreateSessionResponse(bytes: frame.body)
                 activateSession(context: context)
+                print("Found \(sessionActive?.serverEndpoints.count ?? 0) endpoints")
+                if let item = sessionActive?.serverEndpoints.first {
+                    print("Found \(item.userIdentityTokens.count) policies")
+                    print("Selected Endpoint \(item.endpointUrl) with SecurityMode \(item.messageSecurityMode == 1 ? "None" : "UserToken") and PolicyId \(item.userIdentityTokens.first!.policyId)")
+                }
             case .activateSessionResponse:
                 let response = ActivateSessionResponse(bytes: frame.body)
-                print(response.responseHeader.serviceDiagnistics)
+                if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
+                    errorCaught(context: context, error: OPCUAError.code(response.responseHeader.serviceResult))
+                }
             case .closeSessionResponse:
                 closeSecureChannel(context: context, response: CloseSessionResponse(bytes: frame.body))
             case .browseResponse:
                 let response = BrowseResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(())
-                
-                response.results.forEach { item in
-                    
-                    print(item.statusCode)
-                    
-                    item.references.forEach { ref in
-                    
-                        print(ref.displayName.text)
-
-                        switch ref.nodeId.encodingMask {
-                        case .numeric:
-                            print((ref.nodeId as! NodeIdNumeric).identifier)
-                            print((ref.nodeId as! NodeIdNumeric).nameSpace)
-                        case .string:
-                            print((ref.nodeId as! NodeIdString).identifier)
-                        default:
-                            print((ref.nodeId as! NodeId).identifierNumeric)
-                        }
-                    }
+                if let result = response.results.first, result.statusCode == .UA_STATUSCODE_GOOD {
+                    promises[response.requestId]?.succeed(result)
+                } else {
+                    promises[response.requestId]?.fail(OPCUAError.generic("browse empty"))
                 }
             case .readResponse:
                 let response = ReadResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(())
+                promises[response.requestId]?.succeed(response.results)
             default:
                 break
             }
@@ -97,17 +92,16 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
     
     public func handlerRemoved(context: ChannelHandlerContext) {
+        context.close(promise: nil)
+
         guard let handlerRemoved = handlerRemoved else { return }
         handlerRemoved()
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
-        context.close(promise: nil)
-
         guard let errorCaught = errorCaught else { return }
         errorCaught(error)
     }
-
 
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
@@ -129,7 +123,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        context.writeAndFlush(self.wrapOutboundOut(frame), promise: promises[response.requestId])
+        context.writeAndFlush(self.wrapOutboundOut(frame)).whenComplete { _ in
+            self.promises[response.requestId]!.succeed(Empty())
+        }
     }
 
     fileprivate func getEndpoints(context: ChannelHandlerContext, response: OpenSecureChannelResponse) {
@@ -157,7 +153,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: response.requestId,
-            endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)"
+            endpointUrl: response.endpoints.first!.endpointUrl
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         

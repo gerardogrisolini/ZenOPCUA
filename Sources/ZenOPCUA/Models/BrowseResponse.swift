@@ -131,20 +131,20 @@ class BrowseResponse: MessageBase {
     }
 }
 
-struct BrowseResult {
-    var statusCode: StatusCodes
-    var continuationPoint: String? = nil
-    var references: [ReferenceDescription] = []
+public struct BrowseResult: Promisable {
+    public var statusCode: StatusCodes
+    public var continuationPoint: String? = nil
+    public var references: [ReferenceDescription] = []
 }
 
-struct ReferenceDescription {
-    var referenceTypeId: NodeId = NodeId()
-    var isForward: Bool = true
-    var nodeId: Node = Node(.numeric)
-    var browseName: QualifiedName = QualifiedName()
-    var displayName: LocalizedText = LocalizedText()
-    var nodeClass: UInt32 = 0
-    var typeDefinition: OPCUAEncodable!
+public struct ReferenceDescription {
+    public var referenceTypeId: NodeId = NodeId()
+    public var isForward: Bool = true
+    public var nodeId: Node = Node(.numeric)
+    public var browseName: QualifiedName = QualifiedName()
+    public var displayName: LocalizedText = LocalizedText()
+    public var nodeClass: UInt32 = 0
+    public var typeDefinition: Node!
 }
 
 public struct QualifiedName: OPCUAEncodable {

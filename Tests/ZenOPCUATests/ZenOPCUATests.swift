@@ -16,11 +16,10 @@ final class ZenOPCUATests: XCTestCase {
     func testExample() {
         let opcua = ZenOPCUA(host: "opcua.rocks", port: 4840, reconnect: false, eventLoopGroup: eventLoopGroup)
         opcua.onMessageReceived = { message in
-            print(String(bytes: message.body, encoding: .utf8)!)
+            print(message)
         }
         opcua.onHandlerRemoved = {
             print("Handler removed")
-            opcua.disconnect().whenComplete { _ in }
         }
         opcua.onErrorCaught = { error in
             print(error)
@@ -29,13 +28,27 @@ final class ZenOPCUATests: XCTestCase {
         do {
             try opcua.connect().wait()
             sleep(3)
-//            try opcua.browse().wait()
 
-            let nodes = [
-                ReadValueId(nodeId: NodeIdNumeric(nameSpace: 1, identifier: 62541))
-            ]
-            try opcua.read(nodes: nodes).wait()
-            sleep(3)
+            let item = try opcua.browse().wait()
+            item.references.forEach { ref in
+                print(ref.displayName.text)
+                switch ref.nodeId.encodingMask {
+                case .numeric:
+                    print((ref.nodeId as! NodeIdNumeric).identifier)
+                    print((ref.nodeId as! NodeIdNumeric).nameSpace)
+                case .string:
+                    print((ref.nodeId as! NodeIdString).identifier)
+                default:
+                    print((ref.nodeId as! NodeId).identifierNumeric)
+                }
+            }
+            sleep(5)
+
+//            let nodes = [ReadValueId(nodeId: NodeIdNumeric(nameSpace: 1, identifier: 62541))]
+//            let value = try opcua.read(nodes: nodes).wait()
+//            print(value)
+//            sleep(3)
+            
             try opcua.disconnect().wait()
         } catch {
             XCTFail(error.localizedDescription)

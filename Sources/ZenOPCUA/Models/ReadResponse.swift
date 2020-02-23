@@ -64,10 +64,10 @@ class ReadResponse: MessageBase, OPCUADecodable {
     }
 }
 
-struct DataValue {
-    var encodingMask: UInt8 = 0x05
-    var variant: Variant
-    var sourceTimestamp: Date = Date()
+public struct DataValue: Promisable {
+    public var encodingMask: UInt8 = 0x05
+    public var variant: Variant
+    public var sourceTimestamp: Date = Date()
 }
 
 //protocol VariantProtocol {
@@ -76,7 +76,7 @@ struct DataValue {
 //    var value: T { get set }
 //}
 
-struct Variant {
-    var type: UInt8
-    var value: [UInt8] = []
+public struct Variant {
+    public var type: UInt8
+    public var value: [UInt8] = []
 }
