@@ -34,7 +34,7 @@ class BrowseRequest: MessageBase, OPCUAEncodable {
         sequenceNumber: UInt32,
         requestId: UInt32,
         requestHandle: UInt32,
-        authenticationToken: NodeSessionId
+        authenticationToken: Node
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
         super.init(bytes: [])

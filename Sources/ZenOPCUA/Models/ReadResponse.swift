@@ -69,7 +69,7 @@ public class DataValue: Promisable {
         case 0x01:
             variant.bytes = bytes[index..<(index+4)].map { $0 }
             index += 4
-        case 0x03:
+        case 0x0c:
             let len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
             index += 4
             if len < UInt32.max {
@@ -96,8 +96,8 @@ public struct Variant {
                 return $0.load(as: UInt16.self)
             case 0x01:
                 return $0.load(as: UInt32.self)
-            case 0x03:
-                return $0.load(as: String.self)
+            case 0x0c:
+                return String(bytes: $0, encoding: .utf8)!
             default:
                 return bytes
             }

@@ -8,10 +8,10 @@
 class CreateSessionResponse: MessageBase {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
-    let sessionId: NodeSessionId
-    let authenticationToken: NodeSessionId
-    let revisedSessionTimeout: UInt64
-    let serverNonce: [UInt8]
+    let sessionId: Node
+    let authenticationToken: Node
+    let revisedSessionTimeout: Double
+    var serverNonce: [UInt8] = []
     var serverCertificate: [UInt8] = []
     var serverEndpoints: [EndpointDescription] = []
     var serverSoftwareCertificates: String? = nil
@@ -22,17 +22,59 @@ class CreateSessionResponse: MessageBase {
         typeId = NodeIdNumeric(method: .createSessionResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
-        let part2 = bytes[44...62].map { $0 }
-        sessionId = NodeSessionId(bytes: part2)
-        let part3 = bytes[63...81].map { $0 }
-        authenticationToken = NodeSessionId(bytes: part3)
-        revisedSessionTimeout = UInt64(littleEndianBytes: bytes[82...89])
+        var index = 44
         
-        var index = 90
+        switch bytes[index] {
+        case 0x01:
+            let nodeId = NodeIdNumeric(
+                nameSpace: bytes[index+1],
+                identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
+            )
+            sessionId = nodeId
+            index += 4
+        case 0x03:
+            let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
+            let nodeId = NodeIdString(
+                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
+            )
+            sessionId = nodeId
+            index += len + 3 + 4
+        default:
+            sessionId = NodeId(identifierNumeric: bytes[index+1])
+            index += 2
+        }
+
+        switch bytes[index] {
+        case 0x01:
+            let nodeId = NodeIdNumeric(
+                nameSpace: bytes[index+1],
+                identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
+            )
+            authenticationToken = nodeId
+            index += 4
+        case 0x03:
+            let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
+            let nodeId = NodeIdString(
+                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
+            )
+            authenticationToken = nodeId
+            index += len + 3 + 4
+        default:
+            authenticationToken = NodeId(identifierNumeric: bytes[index+1])
+            index += 2
+        }
+        
+        revisedSessionTimeout = Double(bytes: bytes[index..<(index+8)].map { $0 })
+        index += 8
+        
         var len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
         index += 4
-        serverNonce = bytes[index..<(index+len)].map { $0 }
-        index += len
+        if len < UInt32.max {
+            serverNonce = bytes[index..<(index+len)].map { $0 }
+            index += len
+        }
             
         len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
         index += 4

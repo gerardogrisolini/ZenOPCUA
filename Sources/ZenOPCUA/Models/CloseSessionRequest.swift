@@ -27,7 +27,7 @@ class CloseSessionRequest: MessageBase, OPCUAEncodable {
         sequenceNumber: UInt32,
         requestId: UInt32,
         requestHandle: UInt32,
-        authenticationToken: NodeSessionId,
+        authenticationToken: Node,
         deleteSubscriptions: Bool
     ) {
         self.deleteSubscriptions = deleteSubscriptions
