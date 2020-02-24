@@ -1,44 +1,38 @@
 //
-//  ReadResponse.swift
+//  WriteResponse.swift
 //  
 //
-//  Created by Gerardo Grisolini on 20/02/2020.
+//  Created by Gerardo Grisolini on 24/02/2020.
 //
 
-class ReadResponse: MessageBase, OPCUADecodable {
+class WriteResponse: MessageBase, OPCUADecodable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
-    var results: [DataValue] = []
+    var results: [StatusCodes] = []
     var diagnosticInfos: [DiagosticInfo] = []
     
     required override init(bytes: [UInt8]) {
-        typeId = NodeIdNumeric(method: .browseResponse)
+        typeId = NodeIdNumeric(method: .writeResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         super.init(bytes: bytes[0...15].map { $0 })
 
         var index = 44
-        var len = 0
         
         var count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
         index += 4
         for _ in 0..<count {
-            if bytes[index] == 0x02 {
-                index += 1
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
-                print("Error: \(len) - BadNodeIdUnknow")
-                index += 4
-            } else {
-                let data = DataValue(bytes: bytes, index: &index)
-                results.append(data)
+            if let status = StatusCodes(rawValue: UInt32(littleEndianBytes: bytes[index..<(index+4)])) {
+                results.append(status)
             }
+            index += 4
         }
 
         count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                let len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
                 index += 4
                 if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
                     let info = DiagosticInfo(info: text)

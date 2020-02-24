@@ -22,6 +22,8 @@ public enum Methods: UInt16 {
     case browseResponse = 530
     case readRequest = 631
     case readResponse = 634
+    case writeRequest = 673
+    case writeResponse = 676
 }
 
 public enum Nodes: UInt8 {

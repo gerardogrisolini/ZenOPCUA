@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
-public enum StatusCodes: UInt32 {
+public enum StatusCodes: UInt32, Promisable {
     
     /* These StatusCodes are manually generated. */
     case UA_STATUSCODE_GOOD = 0x00

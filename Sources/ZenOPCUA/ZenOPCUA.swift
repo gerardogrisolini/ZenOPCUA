@@ -171,7 +171,7 @@ public class ZenOPCUA {
         }
     }
 
-    public func read(nodes: [ReadValueId]) -> EventLoopFuture<[DataValue]> {
+    public func read(nodes: [ReadValue]) -> EventLoopFuture<[DataValue]> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -195,6 +195,33 @@ public class ZenOPCUA {
         
         return handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
             promise as! [DataValue]
+        }
+    }
+
+    public func write(nodes: [WriteValue]) -> EventLoopFuture<[StatusCodes]> {
+        guard let channel = channel, let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        }
+
+        let requestId = handler.nextMessageID()
+        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+
+        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+        let body = WriteRequest(
+            secureChannelId: session.secureChannelId,
+            tokenId: session.tokenId,
+            sequenceNumber: requestId,
+            requestId: requestId,
+            requestHandle: requestId,
+            authenticationToken: session.authenticationToken,
+            nodesToWrite: nodes
+        )
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+        
+        channel.writeAndFlush(frame, promise: nil)
+        
+        return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
+            promise as! [StatusCodes]
         }
     }
 }

@@ -1,16 +1,14 @@
 //
-//  ReadRequest.swift
+//  WriteRequest.swift
 //  
 //
-//  Created by Gerardo Grisolini on 19/02/2020.
+//  Created by Gerardo Grisolini on 24/02/2020.
 //
 
-class ReadRequest: MessageBase, OPCUAEncodable {
-    let typeId: NodeIdNumeric = NodeIdNumeric(method: .readRequest)
+class WriteRequest: MessageBase, OPCUAEncodable {
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .writeRequest)
     let requestHeader: RequestHeader
-    let maxAge: Double = 0
-    let timestampsToReturn: UInt32 = 0x00000000
-    let nodesToRead: [UInt8]
+    let nodesToWrite: [UInt8]
     
     init(
         secureChannelId: UInt32,
@@ -19,10 +17,10 @@ class ReadRequest: MessageBase, OPCUAEncodable {
         requestId: UInt32,
         requestHandle: UInt32,
         authenticationToken: Node,
-        nodesToRead: [ReadValue]
+        nodesToWrite: [WriteValue]
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
-        self.nodesToRead = UInt32(nodesToRead.count).bytes + nodesToRead.map { $0.bytes }.reduce([], +)
+        self.nodesToWrite = UInt32(nodesToWrite.count).bytes + nodesToWrite.map { $0.bytes }.reduce([], +)
         super.init()
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
@@ -37,32 +35,30 @@ class ReadRequest: MessageBase, OPCUAEncodable {
             requestId.bytes +
             typeId.bytes +
             requestHeader.bytes +
-            maxAge.bytes +
-            timestampsToReturn.bytes +
-            nodesToRead
+            nodesToWrite
     }
 }
 
-public struct ReadValue: OPCUAEncodable {
+public struct WriteValue: OPCUAEncodable {
     private let nodeId: Node
     private let attributeId: UInt32
-    private var indexRange: String? = nil
-    private let dataEncoding: QualifiedName
+    public var indexRange: String? = nil
+    private let value: DataValue
     
     init(
         nodeId: Node,
         attributeId: UInt32 = 0x0000000d,
-        dataEncoding: QualifiedName = QualifiedName()
+        value: DataValue
     ) {
         self.nodeId = nodeId
         self.attributeId = attributeId
-        self.dataEncoding = dataEncoding
+        self.value = value
     }
     
     var bytes: [UInt8] {
         return nodeId.bytes +
             attributeId.bytes +
             indexRange.bytes +
-            dataEncoding.bytes
+            value.bytes
     }
 }

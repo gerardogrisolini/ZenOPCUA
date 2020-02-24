@@ -88,6 +88,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .readResponse:
                 let response = ReadResponse(bytes: frame.body)
                 promises[response.requestId]?.succeed(response.results)
+            case .writeResponse:
+                let response = WriteResponse(bytes: frame.body)
+                promises[response.requestId]?.succeed(response.results)
             default:
                 break
             }

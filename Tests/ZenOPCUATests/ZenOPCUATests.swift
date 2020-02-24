@@ -33,19 +33,29 @@ final class ZenOPCUATests: XCTestCase {
 //                print(ref.displayName.text)
 //                switch ref.nodeId.encodingMask {
 //                case .numeric:
-//                    print((ref.nodeId as! NodeIdNumeric).identifier)
 //                    print((ref.nodeId as! NodeIdNumeric).nameSpace)
+//                    print((ref.nodeId as! NodeIdNumeric).identifier)
 //                case .string:
+//                    print((ref.nodeId as! NodeIdString).nameSpace)
 //                    print((ref.nodeId as! NodeIdString).identifier)
 //                default:
 //                    print((ref.nodeId as! NodeId).identifierNumeric)
 //                }
 //            }
 
-            let nodes = [ReadValueId(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20171))]
-            let value = try opcua.read(nodes: nodes).wait()
-            print(value.first?.variant.value ?? "nil")
+            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20171))]
+            let readed = try opcua.read(nodes: reads).wait()
+            print(readed.first?.variant.value ?? "nil")
             
+//            let writes = [
+//                WriteValue(
+//                    nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20166),
+//                    value: DataValue(variant: Variant(value: "0123456"))
+//                )
+//            ]
+//            let writed = try opcua.write(nodes: writes).wait()
+//            print(writed.first)
+
             try opcua.disconnect().wait()
         } catch {
             XCTFail(error.localizedDescription)
