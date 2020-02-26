@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
-struct DiagosticInfo {
+struct DiagnosticInfo {
     var info: String
 }
 
@@ -14,7 +14,7 @@ class ActivateSessionResponse: MessageBase, OPCUADecodable {
     let responseHeader: ResponseHeader
     var serverNonce: [UInt8] = []
     var results: [StatusCodes] = []
-    var diagnosticInfos: [DiagosticInfo] = []
+    var diagnosticInfos: [DiagnosticInfo] = []
     
     required override init(bytes: [UInt8]) {
         typeId = NodeIdNumeric(method: .activateSessionResponse)
@@ -49,7 +49,7 @@ class ActivateSessionResponse: MessageBase, OPCUADecodable {
                 len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
                 index += 4
                 if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
-                    let info = DiagosticInfo(info: text)
+                    let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
                 index += len

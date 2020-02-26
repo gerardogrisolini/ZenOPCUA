@@ -7,8 +7,10 @@
 
 import Foundation
 
-enum DataType {
-    
+enum DataType: UInt8 {
+    case short = 0x00
+    case numeric = 0x01
+    case string = 0x0c
 }
 
 public class DataValue: Promisable, OPCUAEncodable {
@@ -21,22 +23,20 @@ public class DataValue: Promisable, OPCUAEncodable {
         variant = Variant(type: bytes[index+1])
         index += 2
 
-        switch variant.type {
-        case 0x00:
+        switch DataType(rawValue: variant.type)! {
+        case .short:
             variant.bytes = bytes[index..<(index+2)].map { $0 }
             index += 2
-        case 0x01:
+        case .numeric:
             variant.bytes = bytes[index..<(index+4)].map { $0 }
             index += 4
-        case 0x0c:
+        case .string:
             let len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
             index += 4
             if len < UInt32.max {
                 variant.bytes = bytes[index..<(index+len)].map { $0 }
                 index += len
             }
-        default:
-            break
         }
         
         sourceTimestamp = Int64(littleEndianBytes: bytes[index..<(index+8)]).date
@@ -62,28 +62,28 @@ public struct Variant {
     }
 
     init(value: UInt16) {
-        type = 0x00
+        type = DataType.short.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
     init(value: UInt32) {
-        type = 0x01
+        type = DataType.numeric.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
     init(value: String) {
-        type = 0x0c
+        type = DataType.string.rawValue
         bytes.append(contentsOf: value.bytes)
     }
     
     public var value: Any {
         return bytes.withUnsafeBytes {
-            switch type {
-            case 0x00:
+            switch DataType(rawValue: type) {
+            case .short:
                 return $0.load(as: UInt16.self)
-            case 0x01:
+            case .numeric:
                 return $0.load(as: UInt32.self)
-            case 0x0c:
+            case .string:
                 return String(bytes: $0, encoding: .utf8)!
             default:
                 return bytes

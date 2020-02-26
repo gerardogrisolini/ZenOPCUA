@@ -9,7 +9,7 @@ class BrowseResponse: MessageBase {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var results: [BrowseResult] = []
-    var diagnosticInfos: [DiagosticInfo] = []
+    var diagnosticInfos: [DiagnosticInfo] = []
     
     required override init(bytes: [UInt8]) {
         typeId = NodeIdNumeric(method: .browseResponse)
@@ -122,7 +122,7 @@ class BrowseResponse: MessageBase {
                 len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
                 index += 4
                 if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
-                    let info = DiagosticInfo(info: text)
+                    let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
                 index += len

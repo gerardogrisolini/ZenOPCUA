@@ -24,6 +24,12 @@ public enum Methods: UInt16 {
     case readResponse = 634
     case writeRequest = 673
     case writeResponse = 676
+    case createSubscriptionRequest = 787
+    case createSubscriptionResponse = 790
+    case deleteSubscriptionsRequest = 847
+    case deleteSubscriptionsResponse = 850
+    case createMonitoredItemsRequest = 751
+    case createMonitoredItemsResponse = 754
 }
 
 public enum Nodes: UInt8 {

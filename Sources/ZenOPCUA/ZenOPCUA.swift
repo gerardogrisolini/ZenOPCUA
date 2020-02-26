@@ -224,5 +224,86 @@ public class ZenOPCUA {
             promise as! [StatusCodes]
         }
     }
+
+    public func createSubscription() -> EventLoopFuture<UInt32> {
+        guard let channel = channel, let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        }
+
+        let requestId = handler.nextMessageID()
+        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+
+        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+        let body = CreateSubscriptionRequest(
+            secureChannelId: session.secureChannelId,
+            tokenId: session.tokenId,
+            sequenceNumber: requestId,
+            requestId: requestId,
+            requestHandle: requestId,
+            authenticationToken: session.authenticationToken
+        )
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+        
+        channel.writeAndFlush(frame, promise: nil)
+        
+        return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
+            promise as! UInt32
+        }
+    }
+    
+    public func createMonitoredItems(subscriptionId: UInt32, itemsToCreate: [ReadValue]) -> EventLoopFuture<[MonitoredItemCreateResult]> {
+        guard let channel = channel, let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        }
+
+        let requestId = handler.nextMessageID()
+        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+
+        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+        let body = CreateMonitoredItemsRequest(
+            secureChannelId: session.secureChannelId,
+            tokenId: session.tokenId,
+            sequenceNumber: requestId,
+            requestId: requestId,
+            requestHandle: requestId,
+            authenticationToken: session.authenticationToken,
+            subscriptionId: subscriptionId,
+            itemsToCreate: itemsToCreate
+        )
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+        
+        channel.writeAndFlush(frame, promise: nil)
+        
+        return handler.promises[requestId]!.futureResult.map { promise -> [MonitoredItemCreateResult] in
+            promise as! [MonitoredItemCreateResult]
+        }
+    }
+    
+    public func deleteSubscriptions(subscriptionIds: [UInt32]) -> EventLoopFuture<[StatusCodes]> {
+        guard let channel = channel, let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        }
+
+        let requestId = handler.nextMessageID()
+        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+
+        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+        let body = DeleteSubscriptionsRequest(
+            secureChannelId: session.secureChannelId,
+            tokenId: session.tokenId,
+            sequenceNumber: requestId,
+            requestId: requestId,
+            requestHandle: requestId,
+            authenticationToken: session.authenticationToken,
+            subscriptionIds: subscriptionIds
+        )
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+        
+        channel.writeAndFlush(frame, promise: nil)
+        
+        return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
+            promise as! [StatusCodes]
+        }
+    }
 }
 

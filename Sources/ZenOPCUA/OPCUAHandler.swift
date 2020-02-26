@@ -15,6 +15,7 @@ public typealias OPCUAErrorCaught = (Error) -> ()
 
 public protocol Promisable { }
 public struct Empty: Promisable { }
+extension UInt32: Promisable { }
 extension Array: Promisable where Element : Promisable { }
 
 
@@ -80,16 +81,21 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 closeSecureChannel(context: context, response: CloseSessionResponse(bytes: frame.body))
             case .browseResponse:
                 let response = BrowseResponse(bytes: frame.body)
-                if let result = response.results.first, result.statusCode == .UA_STATUSCODE_GOOD {
-                    promises[response.requestId]?.succeed(result)
-                } else {
-                    promises[response.requestId]?.fail(OPCUAError.generic("browse empty"))
-                }
+                promises[response.requestId]?.succeed(response.results)
             case .readResponse:
                 let response = ReadResponse(bytes: frame.body)
                 promises[response.requestId]?.succeed(response.results)
             case .writeResponse:
                 let response = WriteResponse(bytes: frame.body)
+                promises[response.requestId]?.succeed(response.results)
+            case .createSubscriptionResponse:
+                let response = CreateSubscriptionResponse(bytes: frame.body)
+                promises[response.requestId]?.succeed(response.subscriptionId)
+            case .createMonitoredItemsResponse:
+                let response = CreateMonitoredItemsResponse(bytes: frame.body)
+                promises[response.requestId]?.succeed(response.results)
+            case .deleteSubscriptionsResponse:
+                let response = DeleteSubscriptionsResponse(bytes: frame.body)
                 promises[response.requestId]?.succeed(response.results)
             default:
                 break
