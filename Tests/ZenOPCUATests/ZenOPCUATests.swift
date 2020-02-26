@@ -28,33 +28,53 @@ final class ZenOPCUATests: XCTestCase {
         do {
             try opcua.connect().wait()
             
-//            let item = try opcua.browse().wait()
-//            item.references.forEach { ref in
-//                print(ref.displayName.text)
-//                switch ref.nodeId.encodingMask {
-//                case .numeric:
-//                    print((ref.nodeId as! NodeIdNumeric).nameSpace)
-//                    print((ref.nodeId as! NodeIdNumeric).identifier)
-//                case .string:
-//                    print((ref.nodeId as! NodeIdString).nameSpace)
-//                    print((ref.nodeId as! NodeIdString).identifier)
-//                default:
-//                    print((ref.nodeId as! NodeId).identifierNumeric)
+//            let items = try opcua.browse().wait()
+//            for item in items {
+//                item.references.forEach { ref in
+//                    print(ref.displayName.text)
+//                    switch ref.nodeId.encodingMask {
+//                    case .numeric:
+//                        print((ref.nodeId as! NodeIdNumeric).nameSpace)
+//                        print((ref.nodeId as! NodeIdNumeric).identifier)
+//                    case .string:
+//                        print((ref.nodeId as! NodeIdString).nameSpace)
+//                        print((ref.nodeId as! NodeIdString).identifier)
+//                    default:
+//                        print((ref.nodeId as! NodeId).identifierNumeric)
+//                    }
 //                }
 //            }
-
-            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20171))]
-            let readed = try opcua.read(nodes: reads).wait()
-            print(readed.first?.variant.value ?? "nil")
             
-//            let writes = [
-//                WriteValue(
-//                    nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20166),
-//                    value: DataValue(variant: Variant(value: "0123456"))
-//                )
-//            ]
-//            let writed = try opcua.write(nodes: writes).wait()
-//            print(writed.first)
+//            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20171))]
+//            let readed = try opcua.read(nodes: reads).wait()
+//            print(readed.first?.variant.value ?? "nil")
+            
+
+            let subId = try opcua.createSubscription().wait()
+            let items = [
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20062)) // 20052 or 20053
+            ]
+            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
+            results.forEach { result in
+                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+            }
+            sleep(5)
+
+            let writes = [
+                WriteValue(
+                    nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20062),
+                    value: DataValue(variant: Variant(value: UInt32(1)))
+                )
+            ]
+            let writed = try opcua.write(nodes: writes).wait()
+            print(writed.first)
+            sleep(5)
+
+
+            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
+            deleted.forEach { result in
+                print("deleteSubscription: \(result)")
+            }
 
             try opcua.disconnect().wait()
         } catch {

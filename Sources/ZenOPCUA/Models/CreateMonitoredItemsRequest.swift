@@ -10,7 +10,7 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
     let requestHeader: RequestHeader
     let subscriptionId: UInt32
     let timestampsToReturn: UInt32 = 0x00000002
-    let itemsToCreate:  [UInt8]
+    let itemsToCreate: [UInt8]
     
     init(
         secureChannelId: UInt32,
@@ -25,8 +25,8 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
         self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
         self.subscriptionId = subscriptionId
         
-        let requests = itemsToCreate.map { readValue -> MonitoredItemCreateRequest in
-            MonitoredItemCreateRequest(itemToMonitor: readValue)
+        let requests = itemsToCreate.enumerated().map { (i, readValue) -> MonitoredItemCreateRequest in
+            MonitoredItemCreateRequest(itemToMonitor: readValue, clientHandle: UInt32(i + 1))
         }
         self.itemsToCreate = UInt32(requests.count).bytes + requests.map { $0.bytes }.reduce([], +)
         super.init()
@@ -44,6 +44,7 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
             typeId.bytes +
             requestHeader.bytes +
             subscriptionId.bytes +
+            timestampsToReturn.bytes +
             itemsToCreate
     }
 }
@@ -51,8 +52,13 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
 struct MonitoredItemCreateRequest: OPCUAEncodable {
     let itemToMonitor: ReadValue
     let monitorigMode: UInt32 = 0x00000002
-    let requestedParameters: MonitoringParameters = MonitoringParameters()
+    let requestedParameters: MonitoringParameters
 
+    init(itemToMonitor: ReadValue, clientHandle: UInt32) {
+        self.itemToMonitor = itemToMonitor
+        self.requestedParameters = MonitoringParameters(clientHandle: clientHandle)
+    }
+    
     var bytes: [UInt8] {
         return itemToMonitor.bytes +
             monitorigMode.bytes +
@@ -61,11 +67,15 @@ struct MonitoredItemCreateRequest: OPCUAEncodable {
 }
 
 struct MonitoringParameters: OPCUAEncodable {
-    let clientHandle: UInt32 = 1
+    let clientHandle: UInt32
     let samplingInterval: Double = 250
     let filter: Filter = Filter()
     let queueSize: UInt32 = 1
     let discardOldest: Bool = true
+
+    init(clientHandle: UInt32) {
+        self.clientHandle = clientHandle
+    }
 
     var bytes: [UInt8] {
         return clientHandle.bytes +

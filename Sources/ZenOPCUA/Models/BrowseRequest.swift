@@ -13,7 +13,7 @@ class BrowseRequest: MessageBase, OPCUAEncodable {
     let requestHeader: RequestHeader
     let view: ViewDescription = ViewDescription()
     let requestedMaxReferencesPerNode: UInt32 = 0
-    var nodesToBrowse: [BrowseDescription] = []
+    let nodesToBrowse: [BrowseDescription]
     
     var bytes: [UInt8] {
         let part = UInt32(nodesToBrowse.count).bytes
@@ -34,15 +34,16 @@ class BrowseRequest: MessageBase, OPCUAEncodable {
         sequenceNumber: UInt32,
         requestId: UInt32,
         requestHandle: UInt32,
-        authenticationToken: Node
+        authenticationToken: Node,
+        nodesToBrowse: [BrowseDescription]
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
+        self.nodesToBrowse = nodesToBrowse
         super.init(bytes: [])
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
         self.sequenceNumber = sequenceNumber
         self.requestId = requestId
-        nodesToBrowse.append(BrowseDescription())
     }
 }
 
@@ -58,13 +59,16 @@ struct ViewDescription: OPCUAEncodable {
     }
 }
 
-struct BrowseDescription: OPCUAEncodable {
-    var nodeId: NodeId = NodeId(identifierNumeric: 0x55)
-    var browseDirection: UInt32 = 0x00000000
-    var referenceTypeId: NodeId = NodeId()
-    var includeSubtypes: Bool = false
+public struct BrowseDescription: OPCUAEncodable {
+    public var nodeId: NodeId = NodeId(identifierNumeric: 0x55)
+    public var browseDirection: UInt32 = 0x00000000
+    public var referenceTypeId: NodeId = NodeId()
+    public var includeSubtypes: Bool = false
     var nodeClassMask: UInt32 = 0x00000000
     var resultMask: UInt32 = 0x0000003f
+    
+    public init() {
+    }
     
     var bytes: [UInt8] {
         return nodeId.bytes +

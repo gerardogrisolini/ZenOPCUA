@@ -145,7 +145,7 @@ public class ZenOPCUA {
         return handler.promises[requestId]!.futureResult
     }
 
-    public func browse() -> EventLoopFuture<BrowseResult> {
+    public func browse(nodes: [BrowseDescription] = [BrowseDescription()]) -> EventLoopFuture<[BrowseResult]> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -160,14 +160,15 @@ public class ZenOPCUA {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken
+            authenticationToken: session.authenticationToken,
+            nodesToBrowse: nodes
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
         channel.writeAndFlush(frame, promise: nil)
         
-        return handler.promises[requestId]!.futureResult.map { promise -> BrowseResult in
-            promise as! BrowseResult
+        return handler.promises[requestId]!.futureResult.map { promise -> [BrowseResult] in
+            promise as! [BrowseResult]
         }
     }
 
