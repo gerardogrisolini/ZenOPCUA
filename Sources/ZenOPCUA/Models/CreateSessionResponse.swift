@@ -5,6 +5,8 @@
 //  Created by Gerardo Grisolini on 18/02/2020.
 //
 
+import Foundation
+
 class CreateSessionResponse: MessageBase {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
@@ -24,15 +26,15 @@ class CreateSessionResponse: MessageBase {
         responseHeader = ResponseHeader(bytes: part)
         var index = 44
         
-        switch bytes[index] {
-        case 0x01:
+        switch Nodes(rawValue: bytes[index])! {
+        case .numeric:
             let nodeId = NodeIdNumeric(
                 nameSpace: bytes[index+1],
                 identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
             )
             sessionId = nodeId
             index += 4
-        case 0x03:
+        case .string:
             let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
             let nodeId = NodeIdString(
                 nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
@@ -40,20 +42,27 @@ class CreateSessionResponse: MessageBase {
             )
             sessionId = nodeId
             index += len + 3 + 4
+        case .guid:
+            let nodeId = NodeIdGuid(
+                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                identifier: NSUUID(uuidBytes: bytes[(index+3)..<(index+19)].map { $0 }) as UUID
+            )
+            sessionId = nodeId
+            index += 19
         default:
             sessionId = NodeId(identifierNumeric: bytes[index+1])
             index += 2
         }
 
-        switch bytes[index] {
-        case 0x01:
+        switch Nodes(rawValue: bytes[index])! {
+        case .numeric:
             let nodeId = NodeIdNumeric(
                 nameSpace: bytes[index+1],
                 identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
             )
             authenticationToken = nodeId
             index += 4
-        case 0x03:
+        case .string:
             let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
             let nodeId = NodeIdString(
                 nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
@@ -61,6 +70,13 @@ class CreateSessionResponse: MessageBase {
             )
             authenticationToken = nodeId
             index += len + 3 + 4
+        case .guid:
+            let nodeId = NodeIdGuid(
+                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                identifier: NSUUID(uuidBytes: bytes[(index+3)..<(index+19)].map { $0 }) as UUID
+            )
+            authenticationToken = nodeId
+            index += 19
         default:
             authenticationToken = NodeId(identifierNumeric: bytes[index+1])
             index += 2

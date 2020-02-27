@@ -68,6 +68,13 @@ class PublishResponse: MessageBase, OPCUADecodable {
                         index += len
                     }
                     index += 3 + 4
+                case .guid:
+                    let nodeId = NodeIdGuid(
+                        nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                        identifier: NSUUID(uuidBytes: bytes[(index+3)..<(index+19)].map { $0 }) as UUID
+                    )
+                    dataChange.typeId = nodeId
+                    index += 19
                 default:
                     dataChange.typeId = NodeId(identifierNumeric: bytes[index+1])
                     index += 2
@@ -134,13 +141,13 @@ class PublishResponse: MessageBase, OPCUADecodable {
     }
 }
 
-public struct NotificationMessage: Promisable {
+public struct NotificationMessage {
     var sequenceNumber: UInt32
     var publishTime: Date = Date()
     var notificationData: [DataChange] = []
 }
 
-public struct DataChange {
+public struct DataChange: Promisable {
     var typeId: Node = NodeId()
     var encodingMask: UInt8 = 0x00
     var dataChangeNotification: DataChangeNotification = DataChangeNotification()

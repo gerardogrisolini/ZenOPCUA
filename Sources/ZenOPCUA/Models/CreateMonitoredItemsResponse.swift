@@ -5,6 +5,8 @@
 //  Created by Gerardo Grisolini on 25/02/2020.
 //
 
+import Foundation
+
 class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
@@ -52,6 +54,13 @@ class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable {
                         index += len
                     }
                     index += 3 + 4
+                case .guid:
+                    let nodeId = NodeIdGuid(
+                        nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                        identifier: NSUUID(uuidBytes: bytes[(index+3)..<(index+19)].map { $0 }) as UUID
+                    )
+                    result.filterResult.typeId = nodeId
+                    index += 19
                 default:
                     result.filterResult.typeId = NodeId(identifierNumeric: bytes[index+1])
                     index += 2

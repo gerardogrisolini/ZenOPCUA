@@ -5,6 +5,8 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
+import Foundation
+
 class BrowseResponse: MessageBase {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
@@ -46,30 +48,34 @@ class BrowseResponse: MessageBase {
                 reference.isForward = Bool(byte: bytes[index])
                 index += 1
                 
-                switch bytes[index] {
-                case 0x01:
+                switch Nodes(rawValue: bytes[index])! {
+                case .numeric:
                     let nodeId = NodeIdNumeric(
                         nameSpace: bytes[index+1],
                         identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
                     )
                     reference.nodeId = nodeId
                     index += 4
-                case 0x03:
-                    len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
-                    if len < UInt32.max {
-                        let nodeId = NodeIdString(
-                            nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                            identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
-                        )
-                        reference.nodeId = nodeId
-                        index += len
-                    }
-                    index += 3 + 4
+                case .string:
+                    let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
+                    let nodeId = NodeIdString(
+                        nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                        identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
+                    )
+                    reference.nodeId = nodeId
+                    index += len + 3 + 4
+                case .guid:
+                    let nodeId = NodeIdGuid(
+                        nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                        identifier: NSUUID(uuidBytes: bytes[(index+3)..<(index+19)].map { $0 }) as UUID
+                    )
+                    reference.nodeId = nodeId
+                    index += 19
                 default:
                     reference.nodeId = NodeId(identifierNumeric: bytes[index+1])
                     index += 2
                 }
-                
+
                 reference.browseName.id = UInt16(littleEndianBytes: bytes[index..<(index+2)])
                 index += 2
                 len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))

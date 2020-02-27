@@ -5,6 +5,8 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
+import Foundation
+
 public enum Methods: UInt16 {
     case userIdentityToken = 321
     case openSecureChannelRequest = 446
@@ -38,6 +40,7 @@ public enum Nodes: UInt8 {
     case base = 0x00
     case numeric = 0x01
     case string = 0x03
+    case guid = 0x04
 }
 
 public class Node: OPCUAEncodable {
@@ -96,12 +99,22 @@ public class NodeIdString: Node {
         super.init(.string)
     }
 
-    init(identifier: String) {
+    override var bytes: [UInt8] {
+        return [encodingMask.rawValue] + nameSpace.bytes + identifier.bytes
+    }
+}
+
+public class NodeIdGuid: Node {
+    public var nameSpace: UInt16 = 1
+    public var identifier: UUID
+
+    init(nameSpace: UInt16, identifier: UUID) {
+        self.nameSpace = nameSpace
         self.identifier = identifier
-        super.init(.string)
+        super.init(.guid)
     }
     
     override var bytes: [UInt8] {
-        return [encodingMask.rawValue] + nameSpace.bytes + identifier.bytes
+        return [encodingMask.rawValue] + nameSpace.bytes + identifier.uuidString.bytes
     }
 }
