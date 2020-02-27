@@ -5,8 +5,6 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
-import Foundation
-
 public enum Methods: UInt16 {
     case userIdentityToken = 321
     case openSecureChannelRequest = 446
@@ -100,21 +98,22 @@ public class NodeIdString: Node {
     }
 
     override var bytes: [UInt8] {
+        //let len = UInt32(identifier.count).bytes
         return [encodingMask.rawValue] + nameSpace.bytes + identifier.bytes
     }
 }
 
 public class NodeIdGuid: Node {
     public var nameSpace: UInt16 = 1
-    public var identifier: UUID
+    public var identifier: [UInt8]
 
-    init(nameSpace: UInt16, identifier: UUID) {
+    init(nameSpace: UInt16, identifier: [UInt8]) {
         self.nameSpace = nameSpace
         self.identifier = identifier
         super.init(.guid)
     }
     
     override var bytes: [UInt8] {
-        return [encodingMask.rawValue] + nameSpace.bytes + identifier.uuidString.bytes
+        return [encodingMask.rawValue] + nameSpace.bytes + identifier
     }
 }

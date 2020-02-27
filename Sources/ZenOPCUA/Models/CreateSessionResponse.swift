@@ -45,7 +45,7 @@ class CreateSessionResponse: MessageBase {
         case .guid:
             let nodeId = NodeIdGuid(
                 nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                identifier: NSUUID(uuidBytes: bytes[(index+3)..<(index+19)].map { $0 }) as UUID
+                identifier: bytes[(index+3)..<(index+19)].map { $0 }
             )
             sessionId = nodeId
             index += 19
@@ -73,7 +73,7 @@ class CreateSessionResponse: MessageBase {
         case .guid:
             let nodeId = NodeIdGuid(
                 nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                identifier: NSUUID(uuidBytes: bytes[(index+3)..<(index+19)].map { $0 }) as UUID
+                identifier: bytes[(index+3)..<(index+19)].map { $0 }
             )
             authenticationToken = nodeId
             index += 19

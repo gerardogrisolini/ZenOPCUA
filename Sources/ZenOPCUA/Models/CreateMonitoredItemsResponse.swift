@@ -57,7 +57,7 @@ class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable {
                 case .guid:
                     let nodeId = NodeIdGuid(
                         nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                        identifier: NSUUID(uuidBytes: bytes[(index+3)..<(index+19)].map { $0 }) as UUID
+                        identifier: bytes[(index+3)..<(index+19)].map { $0 }
                     )
                     result.filterResult.typeId = nodeId
                     index += 19

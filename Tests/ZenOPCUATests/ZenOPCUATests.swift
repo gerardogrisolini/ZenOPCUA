@@ -14,7 +14,7 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-        let opcua = ZenOPCUA(host: "opcua.rocks", port: 4840, reconnect: false, eventLoopGroup: eventLoopGroup)
+        let opcua = ZenOPCUA(host: "opcuaserver.com", port: 48484, reconnect: false, eventLoopGroup: eventLoopGroup)
         opcua.onMessageReceived = { message in
             print(message)
         }
@@ -28,41 +28,46 @@ final class ZenOPCUATests: XCTestCase {
         do {
             try opcua.connect().wait()
             
-            let items = try opcua.browse().wait()
-            for item in items {
-                item.references.forEach { ref in
-                    print(ref.displayName.text)
-                    switch ref.nodeId.encodingMask {
-                    case .numeric:
-                        print((ref.nodeId as! NodeIdNumeric).nameSpace)
-                        print((ref.nodeId as! NodeIdNumeric).identifier)
-                    case .string:
-                        print((ref.nodeId as! NodeIdString).nameSpace)
-                        print((ref.nodeId as! NodeIdString).identifier)
-                    default:
-                        print((ref.nodeId as! NodeId).identifierNumeric)
-                    }
-                }
-            }
-            
-//            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20171))]
-//            let readed = try opcua.read(nodes: reads).wait()
-//            print(readed.first?.variant.value ?? "nil")
-            
-
-//            let subId = try opcua.createSubscription().wait()
-//            let items = [
-//                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20168))
-//            ]
-//            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
-//            results.forEach { result in
-//                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+//            let items = try opcua.browse().wait()
+//            for item in items {
+//                item.references.forEach { ref in
+//                    print(ref.displayName.text)
+//                    switch ref.nodeId.encodingMask {
+//                    case .numeric:
+//                        print((ref.nodeId as! NodeIdNumeric).nameSpace)
+//                        print((ref.nodeId as! NodeIdNumeric).identifier)
+//                    case .string:
+//                        print((ref.nodeId as! NodeIdString).nameSpace)
+//                        print((ref.nodeId as! NodeIdString).identifier)
+//                    default:
+//                        print((ref.nodeId as! NodeId).identifierNumeric)
+//                    }
+//                }
 //            }
+            
+            let subId = try opcua.createSubscription().wait()
+            let items = [
+                ReadValue(nodeId: NodeIdString(nameSpace: 1, identifier: "Countries"))
+            ]
+            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
+            results.forEach { result in
+                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+            }
+
 //            sleep(1)
 //            opcua.startPublish(milliseconds: 500)
-//            sleep(1)
+//            sleep(3)
 //            opcua.stopPublish()
 //            sleep(1)
+
+            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
+            deleted.forEach { result in
+                print("deleteSubscription: \(result)")
+            }
+
+//            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 1, identifier: "Countries"))]
+//            let readed = try opcua.read(nodes: reads).wait()
+//            print(readed.first?.variant.value ?? "nil")
 
 //            let writes = [
 //                WriteValue(
@@ -72,11 +77,6 @@ final class ZenOPCUATests: XCTestCase {
 //            ]
 //            let writed = try opcua.write(nodes: writes).wait()
 //            print(writed.first!)
-
-//            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
-//            deleted.forEach { result in
-//                print("deleteSubscription: \(result)")
-//            }
 
             try opcua.disconnect().wait()
         } catch {
