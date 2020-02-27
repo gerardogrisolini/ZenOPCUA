@@ -9,7 +9,7 @@ import Foundation
 import NIO
 
 
-public typealias OPCUAMessageReceived = (OPCUAFrame) -> ()
+public typealias OPCUADataChanged = ([DataChange]) -> ()
 public typealias OPCUAHandlerRemoved = () -> ()
 public typealias OPCUAErrorCaught = (Error) -> ()
 
@@ -23,7 +23,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public typealias InboundIn = OPCUAFrame
     public typealias OutboundOut = OPCUAFrame
 
-    public var messageReceived: OPCUAMessageReceived? = nil
+    public var dataChanged: OPCUADataChanged? = nil
     public var handlerRemoved: OPCUAHandlerRemoved? = nil
     public var errorCaught: OPCUAErrorCaught? = nil
 
@@ -99,7 +99,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 promises[response.requestId]?.succeed(response.results)
             case .publishResponse:
                 let response = PublishResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(response.notificationMessage.notificationData)
+                guard let dataChanged = dataChanged else { return }
+                dataChanged(response.notificationMessage.notificationData)
             default:
                 break
             }

@@ -15,8 +15,8 @@ final class ZenOPCUATests: XCTestCase {
 
     func testExample() {
         let opcua = ZenOPCUA(host: "opcuaserver.com", port: 48484, reconnect: false, eventLoopGroup: eventLoopGroup)
-        opcua.onMessageReceived = { message in
-            print(message)
+        opcua.onDataChanged = { data in
+            print(data)
         }
         opcua.onHandlerRemoved = {
             print("OPCUA Client disconnected")
@@ -28,31 +28,31 @@ final class ZenOPCUATests: XCTestCase {
         do {
             try opcua.connect().wait()
             
-//            let items = try opcua.browse().wait()
-//            for item in items {
-//                item.references.forEach { ref in
-//                    print(ref.displayName.text)
-//                    switch ref.nodeId.encodingMask {
-//                    case .numeric:
-//                        print((ref.nodeId as! NodeIdNumeric).nameSpace)
-//                        print((ref.nodeId as! NodeIdNumeric).identifier)
-//                    case .string:
-//                        print((ref.nodeId as! NodeIdString).nameSpace)
-//                        print((ref.nodeId as! NodeIdString).identifier)
-//                    default:
-//                        print((ref.nodeId as! NodeId).identifierNumeric)
-//                    }
-//                }
-//            }
-            
-            let subId = try opcua.createSubscription().wait()
-            let items = [
-                ReadValue(nodeId: NodeIdString(nameSpace: 1, identifier: "Countries"))
-            ]
-            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
-            results.forEach { result in
-                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+            let items = try opcua.browse().wait()
+            for item in items {
+                item.references.forEach { ref in
+                    print(ref.displayName.text)
+                    switch ref.nodeId.encodingMask {
+                    case .numeric:
+                        print((ref.nodeId as! NodeIdNumeric).nameSpace)
+                        print((ref.nodeId as! NodeIdNumeric).identifier)
+                    case .string:
+                        print((ref.nodeId as! NodeIdString).nameSpace)
+                        print((ref.nodeId as! NodeIdString).identifier)
+                    default:
+                        print((ref.nodeId as! NodeId).identifierNumeric)
+                    }
+                }
             }
+            
+//            let subId = try opcua.createSubscription().wait()
+//            let items = [
+//                ReadValue(nodeId: NodeIdString(nameSpace: 1, identifier: "Countries"))
+//            ]
+//            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
+//            results.forEach { result in
+//                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+//            }
 
 //            sleep(1)
 //            opcua.startPublish(milliseconds: 500)
@@ -60,10 +60,10 @@ final class ZenOPCUATests: XCTestCase {
 //            opcua.stopPublish()
 //            sleep(1)
 
-            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
-            deleted.forEach { result in
-                print("deleteSubscription: \(result)")
-            }
+//            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
+//            deleted.forEach { result in
+//                print("deleteSubscription: \(result)")
+//            }
 
 //            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 1, identifier: "Countries"))]
 //            let readed = try opcua.read(nodes: reads).wait()

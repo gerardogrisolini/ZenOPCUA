@@ -27,7 +27,7 @@ public class ZenOPCUA {
     private let handler = OPCUAHandler()
     private var autoreconnect: Bool = false
 
-    public var onMessageReceived: OPCUAMessageReceived? = nil
+    public var onDataChanged: OPCUADataChanged? = nil
     public var onHandlerRemoved: OPCUAHandlerRemoved? = nil
     public var onErrorCaught: OPCUAErrorCaught? = nil
     
@@ -89,7 +89,7 @@ public class ZenOPCUA {
         ZenOPCUA.username = username
         ZenOPCUA.password = password
 
-        handler.messageReceived = onMessageReceived
+        handler.dataChanged = onDataChanged
         handler.errorCaught = onErrorCaught
         handler.handlerRemoved = {
             if let onHandlerRemoved = self.onHandlerRemoved {

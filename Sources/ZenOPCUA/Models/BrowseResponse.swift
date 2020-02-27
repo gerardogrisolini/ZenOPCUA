@@ -39,6 +39,7 @@ class BrowseResponse: MessageBase {
             
             let innerCount = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
             index += 4
+            if innerCount < UInt32.max {
             for _ in 0..<innerCount {
                 var reference = ReferenceDescription()
                 reference.referenceTypeId.encodingMask = Nodes(rawValue: bytes[index])!
@@ -116,6 +117,7 @@ class BrowseResponse: MessageBase {
                 }
                 
                 result.references.append(reference)
+            }
             }
             
             results.append(result)

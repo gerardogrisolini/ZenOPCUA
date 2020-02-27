@@ -63,7 +63,7 @@ public struct BrowseDescription: OPCUAEncodable {
     public var nodeId: NodeId = NodeId(identifierNumeric: 0x55)
     public var browseDirection: UInt32 = 0x00000000
     public var referenceTypeId: NodeId = NodeId()
-    public var includeSubtypes: Bool = true
+    public var includeSubtypes: Bool = false
     var nodeClassMask: UInt32 = 0x00000000
     var resultMask: UInt32 = 0x0000003f
     

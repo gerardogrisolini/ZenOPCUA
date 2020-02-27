@@ -147,7 +147,7 @@ public struct NotificationMessage {
     var notificationData: [DataChange] = []
 }
 
-public struct DataChange: Promisable {
+public struct DataChange {
     var typeId: Node = NodeId()
     var encodingMask: UInt8 = 0x00
     var dataChangeNotification: DataChangeNotification = DataChangeNotification()
