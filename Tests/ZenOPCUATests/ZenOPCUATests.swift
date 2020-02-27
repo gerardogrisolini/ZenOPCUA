@@ -52,7 +52,7 @@ final class ZenOPCUATests: XCTestCase {
 
             let subId = try opcua.createSubscription().wait()
             let items = [
-                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20062)) // 20052 or 20053
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20168))
             ]
             let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
             results.forEach { result in
@@ -60,16 +60,14 @@ final class ZenOPCUATests: XCTestCase {
             }
             sleep(5)
 
-            let writes = [
-                WriteValue(
-                    nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20062),
-                    value: DataValue(variant: Variant(value: UInt32(1)))
-                )
-            ]
-            let writed = try opcua.write(nodes: writes).wait()
-            print(writed.first)
-            sleep(5)
-
+//            let writes = [
+//                WriteValue(
+//                    nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20053),
+//                    value: DataValue(variant: Variant(value: UInt32(1)))
+//                )
+//            ]
+//            let writed = try opcua.write(nodes: writes).wait()
+//            print(writed.first!)
 
             let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
             deleted.forEach { result in

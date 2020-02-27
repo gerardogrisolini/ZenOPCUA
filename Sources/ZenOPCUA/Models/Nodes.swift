@@ -30,6 +30,8 @@ public enum Methods: UInt16 {
     case deleteSubscriptionsResponse = 850
     case createMonitoredItemsRequest = 751
     case createMonitoredItemsResponse = 754
+    case publishRequest = 826
+    case publishResponse = 829
 }
 
 public enum Nodes: UInt8 {

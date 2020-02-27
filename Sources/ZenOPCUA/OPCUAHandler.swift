@@ -97,6 +97,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .deleteSubscriptionsResponse:
                 let response = DeleteSubscriptionsResponse(bytes: frame.body)
                 promises[response.requestId]?.succeed(response.results)
+            case .publishResponse:
+                let response = PublishResponse(bytes: frame.body)
+                promises[response.requestId]?.succeed(response.notificationMessage.notificationData)
             default:
                 break
             }

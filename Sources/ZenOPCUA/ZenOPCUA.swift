@@ -79,17 +79,10 @@ public class ZenOPCUA {
     }
 
     fileprivate func sendHello() {
+        guard let channel = channel else { return }
         let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
         let body = Hello(endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)")
-        send(frame: OPCUAFrame(head: head, body: body.bytes)).whenComplete { _ in }
-    }
-    
-    private func send(frame: OPCUAFrame) -> EventLoopFuture<Void> {
-        guard let channel = channel else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
-        }
-        
-        return channel.writeAndFlush(frame)
+        channel.writeAndFlush(OPCUAFrame(head: head, body: body.bytes), promise: nil)
     }
 
     public func connect(username: String? = nil, password: String? = nil) -> EventLoopFuture<Void> {
@@ -304,6 +297,40 @@ public class ZenOPCUA {
         
         return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
             promise as! [StatusCodes]
+        }
+    }
+    
+    private var publisher: RepeatedTask? = nil
+
+    public func startPublish(milliseconds: Int64) {
+        guard let channel = self.channel, let session = handler.sessionActive else { return }
+
+        stopPublish()
+        
+        let time = TimeAmount.milliseconds(milliseconds)
+        publisher = eventLoopGroup.next().scheduleRepeatedAsyncTask(initialDelay: time, delay: time) { task in
+            
+            let requestId = self.handler.nextMessageID()
+            
+            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+            let body = PublishRequest(
+                secureChannelId: session.secureChannelId,
+                tokenId: session.tokenId,
+                sequenceNumber: requestId,
+                requestId: requestId,
+                requestHandle: requestId,
+                authenticationToken: session.authenticationToken
+            )
+            let frame = OPCUAFrame(head: head, body: body.bytes)
+            
+            return channel.writeAndFlush(frame)
+        }
+    }
+    
+    public func stopPublish() {
+        if let task = publisher {
+            task.cancel()
+            publisher = nil
         }
     }
 }
