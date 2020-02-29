@@ -9,13 +9,47 @@ import NIO
 
 final class OPCUAFrameDecoder: ByteToMessageDecoder {
     public typealias InboundOut = OPCUAFrame
-
+    private var fragments: ByteBuffer? = nil
+    
     public func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState  {
         guard buffer.readableBytes >= 8 else { return .needMoreData }
 
-        let lenght = UInt32(littleEndianBytes: buffer.getBytes(at: 4, length: 4)!)
+        let lenght = Int(UInt32(littleEndianBytes: buffer.getBytes(at: 4, length: 4)!))
         guard buffer.readableBytes >= lenght else { return .needMoreData }
 
+        let chunkType = ChunkTypes(rawValue: buffer.getString(at: 3, length: 1)!)!
+        if chunkType == .part {
+            if fragments == nil {
+                fragments = context.channel.allocator.buffer(capacity: lenght)
+            }
+            
+            let count = buffer.readableBytes / lenght
+            var index = 0
+            for _ in 0..<count {
+                let b = buffer.getBytes(at: index, length: lenght)!
+                fragments!.writeBytes(b[24...])
+                index += lenght
+            }
+            
+            let bytes = buffer.getBytes(at: index, length: buffer.readableBytes - index)!
+            buffer.clear()
+            buffer.writeBytes(bytes)
+
+            guard bytes.count > 0, ChunkTypes(rawValue: String(bytes: [bytes[3]], encoding: .utf8)!)! == .frame else {
+                return .needMoreData
+            }
+        }
+
+        if var f = fragments {
+            f.writeBytes(buffer.getBytes(at: 24, length: buffer.readableBytes - 24)!)
+            let bytes = buffer.getBytes(at: 0, length: 24)!
+            buffer.clear()
+            buffer.writeBytes(bytes)
+            buffer.writeBuffer(&f)
+            f.clear()
+            fragments = nil
+        }
+        
         if let frame = parse(buffer: buffer) {
             context.fireChannelRead(self.wrapInboundOut(frame))
             buffer.clear()

@@ -25,9 +25,12 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             let item = EndpointDescription()
             var len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
             index += 4
-            item.endpointUrl = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
             
+            if let url = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
+                item.endpointUrl = url
+            }
             index += len
+            
             len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
             index += 4
             item.server.applicationUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!

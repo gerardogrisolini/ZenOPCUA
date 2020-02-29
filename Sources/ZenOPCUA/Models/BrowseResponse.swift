@@ -44,39 +44,12 @@ class BrowseResponse: MessageBase {
                 var reference = ReferenceDescription()
                 reference.referenceTypeId.encodingMask = Nodes(rawValue: bytes[index])!
                 index += 1
-                reference.referenceTypeId.identifierNumeric = bytes[index]
+                reference.referenceTypeId.identifier = bytes[index]
                 index += 1
                 reference.isForward = Bool(byte: bytes[index])
                 index += 1
                 
-                switch Nodes(rawValue: bytes[index])! {
-                case .numeric:
-                    let nodeId = NodeIdNumeric(
-                        nameSpace: bytes[index+1],
-                        identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
-                    )
-                    reference.nodeId = nodeId
-                    index += 4
-                case .string:
-                    let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
-                    let nodeId = NodeIdString(
-                        nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                        identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
-                    )
-                    reference.nodeId = nodeId
-                    index += len + 3 + 4
-                case .guid:
-                    let nodeId = NodeIdGuid(
-                        nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                        identifier: bytes[(index+3)..<(index+19)].map { $0 }
-                    )
-                    reference.nodeId = nodeId
-                    index += 19
-                default:
-                    reference.nodeId = NodeId(identifierNumeric: bytes[index+1])
-                    index += 2
-                }
-
+                reference.nodeId = Nodes.node(index: &index, bytes: bytes)
                 reference.browseName.id = UInt16(littleEndianBytes: bytes[index..<(index+2)])
                 index += 2
                 len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
@@ -104,18 +77,8 @@ class BrowseResponse: MessageBase {
                 reference.nodeClass = UInt32(littleEndianBytes: bytes[index..<(index+4)])
                 index += 4
                 
-                if bytes[index] == 0x00 {
-                    reference.typeDefinition = NodeId(identifierNumeric: bytes[index+1])
-                    index += 2
-                } else {
-                    let nodeId = NodeIdNumeric(
-                        nameSpace: bytes[index+1],
-                        identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
-                    )
-                    reference.typeDefinition = nodeId
-                    index += 4
-                }
-                
+                reference.typeDefinition = Nodes.node(index: &index, bytes: bytes)
+               
                 result.references.append(reference)
             }
             }

@@ -60,7 +60,7 @@ struct ViewDescription: OPCUAEncodable {
 }
 
 public struct BrowseDescription: OPCUAEncodable {
-    public var nodeId: NodeId = NodeId(identifierNumeric: 0x55)
+    public var nodeId: NodeId = NodeId(identifier: 0x55)
     public var browseDirection: UInt32 = 0x00000000
     public var referenceTypeId: NodeId = NodeId()
     public var includeSubtypes: Bool = false

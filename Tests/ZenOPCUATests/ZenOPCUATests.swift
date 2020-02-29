@@ -14,7 +14,7 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-        let opcua = ZenOPCUA(host: "opcuaserver.com", port: 48484, reconnect: false, eventLoopGroup: eventLoopGroup)
+        let opcua = ZenOPCUA(host: "192.168.1.32", port: 53530, reconnect: false, eventLoopGroup: eventLoopGroup)
         opcua.onDataChanged = { data in
             print(data)
         }
@@ -31,17 +31,7 @@ final class ZenOPCUATests: XCTestCase {
             let items = try opcua.browse().wait()
             for item in items {
                 item.references.forEach { ref in
-                    print(ref.displayName.text)
-                    switch ref.nodeId.encodingMask {
-                    case .numeric:
-                        print((ref.nodeId as! NodeIdNumeric).nameSpace)
-                        print((ref.nodeId as! NodeIdNumeric).identifier)
-                    case .string:
-                        print((ref.nodeId as! NodeIdString).nameSpace)
-                        print((ref.nodeId as! NodeIdString).identifier)
-                    default:
-                        print((ref.nodeId as! NodeId).identifierNumeric)
-                    }
+                    print("\(ref.displayName.text): \(ref.nodeId)")
                 }
             }
             

@@ -35,37 +35,7 @@ class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable {
                 result.revisedQueueSize = UInt32(littleEndianBytes: bytes[index..<(index+4)])
                 index += 4
                 
-                switch Nodes(rawValue: bytes[index])! {
-                case .numeric:
-                    let nodeId = NodeIdNumeric(
-                        nameSpace: bytes[index+1],
-                        identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
-                    )
-                    result.filterResult.typeId = nodeId
-                    index += 4
-                case .string:
-                    len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
-                    if len < UInt32.max {
-                        let nodeId = NodeIdString(
-                            nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                            identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
-                        )
-                        result.filterResult.typeId = nodeId
-                        index += len
-                    }
-                    index += 3 + 4
-                case .guid:
-                    let nodeId = NodeIdGuid(
-                        nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                        identifier: bytes[(index+3)..<(index+19)].map { $0 }
-                    )
-                    result.filterResult.typeId = nodeId
-                    index += 19
-                default:
-                    result.filterResult.typeId = NodeId(identifierNumeric: bytes[index+1])
-                    index += 2
-                }
-                
+                result.filterResult.typeId = Nodes.node(index: &index, bytes: bytes)
                 result.filterResult.encodingMask = bytes[index]
                 index += 1
                 

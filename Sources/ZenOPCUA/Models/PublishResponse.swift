@@ -48,38 +48,7 @@ class PublishResponse: MessageBase, OPCUADecodable {
         if count < UInt32.max {
             for _ in 0..<count {
                 var dataChange = DataChange()
-                
-                switch Nodes(rawValue: bytes[index])! {
-                case .numeric:
-                    let nodeId = NodeIdNumeric(
-                        nameSpace: bytes[index+1],
-                        identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
-                    )
-                    dataChange.typeId = nodeId
-                    index += 4
-                case .string:
-                    len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
-                    if len < UInt32.max {
-                        let nodeId = NodeIdString(
-                            nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                            identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
-                        )
-                        dataChange.typeId = nodeId
-                        index += len
-                    }
-                    index += 3 + 4
-                case .guid:
-                    let nodeId = NodeIdGuid(
-                        nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                        identifier: bytes[(index+3)..<(index+19)].map { $0 }
-                    )
-                    dataChange.typeId = nodeId
-                    index += 19
-                default:
-                    dataChange.typeId = NodeId(identifierNumeric: bytes[index+1])
-                    index += 2
-                }
-                
+                dataChange.typeId = Nodes.node(index: &index, bytes: bytes)
                 dataChange.encodingMask = bytes[index]
                 index += 1
                 

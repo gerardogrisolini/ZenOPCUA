@@ -16,7 +16,7 @@ struct AdditionalHeader: OPCUAEncodable, OPCUADecodable {
     init() { }
 
     init(bytes: [UInt8]) {
-        nodeId = NodeId(identifierNumeric: bytes[1])
+        nodeId = NodeId(identifier: bytes[1])
         encodingMask = bytes[2]
     }
 }

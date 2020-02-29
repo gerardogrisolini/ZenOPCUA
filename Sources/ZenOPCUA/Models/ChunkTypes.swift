@@ -7,4 +7,5 @@
 
 public enum ChunkTypes: String {
     case frame = "F"
+    case part = "C"
 }

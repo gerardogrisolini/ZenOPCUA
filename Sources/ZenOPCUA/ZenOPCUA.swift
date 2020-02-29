@@ -81,7 +81,7 @@ public class ZenOPCUA {
     fileprivate func sendHello() {
         guard let channel = channel else { return }
         let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
-        let body = Hello(endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)")
+        let body = Hello(endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)/OPCUA/SimulationServer")
         channel.writeAndFlush(OPCUAFrame(head: head, body: body.bytes), promise: nil)
     }
 

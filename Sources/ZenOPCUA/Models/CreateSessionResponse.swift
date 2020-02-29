@@ -26,62 +26,9 @@ class CreateSessionResponse: MessageBase {
         responseHeader = ResponseHeader(bytes: part)
         var index = 44
         
-        switch Nodes(rawValue: bytes[index])! {
-        case .numeric:
-            let nodeId = NodeIdNumeric(
-                nameSpace: bytes[index+1],
-                identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
-            )
-            sessionId = nodeId
-            index += 4
-        case .string:
-            let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
-            let nodeId = NodeIdString(
-                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
-            )
-            sessionId = nodeId
-            index += len + 3 + 4
-        case .guid:
-            let nodeId = NodeIdGuid(
-                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                identifier: bytes[(index+3)..<(index+19)].map { $0 }
-            )
-            sessionId = nodeId
-            index += 19
-        default:
-            sessionId = NodeId(identifierNumeric: bytes[index+1])
-            index += 2
-        }
+        sessionId = Nodes.node(index: &index, bytes: bytes)
+        authenticationToken = Nodes.node(index: &index, bytes: bytes)
 
-        switch Nodes(rawValue: bytes[index])! {
-        case .numeric:
-            let nodeId = NodeIdNumeric(
-                nameSpace: bytes[index+1],
-                identifier: UInt16(littleEndianBytes: bytes[(index+2)...(index+3)])
-            )
-            authenticationToken = nodeId
-            index += 4
-        case .string:
-            let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
-            let nodeId = NodeIdString(
-                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
-            )
-            authenticationToken = nodeId
-            index += len + 3 + 4
-        case .guid:
-            let nodeId = NodeIdGuid(
-                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
-                identifier: bytes[(index+3)..<(index+19)].map { $0 }
-            )
-            authenticationToken = nodeId
-            index += 19
-        default:
-            authenticationToken = NodeId(identifierNumeric: bytes[index+1])
-            index += 2
-        }
-        
         revisedSessionTimeout = Double(bytes: bytes[index..<(index+8)].map { $0 })
         index += 8
         
@@ -100,7 +47,6 @@ class CreateSessionResponse: MessageBase {
         }
 
         super.init(bytes: bytes[0...15].map { $0 })
-
 
         let count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
         guard count < UInt32.max else { return }

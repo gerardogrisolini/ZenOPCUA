@@ -56,7 +56,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             }
             errorCaught(context: context, error: OPCUAError.generic(error))
         default:
-            guard let method = Methods(rawValue: UInt16(littleEndianBytes: frame.body[18..<20])) else { return }
+            let code = UInt16(littleEndianBytes: frame.body[18..<20])
+            guard let method = Methods(rawValue: code) else { return }
             print(method)
             
             switch method {
@@ -153,7 +154,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: response.requestId,
-            endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)"
+            endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)/OPCUA/SimulationServer"
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
