@@ -21,18 +21,18 @@ class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable {
         var len = 0
         var index = 44
 
-        var count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        var count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                let statusCode = StatusCodes(rawValue: UInt32(littleEndianBytes: bytes[index..<(index+4)]))!
+                let statusCode = StatusCodes(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
                 index += 4
                 var result = MonitoredItemCreateResult(statusCode: statusCode)
-                result.monitoredItemId = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+                result.monitoredItemId = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
                 result.revisedSamplingInterval = Double(bytes: bytes[index..<(index+8)].map { $0 })
                 index += 8
-                result.revisedQueueSize = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+                result.revisedQueueSize = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
                 
                 result.filterResult.typeId = Nodes.node(index: &index, bytes: bytes)
@@ -43,11 +43,11 @@ class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable {
             }
         }
         
-        count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                 index += 4
                 if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)

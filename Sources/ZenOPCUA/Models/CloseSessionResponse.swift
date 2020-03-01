@@ -14,7 +14,7 @@ class CloseSessionResponse: MessageBase {
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         super.init(bytes: bytes[0...15].map { $0 })
-        secureChannelId = UInt32(littleEndianBytes: bytes[0...3])
-        tokenId = UInt32(littleEndianBytes: bytes[4...7])
+        secureChannelId = UInt32(bytes: bytes[0...3])
+        tokenId = UInt32(bytes: bytes[4...7])
     }
 }

@@ -62,7 +62,7 @@ public class NodeId: Node {
         super.init(.base)
     }
     
-    init(identifier: UInt8) {
+    public init(identifier: UInt8) {
         self.identifier = identifier
         super.init(.base)
     }
@@ -155,29 +155,29 @@ public class NodeIdExt: Node {
 }
 
 public class NodeIdNumericExt: Node {
-    public let namespace: UInt8
+    public let nameSpace: UInt8
     public let identifier: UInt16
     public let serverIndex: UInt32
 
-    init(namespace: UInt8, identifier: UInt16, serverIndex: UInt32) {
-        self.namespace = namespace
+    init(nameSpace: UInt8, identifier: UInt16, serverIndex: UInt32) {
+        self.nameSpace = nameSpace
         self.identifier = identifier
         self.serverIndex = serverIndex
         super.init(.numericExt)
     }
 
     override var bytes: [UInt8] {
-        return [encodingMask.rawValue, namespace] + identifier.bytes + serverIndex.bytes
+        return [encodingMask.rawValue, nameSpace] + identifier.bytes + serverIndex.bytes
     }
 }
 
 public class NodeIdStringExt: Node {
-    public let namespace: UInt16
+    public let nameSpace: UInt16
     public let identifier: String
     public let serverIndex: UInt32
 
-    init(namespace: UInt16, identifier: String, serverIndex: UInt32) {
-        self.namespace = namespace
+    init(nameSpace: UInt16, identifier: String, serverIndex: UInt32) {
+        self.nameSpace = nameSpace
         self.identifier = identifier
         self.serverIndex = serverIndex
         super.init(.stringExt)
@@ -185,7 +185,7 @@ public class NodeIdStringExt: Node {
 
     override var bytes: [UInt8] {
         let len = UInt32(identifier.count).bytes
-        return [encodingMask.rawValue] + namespace.bytes + len + identifier.bytes + serverIndex.bytes
+        return [encodingMask.rawValue] + nameSpace.bytes + len + identifier.bytes + serverIndex.bytes
     }
 }
 
@@ -196,29 +196,29 @@ extension Nodes {
         case .numeric:
             let nodeId = NodeIdNumeric(
                 nameSpace: bytes[index+1],
-                identifier: UInt16(littleEndianBytes: bytes[(index+2)..<(index+4)])
+                identifier: UInt16(bytes: bytes[(index+2)..<(index+4)])
             )
             index += 4
             return nodeId
         case .string:
-            let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
+            let len = Int(UInt32(bytes: bytes[(index+3)..<(index+7)]))
             let nodeId = NodeIdString(
-                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)..<(index+3)]),
+                nameSpace: UInt16(bytes: bytes[(index+1)..<(index+3)]),
                 identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!
             )
             index += len + 7
             return nodeId
         case .guid:
             let nodeId = NodeIdGuid(
-                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)...(index+2)]),
+                nameSpace: UInt16(bytes: bytes[(index+1)...(index+2)]),
                 identifier: bytes[(index+3)..<(index+19)].map { $0 }
             )
             index += 19
             return nodeId
         case .byteString:
-            let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
+            let len = Int(UInt32(bytes: bytes[(index+3)..<(index+7)]))
             let nodeId = NodeIdByteString(
-                nameSpace: UInt16(littleEndianBytes: bytes[(index+1)..<(index+3)]),
+                nameSpace: UInt16(bytes: bytes[(index+1)..<(index+3)]),
                 identifier: bytes[(index+7)..<(index+len+7)].map { $0 }
             )
             index += len + 7
@@ -226,24 +226,24 @@ extension Nodes {
         case .baseExt:
             let nodeId = NodeIdExt(
                 identifier: bytes[index+1],
-                serverIndex: UInt32(littleEndianBytes: bytes[(index+2)..<(index+6)])
+                serverIndex: UInt32(bytes: bytes[(index+2)..<(index+6)])
             )
             index += 6
             return nodeId
         case .numericExt:
             let nodeId = NodeIdNumericExt(
-                namespace: bytes[index+1],
-                identifier: UInt16(littleEndianBytes: bytes[(index+2)..<(index+4)]),
-                serverIndex: UInt32(littleEndianBytes: bytes[(index+4)..<(index+8)])
+                nameSpace: bytes[index+1],
+                identifier: UInt16(bytes: bytes[(index+2)..<(index+4)]),
+                serverIndex: UInt32(bytes: bytes[(index+4)..<(index+8)])
             )
             index += 8
             return nodeId
         case .stringExt:
-            let len = Int(UInt32(littleEndianBytes: bytes[(index+3)..<(index+7)]))
+            let len = Int(UInt32(bytes: bytes[(index+3)..<(index+7)]))
             let nodeId = NodeIdStringExt(
-                namespace: UInt16(littleEndianBytes: bytes[(index+1)..<(index+3)]),
+                nameSpace: UInt16(bytes: bytes[(index+1)..<(index+3)]),
                 identifier: String(bytes: bytes[(index+7)..<(index+len+7)], encoding: .utf8)!,
-                serverIndex: UInt32(littleEndianBytes: bytes[(index+len+7)..<(index+len+7+4)])
+                serverIndex: UInt32(bytes: bytes[(index+len+7)..<(index+len+7+4)])
             )
             index += len + 7 + 4
             return nodeId
@@ -260,28 +260,28 @@ extension String.StringInterpolation {
         switch node.encodingMask {
         case .numeric:
             let n = node as! NodeIdNumeric
-            appendInterpolation("{ nameSpace = \(n.nameSpace), identifier = \(n.identifier) }")
+            appendInterpolation("NodeIdNumeric { nameSpace = \(n.nameSpace), identifier = \(n.identifier) }")
         case .string:
            let n = node as! NodeIdString
-           appendInterpolation("{ nameSpace = \(n.nameSpace), identifier = \(n.identifier) }")
+           appendInterpolation("NodeIdString { nameSpace = \(n.nameSpace), identifier = \(n.identifier) }")
         case .guid:
            let n = node as! NodeIdGuid
-           appendInterpolation("{ nameSpace = \(n.nameSpace), identifier = \(n.identifier) }")
+           appendInterpolation("NodeIdGuid { nameSpace = \(n.nameSpace), identifier = \(n.identifier) }")
         case .byteString:
            let n = node as! NodeIdByteString
-           appendInterpolation("{ nameSpace = \(n.nameSpace), identifier = \(n.identifier) }")
+           appendInterpolation("NodeIdByteString { nameSpace = \(n.nameSpace), identifier = \(n.identifier) }")
        case .baseExt:
            let n = node as! NodeIdExt
-           appendInterpolation("{ serverIndex = \(n.serverIndex), identifier = \(n.identifier) }")
+           appendInterpolation("NodeIdExt { serverIndex = \(n.serverIndex), identifier = \(n.identifier) }")
         case .numericExt:
            let n = node as! NodeIdNumericExt
-           appendInterpolation("{ namespace: \(n.namespace), identifier = \(n.identifier), serverIndex = \(n.serverIndex) }")
+           appendInterpolation("NodeIdNumericExt { namespace: \(n.nameSpace), identifier = \(n.identifier), serverIndex = \(n.serverIndex) }")
         case .stringExt:
            let n = node as! NodeIdStringExt
-           appendInterpolation("{ namespace: \(n.namespace), identifier = \(n.identifier), serverIndex = \(n.serverIndex) }")
+           appendInterpolation("NodeIdStringExt { namespace: \(n.nameSpace), identifier = \(n.identifier), serverIndex = \(n.serverIndex) }")
         default:
            let n = node as! NodeId
-           appendInterpolation("{ identifier: \(n.identifier)")
+           appendInterpolation("NodeId { identifier: \(n.identifier)")
         }
     }
 }

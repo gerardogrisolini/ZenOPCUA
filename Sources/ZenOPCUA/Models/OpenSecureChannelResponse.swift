@@ -16,11 +16,11 @@ class OpenSecureChannelResponse: OpenSecureChannel, OPCUADecodable {
         typeId = NodeIdNumeric(method: .openSecureChannelResponse)
         let part = bytes[75...98].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
-        serverProtocolVersion = UInt32(littleEndianBytes: bytes[99...102])
+        serverProtocolVersion = UInt32(bytes: bytes[99...102])
         let part2 = bytes[103...122].map { $0 }
         securityToken = SecurityToken(bytes: part2)
         serverNonce = nil //bytes[123...126]
         super.init()
-        secureChannelId = UInt32(littleEndianBytes: bytes[0...3])
+        secureChannelId = UInt32(bytes: bytes[0...3])
     }
 }

@@ -60,14 +60,15 @@ struct ViewDescription: OPCUAEncodable {
 }
 
 public struct BrowseDescription: OPCUAEncodable {
-    public var nodeId: NodeId = NodeId(identifier: 0x55)
+    public let nodeId: Node
     public var browseDirection: UInt32 = 0x00000000
     public var referenceTypeId: NodeId = NodeId()
     public var includeSubtypes: Bool = false
     var nodeClassMask: UInt32 = 0x00000000
     var resultMask: UInt32 = 0x0000003f
     
-    public init() {
+    public init(nodeId: Node = NodeId(identifier: 0x55)) {
+        self.nodeId = nodeId
     }
     
     var bytes: [UInt8] {

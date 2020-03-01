@@ -20,12 +20,12 @@ class ReadResponse: MessageBase, OPCUADecodable {
         var index = 44
         var len = 0
         
-        var count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        var count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         for _ in 0..<count {
             if bytes[index] == 0x02 {
                 index += 1
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                 print("Error: \(len) - BadNodeIdUnknow")
                 index += 4
             } else {
@@ -34,11 +34,11 @@ class ReadResponse: MessageBase, OPCUADecodable {
             }
         }
 
-        count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                 index += 4
                 if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)

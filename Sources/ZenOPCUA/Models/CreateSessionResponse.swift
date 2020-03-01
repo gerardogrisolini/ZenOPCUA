@@ -32,14 +32,14 @@ class CreateSessionResponse: MessageBase {
         revisedSessionTimeout = Double(bytes: bytes[index..<(index+8)].map { $0 })
         index += 8
         
-        var len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+        var len = Int(UInt32(bytes: bytes[index..<(index+4)]))
         index += 4
         if len < UInt32.max {
             serverNonce = bytes[index..<(index+len)].map { $0 }
             index += len
         }
             
-        len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+        len = Int(UInt32(bytes: bytes[index..<(index+4)]))
         index += 4
         if len < UInt32.max {
             serverCertificate = bytes[index..<(index+len)].map { $0 }
@@ -48,23 +48,23 @@ class CreateSessionResponse: MessageBase {
 
         super.init(bytes: bytes[0...15].map { $0 })
 
-        let count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        let count = UInt32(bytes: bytes[index..<(index+4)])
         guard count < UInt32.max else { return }
         index += 4
         
         for _ in 0..<count {
             let item = EndpointDescription()
-            var len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            var len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             item.endpointUrl = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
             
             index += len
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             item.server.applicationUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
             
             index += len
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             item.server.productUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
 
@@ -72,12 +72,12 @@ class CreateSessionResponse: MessageBase {
             item.server.applicationName.encodingMask = bytes[index]
             index += 1
 
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if item.server.applicationName.encodingMask == 0x03 && len < UInt32.max {
                 item.server.applicationName.locale = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
                 index += len
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                 index += 4
             }
             if len < UInt32.max {
@@ -85,28 +85,28 @@ class CreateSessionResponse: MessageBase {
                 index += len
             }
 
-            item.server.applicationType = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+            item.server.applicationType = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
 
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if len < UInt32.max {
                 item.server.gatewayServerUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
                 index += len
             }
             
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if len < UInt32.max {
                 item.server.discoveryProfileUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
                 index += len
             }
 
-            var innerCount = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            var innerCount = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if innerCount < UInt32.max {
                 for _ in 0..<innerCount {
-                    len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                    len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                     index += 4
                     if len < UInt32.max {
                         let url = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
@@ -116,54 +116,54 @@ class CreateSessionResponse: MessageBase {
                 }
             }
             
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if len < UInt32.max {
                 item.serverCertificate = bytes[index..<(index+len)].map { $0 }
                 index += len
             }
             
-            item.messageSecurityMode = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+            item.messageSecurityMode = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
 
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if len < UInt32.max {
                 item.securityPolicyUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
                 index += len
             }
 
-            innerCount = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            innerCount = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if innerCount < UInt32.max {
                 for _ in 0..<innerCount {
                     var identity = UserTokenPolicy()
                     
-                    len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                    len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                     index += 4
                     if len < UInt32.max {
                         identity.policyId = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
                         index += len
                     }
 
-                    identity.userTokenType = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+                    identity.userTokenType = UInt32(bytes: bytes[index..<(index+4)])
                     index += 4
 
-                    len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                    len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                     index += 4
                     if len < UInt32.max {
                         identity.issuedTokenType = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
                         index += len
                     }
 
-                    len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                    len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                     index += 4
                     if len < UInt32.max {
                         identity.issuerEndpointUrl = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
                         index += len
                     }
 
-                    len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                    len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                     index += 4
                     if len < UInt32.max {
                         identity.securityPolicyUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
@@ -174,7 +174,7 @@ class CreateSessionResponse: MessageBase {
                 }
             }
 
-            len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if len < UInt32.max {
                 item.transportProfileUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!

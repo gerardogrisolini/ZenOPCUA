@@ -219,7 +219,7 @@ public class ZenOPCUA {
         }
     }
 
-    public func createSubscription() -> EventLoopFuture<UInt32> {
+    public func createSubscription(requestedPubliscingInterval: Double = 500, startPubliscing: Bool = true) -> EventLoopFuture<UInt32> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -234,11 +234,16 @@ public class ZenOPCUA {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken
+            authenticationToken: session.authenticationToken,
+            requestedPubliscingInterval: requestedPubliscingInterval
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        channel.writeAndFlush(frame, promise: nil)
+        channel.writeAndFlush(frame).whenSuccess { () in
+            if startPubliscing {
+                self.startPublish(milliseconds: Int64(requestedPubliscingInterval))
+            }
+        }
         
         return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
             promise as! UInt32
@@ -273,10 +278,12 @@ public class ZenOPCUA {
         }
     }
     
-    public func deleteSubscriptions(subscriptionIds: [UInt32]) -> EventLoopFuture<[StatusCodes]> {
+    public func deleteSubscriptions(subscriptionIds: [UInt32], stopPubliscing: Bool = true) -> EventLoopFuture<[StatusCodes]> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
+
+        if stopPubliscing { stopPublish() }
 
         let requestId = handler.nextMessageID()
         handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
@@ -302,13 +309,13 @@ public class ZenOPCUA {
     
     private var publisher: RepeatedTask? = nil
 
-    public func startPublish(milliseconds: Int64) {
-        guard let channel = self.channel, let session = handler.sessionActive else { return }
+    private func startPublish(milliseconds: Int64) {
+        guard let channel = channel, let session = handler.sessionActive else { return }
 
         stopPublish()
         
         let time = TimeAmount.milliseconds(milliseconds)
-        publisher = eventLoopGroup.next().scheduleRepeatedAsyncTask(initialDelay: time, delay: time) { task in
+        publisher = eventLoopGroup.next().scheduleRepeatedTask(initialDelay: time, delay: time) { task in
             
             let requestId = self.handler.nextMessageID()
             
@@ -323,11 +330,11 @@ public class ZenOPCUA {
             )
             let frame = OPCUAFrame(head: head, body: body.bytes)
             
-            return channel.writeAndFlush(frame)
+            channel.writeAndFlush(frame, promise: nil)
         }
     }
     
-    public func stopPublish() {
+    private func stopPublish() {
         if let task = publisher {
             task.cancel()
             publisher = nil

@@ -25,50 +25,52 @@ class PublishResponse: MessageBase, OPCUADecodable {
 
         var len = 0
         var index = 44
-        subscriptionId = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        subscriptionId = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
 
-        var count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        var count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                availableSequenceNumbers.append(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                availableSequenceNumbers.append(UInt32(bytes: bytes[index..<(index+4)]))
                 index += 4
             }
         }
         moreNotifications = Bool(byte: bytes[index])
         index += 1
-        notificationMessage = NotificationMessage(sequenceNumber: UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+        notificationMessage = NotificationMessage(sequenceNumber: UInt32(bytes: bytes[index..<(index+4)]))
         index += 4
-        notificationMessage.publishTime = Int64(littleEndianBytes: bytes[index..<(index+8)]).date
+        notificationMessage.publishTime = Int64(bytes: bytes[index..<(index+8)]).date
         index += 8
 
-        count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
                 var dataChange = DataChange()
                 dataChange.typeId = Nodes.node(index: &index, bytes: bytes)
                 dataChange.encodingMask = bytes[index]
-                index += 1
+                index += 5
                 
-                var item = MonitoredItemNotification(clientHandle: UInt32(littleEndianBytes: bytes[index..<(index+4)]))
-                index += 1
-                
-                var subCount = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+                var subCount = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
                 if subCount < UInt32.max {
                     for _ in 0..<subCount {
-                        item.value.append(DataValue(bytes: bytes, index: &index))
-                        index += 8
+                        let monitoredId = UInt32(bytes: bytes[index..<(index+4)])
+                        index += 4
+                        let item = MonitoredItemNotification(
+                            clientHandle: monitoredId,
+                            value: DataValue(bytes: bytes, index: &index)
+                        )
+                        dataChange.dataChangeNotification.monitoredItems.append(item)
                     }
                 }
 
-                subCount = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+                subCount = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
                 if subCount < UInt32.max {
                     for _ in 0..<subCount {
-                        len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                        len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                         index += 4
                         if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
                             let info = DiagnosticInfo(info: text)
@@ -78,25 +80,24 @@ class PublishResponse: MessageBase, OPCUADecodable {
                     }
                 }
 
-                dataChange.dataChangeNotification.monitoredItems.append(item)
                 notificationMessage.notificationData.append(dataChange)
             }
         }
         
-        count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         for _ in 0..<count {
-            if let status = StatusCodes(rawValue: UInt32(littleEndianBytes: bytes[index..<(index+4)])) {
+            if let status = StatusCodes(rawValue: UInt32(bytes: bytes[index..<(index+4)])) {
                 results.append(status)
             }
             index += 4
         }
 
-        count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                 index += 4
                 if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)
@@ -129,5 +130,5 @@ public struct DataChangeNotification {
 
 public struct MonitoredItemNotification {
     var clientHandle: UInt32
-    var value: [DataValue] = []
+    var value: DataValue
 }

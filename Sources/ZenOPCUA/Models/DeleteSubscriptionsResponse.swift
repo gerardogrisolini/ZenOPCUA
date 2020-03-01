@@ -20,22 +20,22 @@ class DeleteSubscriptionsResponse: MessageBase, OPCUADecodable {
         var len = 0
         var index = 44
 
-        var count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        var count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                if let statusCode = StatusCodes(rawValue: UInt32(littleEndianBytes: bytes[index..<(index+4)])) {
+                if let statusCode = StatusCodes(rawValue: UInt32(bytes: bytes[index..<(index+4)])) {
                     results.append(statusCode)
                 }
                 index += 4
             }
         }
         
-        count = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                len = Int(UInt32(littleEndianBytes: bytes[index..<(index+4)]))
+                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
                 index += 4
                 if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)

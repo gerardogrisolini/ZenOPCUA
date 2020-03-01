@@ -49,17 +49,15 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             print("Opened SecureChannel with SecurityPolicy \(response.securityPolicyUri)")
             getEndpoints(context: context, response: response)
         case .error:
-            let codeId = UInt32(littleEndianBytes: frame.body[0...3])
+            let codeId = UInt32(bytes: frame.body[0...3])
             var error = "error code: \(codeId)"
             if let err = ErrorResponse(rawValue: codeId) {
                 error = "\(err)"
             }
             errorCaught(context: context, error: OPCUAError.generic(error))
         default:
-            let code = UInt16(littleEndianBytes: frame.body[18..<20])
-            guard let method = Methods(rawValue: code) else { return }
-            print(method)
-            
+            guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
+            //print(method)
             switch method {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))

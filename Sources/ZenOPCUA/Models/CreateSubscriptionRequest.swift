@@ -8,7 +8,7 @@
 class CreateSubscriptionRequest: MessageBase, OPCUAEncodable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .createSubscriptionRequest)
     let requestHeader: RequestHeader
-    let requestedPubliscingInterval: Double = 500
+    let requestedPubliscingInterval: Double
     let requestedLifetimeCount: UInt32 = 10000
     let requesteMaxKeepAliveCount: UInt32 = 10
     let maxNotificationsPerPublish: UInt32 = 0
@@ -21,9 +21,11 @@ class CreateSubscriptionRequest: MessageBase, OPCUAEncodable {
         sequenceNumber: UInt32,
         requestId: UInt32,
         requestHandle: UInt32,
-        authenticationToken: Node
+        authenticationToken: Node,
+        requestedPubliscingInterval: Double
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
+        self.requestedPubliscingInterval = requestedPubliscingInterval
         super.init()
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId

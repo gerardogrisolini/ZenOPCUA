@@ -14,7 +14,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     public func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState  {
         guard buffer.readableBytes >= 8 else { return .needMoreData }
 
-        let lenght = Int(UInt32(littleEndianBytes: buffer.getBytes(at: 4, length: 4)!))
+        let lenght = Int(UInt32(bytes: buffer.getBytes(at: 4, length: 4)!))
         guard buffer.readableBytes >= lenght else { return .needMoreData }
 
         let chunkType = ChunkTypes(rawValue: buffer.getString(at: 3, length: 1)!)!
@@ -68,7 +68,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         var head = OPCUAFrameHead()
         head.messageType = MessageTypes(rawValue: buffer.getString(at: 0, length: 3)!)!
         head.chunkType = ChunkTypes(rawValue: buffer.getString(at: 3, length: 1)!)!
-        head.messageSize = UInt32(littleEndianBytes: buffer.getBytes(at: 4, length: 4)!)
+        head.messageSize = UInt32(bytes: buffer.getBytes(at: 4, length: 4)!)
         let bytes = buffer.getBytes(at: 8, length: buffer.readableBytes - 8) ?? [UInt8]()
         
         return OPCUAFrame(head: head, body: bytes)

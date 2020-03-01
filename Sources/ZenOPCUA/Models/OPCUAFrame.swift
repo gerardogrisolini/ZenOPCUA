@@ -82,7 +82,7 @@ extension FixedWidthInteger {
         }
     }
 
-    init<C>(littleEndianBytes bytes: C) where C: Collection, C.Element == UInt8 {
+    init<C>(bytes: C) where C: Collection, C.Element == UInt8 {
         precondition(bytes.count == (Self.bitWidth+7)/8)
         var iter = bytes.makeIterator()
         self.init(littleEndianBytes: &iter)

@@ -19,13 +19,13 @@ class CreateSubscriptionResponse: MessageBase, OPCUADecodable {
         responseHeader = ResponseHeader(bytes: part)
 
         var index = 44
-        subscriptionId = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        subscriptionId = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         revisedPubliscingInterval = Double(bytes: bytes[index..<(index+8)].map { $0 })
         index += 8
-        revisedLifetimeCount = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        revisedLifetimeCount = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
-        revisedMaxKeepAliveCount = UInt32(littleEndianBytes: bytes[index..<(index+4)])
+        revisedMaxKeepAliveCount = UInt32(bytes: bytes[index..<(index+4)])
 
         super.init(bytes: bytes[0...15].map { $0 })
     }

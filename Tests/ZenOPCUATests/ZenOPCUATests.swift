@@ -16,7 +16,11 @@ final class ZenOPCUATests: XCTestCase {
     func testExample() {
         let opcua = ZenOPCUA(host: "192.168.1.32", port: 53530, reconnect: false, eventLoopGroup: eventLoopGroup)
         opcua.onDataChanged = { data in
-            print(data)
+            data.forEach { dataChange in
+                dataChange.dataChangeNotification.monitoredItems.forEach { item in
+                    print("\(item.clientHandle): \(item.value.variant.value)")
+                }
+            }
         }
         opcua.onHandlerRemoved = {
             print("OPCUA Client disconnected")
@@ -28,34 +32,34 @@ final class ZenOPCUATests: XCTestCase {
         do {
             try opcua.connect().wait()
             
-            let items = try opcua.browse().wait()
-            for item in items {
-                item.references.forEach { ref in
-                    print("\(ref.displayName.text): \(ref.nodeId)")
-                }
-            }
-            
-//            let subId = try opcua.createSubscription().wait()
-//            let items = [
-//                ReadValue(nodeId: NodeIdString(nameSpace: 1, identifier: "Countries"))
+//            let nodes: [BrowseDescription] = [
+//                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253)),
+//                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2256))
 //            ]
-//            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
-//            results.forEach { result in
-//                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+//            let items = try opcua.browse(nodes: nodes).wait()
+//            for item in items {
+//                item.references.forEach { ref in
+//                    print("\(ref.displayName.text): \(ref.nodeId)")
+//                }
 //            }
+            
+            let subId = try opcua.createSubscription().wait()
+            let items = [
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))
+            ]
+            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
+            results.forEach { result in
+                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+            }
 
-//            sleep(1)
-//            opcua.startPublish(milliseconds: 500)
-//            sleep(3)
-//            opcua.stopPublish()
-//            sleep(1)
+            sleep(5)
 
-//            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
-//            deleted.forEach { result in
-//                print("deleteSubscription: \(result)")
-//            }
+            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
+            deleted.forEach { result in
+                print("deleteSubscription: \(result)")
+            }
 
-//            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 1, identifier: "Countries"))]
+//            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))]
 //            let readed = try opcua.read(nodes: reads).wait()
 //            print(readed.first?.variant.value ?? "nil")
 
@@ -76,7 +80,7 @@ final class ZenOPCUATests: XCTestCase {
 
     func testEmpty() {
         let empty: [UInt8] = [0xff, 0xff, 0xff, 0xff]
-        let number = UInt32(littleEndianBytes: empty)
+        let number = UInt32(bytes: empty)
         XCTAssertEqual(number, UInt32.max)
     }
     
@@ -115,6 +119,16 @@ final class ZenOPCUATests: XCTestCase {
             print("... \(item.variant.value)")
         }
         XCTAssertTrue(response.results.count > 0)
+    }
+
+    func testPublishResponse() {
+        let response = PublishResponse(bytes: publishResponse)
+        response.notificationMessage.notificationData.forEach { item in
+            item.dataChangeNotification.monitoredItems.forEach { m in
+                print("... \(m.value.variant.value)")
+            }
+        }
+        XCTAssertTrue(response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD)
     }
     
     @available(OSX 10.12, *)
@@ -308,5 +322,25 @@ final class ZenOPCUATests: XCTestCase {
         0x31, 0x31, 0x32, 0x39, 0x38, 0x80, 0xfd, 0x19,
         0xbf, 0x45, 0xeb, 0xd5, 0x01, 0x00, 0x00, 0x00,
         0x00
+    ]
+    
+    var publishResponse: [UInt8] = [
+        //0x4d, 0x53, 0x47, 0x46, 0x88, 0x00, 0x00, 0x00,
+        0x28, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0xf3, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x3d, 0x03, 0x00, 0x4e, 0x22, 0x76,
+        0x66, 0xef, 0xd5, 0x01, 0x07, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff,
+        0xff, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x4e, 0x22,
+        0x76, 0x66, 0xef, 0xd5, 0x01, 0x01, 0x00, 0x00,
+        0x00, 0x01, 0x00, 0x2b, 0x03, 0x01, 0x26, 0x00,
+        0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00,
+        0x00, 0x00, 0x0d, 0x0d, 0x40, 0xb3, 0xc3, 0x75,
+        0x66, 0xef, 0xd5, 0x01, 0x40, 0xb3, 0xc3, 0x75,
+        0x66, 0xef, 0xd5, 0x01, 0xf0, 0x26, 0x22, 0x76,
+        0x66, 0xef, 0xd5, 0x01, 0xff, 0xff, 0xff, 0xff,
+        0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff
     ]
 }
