@@ -219,7 +219,7 @@ public class ZenOPCUA {
         }
     }
 
-    public func createSubscription(requestedPubliscingInterval: Double = 500, startPubliscing: Bool = true) -> EventLoopFuture<UInt32> {
+    public func createSubscription(requestedPubliscingInterval: Double = 1000, startPubliscing: Bool = true) -> EventLoopFuture<UInt32> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -316,7 +316,6 @@ public class ZenOPCUA {
         
         let time = TimeAmount.milliseconds(milliseconds)
         publisher = eventLoopGroup.next().scheduleRepeatedTask(initialDelay: time, delay: time) { task in
-            
             let requestId = self.handler.nextMessageID()
             
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
