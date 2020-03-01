@@ -17,29 +17,47 @@ enum OPCUAError : Error {
 
 public class ZenOPCUA {
 
-    public static var host: String = ""
-    public static var port: Int = 4842
+    public static var endpoint: String = "opc.tcp://opcuaserver.com:4840"
     public static var username: String? = nil
     public static var password: String? = nil
     
     private let eventLoopGroup: EventLoopGroup
     private var channel: Channel? = nil
     private let handler = OPCUAHandler()
-    private var autoreconnect: Bool = false
+    private var reconnect: Bool = false
 
     public var onDataChanged: OPCUADataChanged? = nil
     public var onHandlerRemoved: OPCUAHandlerRemoved? = nil
     public var onErrorCaught: OPCUAErrorCaught? = nil
     
-    public init(host: String, port: Int, reconnect: Bool, eventLoopGroup: EventLoopGroup) {
-        ZenOPCUA.host = host
-        ZenOPCUA.port = port
-        self.autoreconnect = reconnect
+    public init(endpoint: String, reconnect: Bool, eventLoopGroup: EventLoopGroup) {
+        ZenOPCUA.endpoint = endpoint
+        self.reconnect = reconnect
         self.eventLoopGroup = eventLoopGroup
     }
     
+    private func getHostFromEndpoint() -> (host: String, port: Int) {
+        let url = ZenOPCUA.endpoint
+        if let index = url.lastIndex(of: ":") {
+            let host = url[url.startIndex..<index].replacingOccurrences(of: "opc.tcp://", with: "")
+            var port = 0
+            
+            let part = url[url.index(after: index)...].description
+            if let indexEnd = part.firstIndex(of: "/") {
+                port = Int(part[part.startIndex..<indexEnd])!
+            } else {
+                port = Int(part)!
+            }
+            
+            return (host, port)
+        }
+
+        return ("", 0)
+    }
+    
     private func start() -> EventLoopFuture<Void> {
-        
+        let server = getHostFromEndpoint()
+
         let handlers: [ChannelHandler] = [
             MessageToByteHandler(OPCUAFrameEncoder()),
             ByteToMessageHandler(OPCUAFrameDecoder()),
@@ -52,7 +70,7 @@ public class ZenOPCUA {
             .channelInitializer { channel in
                 channel.pipeline.addHandlers(handlers)
         }
-        .connect(host: ZenOPCUA.host, port: ZenOPCUA.port)
+        .connect(host: server.host, port: server.port)
         .flatMap { channel -> EventLoopFuture<Void> in
             self.channel = channel
             
@@ -81,7 +99,7 @@ public class ZenOPCUA {
     fileprivate func sendHello() {
         guard let channel = channel else { return }
         let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
-        let body = Hello(endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)/OPCUA/SimulationServer")
+        let body = Hello(endpointUrl: ZenOPCUA.endpoint)
         channel.writeAndFlush(OPCUAFrame(head: head, body: body.bytes), promise: nil)
     }
 
@@ -96,7 +114,7 @@ public class ZenOPCUA {
                 onHandlerRemoved()
             }
             
-            if self.autoreconnect {
+            if self.reconnect {
                 self.stop().whenComplete { _ in
                     self.start().whenComplete { _ in }
                 }
@@ -107,7 +125,7 @@ public class ZenOPCUA {
     }
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
-        autoreconnect = false
+        reconnect = false
         return closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { (_) -> EventLoopFuture<Void> in
             return self.stop()
         }

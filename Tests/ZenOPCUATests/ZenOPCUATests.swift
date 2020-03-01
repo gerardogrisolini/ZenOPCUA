@@ -17,7 +17,12 @@ final class ZenOPCUATests: XCTestCase {
         var count = 0
         let expectation = XCTestExpectation(description: "OPCUA")
 
-        let opcua = ZenOPCUA(host: "192.168.1.36", port: 53530, reconnect: false, eventLoopGroup: eventLoopGroup)
+        let opcua = ZenOPCUA(
+            endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
+            reconnect: false,
+            eventLoopGroup: eventLoopGroup
+        )
+        
         opcua.onDataChanged = { data in
             print("onDataChanged:")
             data.forEach { dataChange in

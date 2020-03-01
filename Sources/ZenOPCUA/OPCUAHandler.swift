@@ -152,7 +152,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: response.requestId,
-            endpointUrl: "opc.tcp://\(ZenOPCUA.host):\(ZenOPCUA.port)/OPCUA/SimulationServer"
+            endpointUrl: ZenOPCUA.endpoint
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
