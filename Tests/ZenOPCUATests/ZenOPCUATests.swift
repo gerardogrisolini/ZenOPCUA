@@ -14,13 +14,22 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-        let opcua = ZenOPCUA(host: "192.168.1.32", port: 53530, reconnect: false, eventLoopGroup: eventLoopGroup)
+        var count = 0
+        let expectation = XCTestExpectation(description: "OPCUA")
+
+        let opcua = ZenOPCUA(host: "192.168.1.36", port: 53530, reconnect: false, eventLoopGroup: eventLoopGroup)
         opcua.onDataChanged = { data in
+            print("onDataChanged:")
             data.forEach { dataChange in
                 dataChange.dataChangeNotification.monitoredItems.forEach { item in
-                    print("\(item.clientHandle): \(item.value.variant.value)")
+                    print("\(item.monitoredId): \(item.value.variant.value)")
                 }
             }
+            
+            if count > 10 {
+                expectation.fulfill()
+            }
+            count += 1
         }
         opcua.onHandlerRemoved = {
             print("OPCUA Client disconnected")
@@ -43,18 +52,28 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
             
-            let subId = try opcua.createSubscription().wait()
-            let items = [
+//            let subId = try opcua.createSubscription(requestedPubliscingInterval: 1000).wait()
+//            let items = [
+//                ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 17634))
+//            ]
+//            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
+//            results.forEach { result in
+//                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+//            }
+
+            let subId2 = try opcua.createSubscription().wait()
+            let items2 = [
                 ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))
             ]
-            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
-            results.forEach { result in
+            let results2 = try opcua.createMonitoredItems(subscriptionId: subId2, itemsToCreate: items2).wait()
+            results2.forEach { result in
                 print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
             }
 
-            sleep(5)
+            //sleep(10)
+            wait(for: [expectation], timeout: 20.0)
 
-            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
+            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId2]).wait()
             deleted.forEach { result in
                 print("deleteSubscription: \(result)")
             }

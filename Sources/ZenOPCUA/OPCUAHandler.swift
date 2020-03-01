@@ -57,7 +57,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             errorCaught(context: context, error: OPCUAError.generic(error))
         default:
             guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
-            //print(method)
+            print(method)
             switch method {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
@@ -65,7 +65,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 sessionActive = CreateSessionResponse(bytes: frame.body)
                 activateSession(context: context)
                 print("Found \(sessionActive?.serverEndpoints.count ?? 0) endpoints")
-                if let item = sessionActive?.serverEndpoints.first {
+                if let item = sessionActive?.serverEndpoints.first(where: { $0.messageSecurityMode == 1 }) {
                     print("Found \(item.userIdentityTokens.count) policies")
                     print("Selected Endpoint \(item.endpointUrl) with SecurityMode \(item.messageSecurityMode == 1 ? "None" : "UserToken") and PolicyId \(item.userIdentityTokens.first!.policyId)")
                 }

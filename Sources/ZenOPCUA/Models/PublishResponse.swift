@@ -59,7 +59,7 @@ class PublishResponse: MessageBase, OPCUADecodable {
                         let monitoredId = UInt32(bytes: bytes[index..<(index+4)])
                         index += 4
                         let item = MonitoredItemNotification(
-                            clientHandle: monitoredId,
+                            monitoredId: monitoredId,
                             value: DataValue(bytes: bytes, index: &index)
                         )
                         dataChange.dataChangeNotification.monitoredItems.append(item)
@@ -129,6 +129,6 @@ public struct DataChangeNotification {
 }
 
 public struct MonitoredItemNotification {
-    var clientHandle: UInt32
+    var monitoredId: UInt32
     var value: DataValue
 }

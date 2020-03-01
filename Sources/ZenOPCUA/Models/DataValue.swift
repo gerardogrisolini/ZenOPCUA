@@ -8,7 +8,7 @@
 import Foundation
 
 enum DataType: UInt8 {
-    case uint16 = 0x00
+    case null = 0x00
     case uint32 = 0x01
     case int32 = 0x06
     case string = 0x0c
@@ -27,9 +27,8 @@ public class DataValue: Promisable, OPCUAEncodable {
         index += 2
 
         switch DataType(rawValue: variant.type)! {
-        case .uint16:
-            variant.bytes = bytes[index..<(index+2)].map { $0 }
-            index += 2
+        case .null:
+            break
         case .int32, .uint32:
             variant.bytes = bytes[index..<(index+4)].map { $0 }
             index += 4
@@ -45,10 +44,15 @@ public class DataValue: Promisable, OPCUAEncodable {
             index += 8
         }
         
-        sourceTimestamp = Int64(bytes: bytes[index..<(index+8)]).date
-        index += 8
-        serverTimestamp = Int64(bytes: bytes[index..<(index+8)]).date
-        index += 8
+        if encodingMask == 0x0d || encodingMask == 0x05 {
+            sourceTimestamp = Int64(bytes: bytes[index..<(index+8)]).date
+            index += 8
+        }
+        
+        if encodingMask == 0x0d || encodingMask == 0x09 {
+            serverTimestamp = Int64(bytes: bytes[index..<(index+8)]).date
+            index += 8
+        }
     }
     
     init(variant: Variant) {
@@ -69,11 +73,6 @@ public struct Variant {
         self.type = type
     }
 
-    init(value: UInt16) {
-        type = DataType.uint16.rawValue
-        bytes.append(contentsOf: value.bytes)
-    }
-
     init(value: UInt32) {
         type = DataType.uint32.rawValue
         bytes.append(contentsOf: value.bytes)
@@ -92,8 +91,8 @@ public struct Variant {
     public var value: Any {
         return bytes.withUnsafeBytes {
             switch DataType(rawValue: type) {
-            case .uint16:
-                return $0.load(as: UInt16.self)
+            case .null:
+                return type
             case .uint32:
                 return $0.load(as: UInt32.self)
             case .int32:
