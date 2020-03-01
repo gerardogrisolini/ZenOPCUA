@@ -237,7 +237,7 @@ public class ZenOPCUA {
         }
     }
 
-    public func createSubscription(requestedPubliscingInterval: Double = 1000, startPubliscing: Bool = true) -> EventLoopFuture<UInt32> {
+    public func createSubscription(requestedPubliscingInterval: Double = 500, startPubliscing: Bool = false) -> EventLoopFuture<UInt32> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -259,12 +259,12 @@ public class ZenOPCUA {
         
         channel.writeAndFlush(frame, promise: nil)
         
+        if startPubliscing {
+            self.startPublish(milliseconds: Int64(requestedPubliscingInterval * 2))
+        }
+
         return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
-            let subId = promise as! UInt32
-            if startPubliscing {
-                self.startPublish(milliseconds: Int64(requestedPubliscingInterval))
-            }
-            return subId
+            promise as! UInt32
         }
     }
     
@@ -296,7 +296,7 @@ public class ZenOPCUA {
         }
     }
     
-    public func deleteSubscriptions(subscriptionIds: [UInt32], stopPubliscing: Bool = true) -> EventLoopFuture<[StatusCodes]> {
+    public func deleteSubscriptions(subscriptionIds: [UInt32], stopPubliscing: Bool = false) -> EventLoopFuture<[StatusCodes]> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -325,34 +325,40 @@ public class ZenOPCUA {
         }
     }
     
-    private var publisher: RepeatedTask? = nil
-
-    public func startPublish(milliseconds: Int64) {
-        guard let channel = channel, let session = handler.sessionActive else { return }
-
-        let time = TimeAmount.milliseconds(milliseconds)
-
-        stopPublish()
-        publisher = eventLoopGroup.next().scheduleRepeatedTask(initialDelay: time, delay: time) { task in
-            let requestId = self.handler.nextMessageID()
-            
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = PublishRequest(
-                secureChannelId: session.secureChannelId,
-                tokenId: session.tokenId,
-                sequenceNumber: requestId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: session.authenticationToken
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-            
-            channel.writeAndFlush(frame, promise: nil)
-            print("publish: \(requestId)")
+    public func publish() -> EventLoopFuture<Void> {
+        guard let channel = channel, let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
+
+        let requestId = self.handler.nextMessageID()
+        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+        let body = PublishRequest(
+            secureChannelId: session.secureChannelId,
+            tokenId: session.tokenId,
+            sequenceNumber: requestId,
+            requestId: requestId,
+            requestHandle: requestId,
+            authenticationToken: session.authenticationToken
+        )
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+
+        return channel.writeAndFlush(frame)
     }
     
-    public func stopPublish() {
+    private var publisher: RepeatedTask? = nil
+
+    private func startPublish(milliseconds: Int64) {
+        stopPublish()
+
+        guard let channel = channel else { return }
+
+        let time = TimeAmount.milliseconds(milliseconds)
+        publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
+            self.publish()
+        })
+    }
+    
+    private func stopPublish() {
         if let pub = publisher {
             pub.cancel()
             publisher = nil

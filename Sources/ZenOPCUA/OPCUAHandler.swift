@@ -57,7 +57,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             errorCaught(context: context, error: OPCUAError.generic(error))
         default:
             guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
-            print(method)
+            //print(method)
             switch method {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))

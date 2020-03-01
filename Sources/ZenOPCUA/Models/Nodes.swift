@@ -103,8 +103,7 @@ public class NodeIdString: Node {
     }
 
     override var bytes: [UInt8] {
-        let len = UInt32(identifier.count).bytes
-        return [encodingMask.rawValue] + nameSpace.bytes + len + identifier.bytes
+        return [encodingMask.rawValue] + nameSpace.bytes + identifier.bytes
     }
 }
 
@@ -184,8 +183,7 @@ public class NodeIdStringExt: Node {
     }
 
     override var bytes: [UInt8] {
-        let len = UInt32(identifier.count).bytes
-        return [encodingMask.rawValue] + nameSpace.bytes + len + identifier.bytes + serverIndex.bytes
+        return [encodingMask.rawValue] + nameSpace.bytes + identifier.bytes + serverIndex.bytes
     }
 }
 

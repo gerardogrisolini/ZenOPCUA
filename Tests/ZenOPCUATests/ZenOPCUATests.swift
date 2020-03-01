@@ -31,7 +31,7 @@ final class ZenOPCUATests: XCTestCase {
                 }
             }
             
-            if count > 10 {
+            if count > 5 {
                 expectation.fulfill()
             }
             count += 1
@@ -66,18 +66,21 @@ final class ZenOPCUATests: XCTestCase {
 //                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
 //            }
 
-            let subId2 = try opcua.createSubscription().wait()
+            let subId2 = try opcua.createSubscription(requestedPubliscingInterval: 2000, startPubliscing: true).wait()
             let items2 = [
-                ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258)),
+                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"))
             ]
             let results2 = try opcua.createMonitoredItems(subscriptionId: subId2, itemsToCreate: items2).wait()
             results2.forEach { result in
                 print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
             }
 
+            //opcua.startPublish(milliseconds: 2000)
             //sleep(10)
             wait(for: [expectation], timeout: 20.0)
-
+            //opcua.stopPublish()
+            
             let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId2]).wait()
             deleted.forEach { result in
                 print("deleteSubscription: \(result)")
