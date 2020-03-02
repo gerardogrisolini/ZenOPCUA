@@ -123,7 +123,7 @@ class CreateSessionResponse: MessageBase {
                 index += len
             }
             
-            item.messageSecurityMode = UInt32(bytes: bytes[index..<(index+4)])
+            item.messageSecurityMode = MessageSecurityMode(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
             index += 4
 
             len = Int(UInt32(bytes: bytes[index..<(index+4)]))
@@ -146,7 +146,7 @@ class CreateSessionResponse: MessageBase {
                         index += len
                     }
 
-                    identity.userTokenType = UInt32(bytes: bytes[index..<(index+4)])
+                    identity.userTokenType = UserTokenType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
                     index += 4
 
                     len = Int(UInt32(bytes: bytes[index..<(index+4)]))

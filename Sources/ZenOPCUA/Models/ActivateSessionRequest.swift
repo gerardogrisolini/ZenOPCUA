@@ -37,11 +37,11 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
         self.requestHeader = RequestHeader(requestHandle: requestId, authenticationToken: session.authenticationToken)
         
         if let username = ZenOPCUA.username, let password = ZenOPCUA.password {
-            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.userTokenType == 0x00000001 })!.policyId
+            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.userTokenType == .userName })!.policyId
             let identityToken = UserNameIdentityToken(policyId: policyId, username: username, password: password)
             userIdentityToken = UserIdentityToken(identityToken: identityToken)
         } else {
-            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.userTokenType == 0x00000000 })!.policyId
+            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.userTokenType == .anonymous })!.policyId
             userIdentityToken = UserIdentityToken(identityToken: AnonymousIdentityToken(policyId: policyId))
         }
         super.init()

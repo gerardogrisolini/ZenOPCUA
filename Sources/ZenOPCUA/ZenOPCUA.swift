@@ -15,6 +15,7 @@ enum OPCUAError : Error {
     case generic(_ text: String)
 }
 
+
 public class ZenOPCUA {
 
     public static var endpoint: String = "opc.tcp://opcuaserver.com:4840"

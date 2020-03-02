@@ -9,9 +9,9 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
     let requestHeader: RequestHeader
     var clientProtocolVersion: UInt32 = 0
-    var securityTokenRequestType: UInt32 = 0 //0x00000000
-    var messageSecurityMode: UInt32 = 1 //0x00000001
-    var clientNonce: String? = nil //ff ff ff ff
+    var securityTokenRequestType: UserTokenType = .anonymous
+    var messageSecurityMode: MessageSecurityMode = .none
+    var clientNonce: String? = nil
     var requestedLifetime: UInt32 = 600000
     
     var bytes: [UInt8] {
@@ -24,15 +24,34 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
             typeId.bytes +
             requestHeader.bytes +
             clientProtocolVersion.bytes +
-            securityTokenRequestType.bytes +
-            messageSecurityMode.bytes +
+            securityTokenRequestType.rawValue.bytes +
+            messageSecurityMode.rawValue.bytes +
             clientNonce.bytes +
             requestedLifetime.bytes
     }
     
-    init(secureChannelId: UInt32) {
+    init(
+        messageSecurityMode: MessageSecurityMode = .none,
+        userTokenType: UserTokenType = .anonymous
+    ) {
         self.requestHeader = RequestHeader(requestHandle: 0)
         super.init()
-        self.secureChannelId = secureChannelId
+        self.secureChannelId = 0
+        self.messageSecurityMode = messageSecurityMode
+        self.securityTokenRequestType = userTokenType
     }
+}
+
+public enum MessageSecurityMode : UInt32 {
+    case none = 1
+    case sign = 2
+    case signAndEncrypt = 3
+}
+
+public enum UserTokenType : UInt32 {
+    case anonymous = 0      //No token is required.
+    case userName = 1       //A username/password token.
+    case certificate = 2    //An X509v3 Certificate token.
+    case issuedToken = 3    //Any WS-Security defined token.
+    case kerberos = 4
 }

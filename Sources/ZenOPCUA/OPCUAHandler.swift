@@ -64,10 +64,13 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .createSessionResponse:
                 sessionActive = CreateSessionResponse(bytes: frame.body)
                 activateSession(context: context)
+
                 print("Found \(sessionActive?.serverEndpoints.count ?? 0) endpoints")
-                if let item = sessionActive?.serverEndpoints.first(where: { $0.messageSecurityMode == 1 }) {
+                if let item = sessionActive?.serverEndpoints.first(where: { $0.messageSecurityMode == .none }) {
                     print("Found \(item.userIdentityTokens.count) policies")
-                    print("Selected Endpoint \(item.endpointUrl) with SecurityMode \(item.messageSecurityMode == 1 ? "None" : "UserToken") and PolicyId \(item.userIdentityTokens.first!.policyId)")
+                    print("Selected Endpoint \(item.endpointUrl)")
+                    print("SecurityMode \(item.messageSecurityMode)")
+                    print("PolicyId \(item.userIdentityTokens.first(where: { $0.userTokenType == .anonymous })?.policyId ?? "None")")
                 }
             case .activateSessionResponse:
                 let response = ActivateSessionResponse(bytes: frame.body)
@@ -120,7 +123,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
 
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
-        let body = OpenSecureChannelRequest(secureChannelId: 0)
+        let body = OpenSecureChannelRequest()
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)

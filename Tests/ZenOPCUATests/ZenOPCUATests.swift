@@ -25,7 +25,8 @@ final class ZenOPCUATests: XCTestCase {
         
         let nodes: [ReadValue] = [
             ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258), monitoredId: 1),
-            ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"), monitoredId: 2)
+            ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"), monitoredId: 2),
+            ReadValue(nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel"), monitoredId: 3)
         ]
         opcua.onDataChanged = { data in
             data.forEach { dataChange in
@@ -64,14 +65,13 @@ final class ZenOPCUATests: XCTestCase {
 //            }
 
             let subId = try opcua.createSubscription(requestedPubliscingInterval: 500, startPubliscing: true).wait()
-        
             let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: nodes).wait()
             results.forEach { result in
                 print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
             }
 
             wait(for: [expectation], timeout: 10.0)
-            
+
             let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
             deleted.forEach { result in
                 print("deleteSubscription: \(result)")
@@ -81,10 +81,10 @@ final class ZenOPCUATests: XCTestCase {
 //            let readed = try opcua.read(nodes: reads).wait()
 //            print(readed.first?.variant.value ?? "nil")
 
-//            let writes = [
+//            let writes: [WriteValue] = [
 //                WriteValue(
-//                    nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20053),
-//                    value: DataValue(variant: Variant(value: UInt32(1)))
+//                    nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel"),
+//                    value: DataValue(variant: Variant(value: Double(21.0)))
 //                )
 //            ]
 //            let writed = try opcua.write(nodes: writes).wait()

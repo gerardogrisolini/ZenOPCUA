@@ -7,7 +7,7 @@
 
 struct UserTokenPolicy {
     var policyId: String = "Anonymous"
-    var userTokenType: UInt32 = 0
+    var userTokenType: UserTokenType = .anonymous
     var issuedTokenType: String? = nil
     var issuerEndpointUrl: String? = nil
     var securityPolicyUri: String? = nil
