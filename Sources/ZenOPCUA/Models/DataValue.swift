@@ -7,14 +7,7 @@
 
 import Foundation
 
-//enum DataType: UInt8 {
-//    case null = 0x00
-//    case uint32 = 0x01
-//    case int32 = 0x06
-//    case double = 0x05
-//    case string = 0x0c
-//    case datetime = 0x0d
-//}
+
 enum DataType: UInt8 {
     case null = 0
     case bool = 1
@@ -180,8 +173,3 @@ public struct Variant {
     }
 }
 
-//protocol VariantProtocol {
-//    associatedtype T
-//    var type: UInt8 { get set }
-//    var value: T { get set }
-//}
