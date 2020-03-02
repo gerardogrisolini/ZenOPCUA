@@ -44,17 +44,20 @@ class ReadRequest: MessageBase, OPCUAEncodable {
 }
 
 public struct ReadValue: OPCUAEncodable {
-    private let nodeId: Node
-    private let attributeId: UInt32
-    private var indexRange: String? = nil
-    private let dataEncoding: QualifiedName
+    let nodeId: Node
+    let attributeId: UInt32
+    var indexRange: String? = nil
+    let dataEncoding: QualifiedName
+    let monitoredId: UInt32
     
     init(
         nodeId: Node,
+        monitoredId: UInt32 = 0,
         attributeId: UInt32 = 0x0000000d,
         dataEncoding: QualifiedName = QualifiedName()
     ) {
         self.nodeId = nodeId
+        self.monitoredId = monitoredId
         self.attributeId = attributeId
         self.dataEncoding = dataEncoding
     }

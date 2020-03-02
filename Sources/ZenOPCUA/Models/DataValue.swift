@@ -100,7 +100,7 @@ public struct Variant {
             case .string:
                 return String(bytes: $0, encoding: .utf8)!
             case .datetime:
-                return $0.load(as: Int64.self).date
+                return $0.load(as: Int64.self).dateUtc
             default:
                 return bytes
             }

@@ -73,6 +73,14 @@ extension Int64: OPCUAEncodable{
         let start = Calendar.current.date(from: dstComponents)!
         return Date(timeInterval: TimeInterval(self / 1000), since: start)
     }
+
+    var dateUtc: Date {
+        let dstComponents = DateComponents(year: 1601,
+            month: 1,
+            day: 1)
+        let start = Calendar.current.date(from: dstComponents)!
+        return Date(timeInterval: TimeInterval(self / 10000000), since: start)
+    }
 }
 
 extension FixedWidthInteger {

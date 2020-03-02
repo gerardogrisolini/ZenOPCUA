@@ -25,8 +25,8 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
         self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
         self.subscriptionId = subscriptionId
         
-        let requests = itemsToCreate.enumerated().map { (i, readValue) -> MonitoredItemCreateRequest in
-            MonitoredItemCreateRequest(itemToMonitor: readValue, clientHandle: UInt32(i + 1))
+        let requests = itemsToCreate.map { readValue -> MonitoredItemCreateRequest in
+            MonitoredItemCreateRequest(itemToMonitor: readValue, clientHandle: readValue.monitoredId)
         }
         self.itemsToCreate = UInt32(requests.count).bytes + requests.map { $0.bytes }.reduce([], +)
         super.init()

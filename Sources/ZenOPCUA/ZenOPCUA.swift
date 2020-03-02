@@ -237,7 +237,7 @@ public class ZenOPCUA {
         }
     }
 
-    public func createSubscription(requestedPubliscingInterval: Double = 500, startPubliscing: Bool = false) -> EventLoopFuture<UInt32> {
+    public func createSubscription(requestedPubliscingInterval: Double = 1000, startPubliscing: Bool = false) -> EventLoopFuture<UInt32> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -260,7 +260,7 @@ public class ZenOPCUA {
         channel.writeAndFlush(frame, promise: nil)
         
         if startPubliscing {
-            self.startPublish(milliseconds: Int64(requestedPubliscingInterval * 2))
+            self.startPublish(milliseconds: Int64(requestedPubliscingInterval))
         }
 
         return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
