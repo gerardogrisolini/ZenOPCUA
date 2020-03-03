@@ -40,7 +40,7 @@ try opcua.connect().wait()
 
 #### Browse
 ```
-let items = try opcua.browse(nodes: nodes).wait()
+let items = try opcua.browse().wait()
 for item in items {
     item.references.forEach { ref in
         print("\(ref.displayName.text): \(ref.nodeId)")
