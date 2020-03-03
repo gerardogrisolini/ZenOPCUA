@@ -9,10 +9,11 @@ let package = Package(
         .library(name: "ZenOPCUA", targets: ["ZenOPCUA"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", .branch("master"))
+        .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", .branch("master"))
     ],
     targets: [
-        .target(name: "ZenOPCUA",dependencies: ["NIO"]),
+        .target(name: "ZenOPCUA",dependencies: ["NIO", "NIOSSL"]),
         .testTarget(name: "ZenOPCUATests", dependencies: ["ZenOPCUA"]),
     ]
 )

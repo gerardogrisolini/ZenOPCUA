@@ -7,7 +7,7 @@
 
 import Foundation
 import NIO
-
+import NIOSSL
 
 enum OPCUAError : Error {
     case connectionError
@@ -18,13 +18,14 @@ enum OPCUAError : Error {
 
 public class ZenOPCUA {
 
-    public static var endpoint: String = "opc.tcp://opcuaserver.com:4840"
+    public static var endpoint: String = ""
     public static var username: String? = nil
     public static var password: String? = nil
     
     private let eventLoopGroup: EventLoopGroup
-    private var channel: Channel? = nil
     private let handler = OPCUAHandler()
+    private var channel: Channel? = nil
+    private var sslContext: NIOSSLContext? = nil
     private var reconnect: Bool = false
 
     public var onDataChanged: OPCUADataChanged? = nil
@@ -40,7 +41,9 @@ public class ZenOPCUA {
     private func getHostFromEndpoint() -> (host: String, port: Int) {
         let url = ZenOPCUA.endpoint
         if let index = url.lastIndex(of: ":") {
-            let host = url[url.startIndex..<index].replacingOccurrences(of: "opc.tcp://", with: "")
+            let host = url[url.startIndex..<index]
+                .replacingOccurrences(of: "opc.tcp://", with: "")
+                .replacingOccurrences(of: "opc.https://", with: "")
             var port = 0
             
             let part = url[url.index(after: index)...].description
@@ -56,6 +59,19 @@ public class ZenOPCUA {
         return ("", 0)
     }
     
+    public func addTLS(cert: String, key: String) throws {
+        let cert = try NIOSSLCertificate.fromPEMFile(cert)
+        let key = try NIOSSLPrivateKey.init(file: key, format: .pem)
+        
+        let config = TLSConfiguration.forClient(
+            certificateVerification: .none,
+            certificateChain: [.certificate(cert.first!)],
+            privateKey: .privateKey(key)
+        )
+        
+        sslContext = try NIOSSLContext(configuration: config)
+    }
+
     private func start() -> EventLoopFuture<Void> {
         let server = getHostFromEndpoint()
 
@@ -69,21 +85,28 @@ public class ZenOPCUA {
             // Enable SO_REUSEADDR.
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .channelInitializer { channel in
-                channel.pipeline.addHandlers(handlers)
-        }
-        .connect(host: server.host, port: server.port)
-        .flatMap { channel -> EventLoopFuture<Void> in
-            self.channel = channel
-            
-            self.handler.promises.removeValue(forKey: 0)
-            self.handler.promises[0] = channel.eventLoop.makePromise()
-            
-            self.sendHello()
-
-            return self.handler.promises[0]!.futureResult.map { promise -> () in
-                ()
+                if let sslContext = self.sslContext {
+                    let sslClientHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: server.host)
+                    return channel.pipeline.addHandler(sslClientHandler).flatMap { () -> EventLoopFuture<Void> in
+                        channel.pipeline.addHandlers(handlers)
+                    }
+                } else {
+                    return channel.pipeline.addHandlers(handlers)
+                }
             }
-        }
+            .connect(host: server.host, port: server.port)
+            .flatMap { channel -> EventLoopFuture<Void> in
+                self.channel = channel
+                
+                self.handler.promises.removeValue(forKey: 0)
+                self.handler.promises[0] = channel.eventLoop.makePromise()
+                
+                self.sendHello()
+
+                return self.handler.promises[0]!.futureResult.map { promise -> () in
+                    ()
+                }
+            }
     }
     
     private func stop() -> EventLoopFuture<Void> {

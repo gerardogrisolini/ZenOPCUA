@@ -59,9 +59,15 @@ struct ViewDescription: OPCUAEncodable {
     }
 }
 
+public enum BrowseDirection: UInt32 {
+    case forward = 0
+    case inverse = 1
+    case both = 2
+}
+
 public struct BrowseDescription: OPCUAEncodable {
     public let nodeId: Node
-    public var browseDirection: UInt32 = 0x00000000
+    public var browseDirection: BrowseDirection = .forward
     public var referenceTypeId: NodeId = NodeId()
     public var includeSubtypes: Bool = false
     var nodeClassMask: UInt32 = 0x00000000
@@ -73,7 +79,7 @@ public struct BrowseDescription: OPCUAEncodable {
     
     var bytes: [UInt8] {
         return nodeId.bytes +
-            browseDirection.bytes +
+            browseDirection.rawValue.bytes +
             referenceTypeId.bytes +
             includeSubtypes.bytes +
             nodeClassMask.bytes +
