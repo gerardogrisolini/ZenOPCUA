@@ -18,7 +18,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
     let requestedSessionTimeout: Double = 1200000.0
     let maxResponseMessageSize: UInt32 = 2147483647
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
@@ -63,7 +63,7 @@ struct ClientDescription: OPCUAEncodable {
     let discoveryProfileUri: String? = nil
     let discoveryUrls: String? = nil
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return applicationUri.bytes +
             productUri.bytes +
             applicationName +

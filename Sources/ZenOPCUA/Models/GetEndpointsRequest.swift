@@ -13,7 +13,7 @@ class GetEndpointsRequest: MessageBase, OPCUAEncodable {
     var localeIds: String? = nil
     var profileUris: String? = nil
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +

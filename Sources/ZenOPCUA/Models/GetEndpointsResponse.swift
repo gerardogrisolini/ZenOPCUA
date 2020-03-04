@@ -58,7 +58,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                 index += len
             }
             
-            item.server.applicationType = UInt32(bytes: bytes[index..<(index+4)])
+            item.server.applicationType = ApplicationType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
             index += 4
 
             len = Int(UInt32(bytes: bytes[index..<(index+4)]))
@@ -119,7 +119,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                         index += len
                     }
 
-                    identity.userTokenType = UserTokenType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
+                    identity.tokenType = UserTokenType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
                     index += 4
 
                     len = Int(UInt32(bytes: bytes[index..<(index+4)]))

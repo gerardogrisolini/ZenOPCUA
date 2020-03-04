@@ -9,7 +9,7 @@ struct AdditionalHeader: OPCUAEncodable, OPCUADecodable {
     var nodeId: NodeId = NodeId()
     var encodingMask: UInt8 = 0x00
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return nodeId.bytes + [encodingMask]
     }
     

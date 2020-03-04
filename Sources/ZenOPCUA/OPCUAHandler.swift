@@ -30,6 +30,13 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public var sessionActive: CreateSessionResponse? = nil
     public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
     
+    var endpoint: String = ""
+    var username: String? = nil
+    var password: String? = nil
+    var messageSecurityMode: MessageSecurityMode = .none
+    var userTokenType: UserTokenType = .anonymous
+    var requestedLifetime: UInt32 = 600000
+
     public init() {
     }
 
@@ -70,7 +77,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     print("Found \(item.userIdentityTokens.count) policies")
                     print("Selected Endpoint \(item.endpointUrl)")
                     print("SecurityMode \(item.messageSecurityMode)")
-                    print("PolicyId \(item.userIdentityTokens.first(where: { $0.userTokenType == .anonymous })?.policyId ?? "None")")
+                    print("PolicyId \(item.userIdentityTokens.first(where: { $0.tokenType == .anonymous })?.policyId ?? "None")")
                 }
             case .activateSessionResponse:
                 let response = ActivateSessionResponse(bytes: frame.body)
@@ -123,7 +130,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
 
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
-        let body = OpenSecureChannelRequest()
+        let body = OpenSecureChannelRequest(
+            messageSecurityMode: messageSecurityMode,
+            userTokenType: .issue,
+            requestedLifetime: requestedLifetime
+        )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
@@ -155,7 +166,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: response.requestId,
-            endpointUrl: ZenOPCUA.endpoint
+            endpointUrl: endpoint
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
@@ -186,6 +197,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let body = ActivateSessionRequest(
             sequenceNumber: requestId,
             requestId: requestId,
+            username: username,
+            password: password,
             session: session
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)

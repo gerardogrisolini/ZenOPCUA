@@ -82,14 +82,14 @@ public class DataValue: Promisable, OPCUAEncodable {
         self.variant = variant
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return [encodingMask, variant.type] + variant.bytes
     }
 }
 
 public struct Variant {
     public let type: UInt8
-    var bytes: [UInt8] = []
+    internal var bytes: [UInt8] = []
     
     init(type: UInt8) {
         self.type = type

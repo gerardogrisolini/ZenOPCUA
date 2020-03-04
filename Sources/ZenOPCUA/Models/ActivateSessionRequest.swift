@@ -15,7 +15,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     let userIdentityToken: UserIdentityToken
     let userTokenSignature: SignatureData = SignatureData()
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
@@ -32,16 +32,18 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     init(
         sequenceNumber: UInt32,
         requestId: UInt32,
+        username: String?,
+        password: String?,
         session: CreateSessionResponse
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestId, authenticationToken: session.authenticationToken)
         
-        if let username = ZenOPCUA.username, let password = ZenOPCUA.password {
-            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.userTokenType == .userName })!.policyId
+        if let username = username, let password = password {
+            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .userName })!.policyId
             let identityToken = UserNameIdentityToken(policyId: policyId, username: username, password: password)
             userIdentityToken = UserIdentityToken(identityToken: identityToken)
         } else {
-            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.userTokenType == .anonymous })!.policyId
+            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
             userIdentityToken = UserIdentityToken(identityToken: AnonymousIdentityToken(policyId: policyId))
         }
         super.init()
@@ -61,7 +63,7 @@ struct UserIdentityToken: OPCUAEncodable {
         self.identityToken = identityToken
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         let data = identityToken.bytes
         return typeId.bytes + [encodingMask] + UInt32(data.count).bytes + data
     }
@@ -74,7 +76,7 @@ struct AnonymousIdentityToken: OPCUAEncodable {
         self.policyId = policyId
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return policyId.bytes
     }
 }
@@ -92,7 +94,7 @@ struct UserNameIdentityToken: OPCUAEncodable {
         self.encryptionAlgorithm = encryptionAlgorithm
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return policyId.bytes +
             username.bytes +
             password.bytes +

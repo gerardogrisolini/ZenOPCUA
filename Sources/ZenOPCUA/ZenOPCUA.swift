@@ -18,10 +18,6 @@ enum OPCUAError : Error {
 
 public class ZenOPCUA {
 
-    public static var endpoint: String = ""
-    public static var username: String? = nil
-    public static var password: String? = nil
-    
     private let eventLoopGroup: EventLoopGroup
     private let handler = OPCUAHandler()
     private var channel: Channel? = nil
@@ -33,13 +29,13 @@ public class ZenOPCUA {
     public var onErrorCaught: OPCUAErrorCaught? = nil
     
     public init(endpoint: String, reconnect: Bool, eventLoopGroup: EventLoopGroup) {
-        ZenOPCUA.endpoint = endpoint
+        handler.endpoint = endpoint
         self.reconnect = reconnect
         self.eventLoopGroup = eventLoopGroup
     }
     
     private func getHostFromEndpoint() -> (host: String, port: Int) {
-        let url = ZenOPCUA.endpoint
+        let url = handler.endpoint
         if let index = url.lastIndex(of: ":") {
             let host = url[url.startIndex..<index]
                 .replacingOccurrences(of: "opc.tcp://", with: "")
@@ -123,13 +119,13 @@ public class ZenOPCUA {
     fileprivate func sendHello() {
         guard let channel = channel else { return }
         let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
-        let body = Hello(endpointUrl: ZenOPCUA.endpoint)
+        let body = Hello(endpointUrl: handler.endpoint)
         channel.writeAndFlush(OPCUAFrame(head: head, body: body.bytes), promise: nil)
     }
 
     public func connect(username: String? = nil, password: String? = nil) -> EventLoopFuture<Void> {
-        ZenOPCUA.username = username
-        ZenOPCUA.password = password
+        handler.username = username
+        handler.password = password
 
         handler.dataChanged = onDataChanged
         handler.errorCaught = onErrorCaught
@@ -160,6 +156,8 @@ public class ZenOPCUA {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
+        if deleteSubscriptions { stopPublish() }
+        
         let requestId = handler.nextMessageID()
         handler.promises[requestId] = channel.eventLoop.makePromise()
 
@@ -261,7 +259,7 @@ public class ZenOPCUA {
         }
     }
 
-    public func createSubscription(requestedPubliscingInterval: Double = 1000, startPubliscing: Bool = false) -> EventLoopFuture<UInt32> {
+    public func createSubscription(subscription: Subscription, startPubliscing: Bool = false) -> EventLoopFuture<UInt32> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -277,14 +275,14 @@ public class ZenOPCUA {
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,
-            requestedPubliscingInterval: requestedPubliscingInterval
+            subscription: subscription
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
         channel.writeAndFlush(frame, promise: nil)
         
         if startPubliscing {
-            self.startPublish(milliseconds: Int64(requestedPubliscingInterval))
+            self.startPublish(milliseconds: Int64(subscription.requestedPubliscingInterval))
         }
 
         return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
@@ -292,7 +290,7 @@ public class ZenOPCUA {
         }
     }
     
-    public func createMonitoredItems(subscriptionId: UInt32, itemsToCreate: [ReadValue]) -> EventLoopFuture<[MonitoredItemCreateResult]> {
+    public func createMonitoredItems(subscriptionId: UInt32, itemsToCreate: [MonitoredItemCreateRequest]) -> EventLoopFuture<[MonitoredItemCreateResult]> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }

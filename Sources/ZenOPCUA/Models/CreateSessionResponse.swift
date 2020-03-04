@@ -85,7 +85,7 @@ class CreateSessionResponse: MessageBase {
                 index += len
             }
 
-            item.server.applicationType = UInt32(bytes: bytes[index..<(index+4)])
+            item.server.applicationType = ApplicationType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
             index += 4
 
             len = Int(UInt32(bytes: bytes[index..<(index+4)]))
@@ -146,7 +146,7 @@ class CreateSessionResponse: MessageBase {
                         index += len
                     }
 
-                    identity.userTokenType = UserTokenType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
+                    identity.tokenType = UserTokenType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
                     index += 4
 
                     len = Int(UInt32(bytes: bytes[index..<(index+4)]))
@@ -193,7 +193,7 @@ struct SignatureData: OPCUAEncodable {
     let algorithm: String? = nil
     let signature: String? = nil
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return algorithm.bytes + signature.bytes
     }
 }

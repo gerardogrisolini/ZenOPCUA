@@ -34,7 +34,7 @@ class Hello: Handshake, OPCUAEncodable {
         super.init()
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         version.bytes +
         receiveBufferSize.bytes +
         sendBufferSize.bytes +

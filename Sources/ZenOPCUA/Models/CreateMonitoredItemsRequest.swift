@@ -20,15 +20,11 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
         requestHandle: UInt32,
         authenticationToken: Node,
         subscriptionId: UInt32,
-        itemsToCreate: [ReadValue]
+        itemsToCreate: [MonitoredItemCreateRequest]
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
         self.subscriptionId = subscriptionId
-        
-        let requests = itemsToCreate.map { readValue -> MonitoredItemCreateRequest in
-            MonitoredItemCreateRequest(itemToMonitor: readValue, clientHandle: readValue.monitoredId)
-        }
-        self.itemsToCreate = UInt32(requests.count).bytes + requests.map { $0.bytes }.reduce([], +)
+        self.itemsToCreate = UInt32(itemsToCreate.count).bytes + itemsToCreate.map { $0.bytes }.reduce([], +)
         super.init()
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
@@ -36,7 +32,7 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
         self.requestId = requestId
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
@@ -49,35 +45,52 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
     }
 }
 
-struct MonitoredItemCreateRequest: OPCUAEncodable {
-    let itemToMonitor: ReadValue
-    let monitorigMode: UInt32 = 0x00000002
-    let requestedParameters: MonitoringParameters
+/*
+ *  disabled: The item being monitored is not sampled or evaluated, and Notifications are not generated or queued. Notification reporting is disabled.
+ *  sampling: The item being monitored is sampled and evaluated, and Notifications are generated and queued. Notification reporting is disabled.
+ *  reporting: The item being monitored is sampled and evaluated, and Notifications are generated and queued. Notification reporting is enabled.
+ */
 
-    init(itemToMonitor: ReadValue, clientHandle: UInt32) {
+public enum MonitorigMode: UInt32 {
+    case disabled = 0
+    case sampling = 1
+    case reporting = 2
+}
+
+public struct MonitoredItemCreateRequest: OPCUAEncodable {
+    public let itemToMonitor: ReadValue
+    public let monitorigMode: MonitorigMode
+    public let requestedParameters: MonitoringParameters
+
+    init(itemToMonitor: ReadValue, requestedParameters: MonitoringParameters, monitorigMode: MonitorigMode = .reporting) {
         self.itemToMonitor = itemToMonitor
-        self.requestedParameters = MonitoringParameters(clientHandle: clientHandle)
+        self.monitorigMode = monitorigMode
+        self.requestedParameters = requestedParameters
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return itemToMonitor.bytes +
-            monitorigMode.bytes +
+            monitorigMode.rawValue.bytes +
             requestedParameters.bytes
     }
 }
 
-struct MonitoringParameters: OPCUAEncodable {
-    let clientHandle: UInt32
-    let samplingInterval: Double = 250
-    let filter: Filter = Filter()
-    let queueSize: UInt32 = 1
-    let discardOldest: Bool = true
+/*
+ * clientHandle: Client-supplied id of the MonitoredItem.
+ * samplingInterval: The interval in milliseconds that defines the fastest rate at which the MonitoredItem(s) should be accessed and evaluated.
+ * filter: A filter used by the Server to determine if the MonitoredItem should generate a Notification.
+ * queueSize: The requested size of the MonitoredItem queue.
+ * discardOldest: A boolean parameter that specifies the discard policy when the queue is full and a new Notification is to be enqueued.
+ */
 
-    init(clientHandle: UInt32) {
-        self.clientHandle = clientHandle
-    }
+public struct MonitoringParameters: OPCUAEncodable {
+    public var clientHandle: UInt32
+    public var samplingInterval: Double = 250
+    public var filter: Filter = Filter()
+    public var queueSize: UInt32 = 1
+    public var discardOldest: Bool = true
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return clientHandle.bytes +
             samplingInterval.bytes +
             filter.bytes +
@@ -86,11 +99,11 @@ struct MonitoringParameters: OPCUAEncodable {
     }
 }
 
-struct Filter: OPCUAEncodable {
-    var typeId: Node = NodeId()
-    var encodingMask: UInt8 = 0x00
+public struct Filter: OPCUAEncodable {
+    public var typeId: Node = NodeId()
+    public var encodingMask: UInt8 = 0x00
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return typeId.bytes + encodingMask.bytes
     }
 }

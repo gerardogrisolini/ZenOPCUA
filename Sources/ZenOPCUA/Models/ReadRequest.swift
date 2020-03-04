@@ -5,11 +5,18 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
+public enum TimestampsToReturn: UInt32 {
+    case source = 0
+    case server = 1
+    case both = 2
+    case neither = 3
+}
+
 class ReadRequest: MessageBase, OPCUAEncodable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .readRequest)
     let requestHeader: RequestHeader
     let maxAge: Double = 0
-    let timestampsToReturn: UInt32 = 0x00000000
+    let timestampsToReturn: TimestampsToReturn = .source
     let nodesToRead: [UInt8]
     
     init(
@@ -30,7 +37,7 @@ class ReadRequest: MessageBase, OPCUAEncodable {
         self.requestId = requestId
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
@@ -38,7 +45,7 @@ class ReadRequest: MessageBase, OPCUAEncodable {
             typeId.bytes +
             requestHeader.bytes +
             maxAge.bytes +
-            timestampsToReturn.bytes +
+            timestampsToReturn.rawValue.bytes +
             nodesToRead
     }
 }
@@ -48,21 +55,18 @@ public struct ReadValue: OPCUAEncodable {
     let attributeId: UInt32
     var indexRange: String? = nil
     let dataEncoding: QualifiedName
-    let monitoredId: UInt32
     
     init(
         nodeId: Node,
-        monitoredId: UInt32 = 0,
         attributeId: UInt32 = 0x0000000d,
         dataEncoding: QualifiedName = QualifiedName()
     ) {
         self.nodeId = nodeId
-        self.monitoredId = monitoredId
         self.attributeId = attributeId
         self.dataEncoding = dataEncoding
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return nodeId.bytes +
             attributeId.bytes +
             indexRange.bytes +

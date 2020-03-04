@@ -48,7 +48,7 @@ public enum Nodes: UInt8 {
 
 public class Node: OPCUAEncodable {
     public var encodingMask: Nodes
-    var bytes: [UInt8] { return [] }
+    internal var bytes: [UInt8] { return [] }
 
     init(_ encodingMask: Nodes) {
         self.encodingMask = encodingMask

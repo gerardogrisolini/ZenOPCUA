@@ -15,7 +15,7 @@ class BrowseRequest: MessageBase, OPCUAEncodable {
     let requestedMaxReferencesPerNode: UInt32 = 0
     let nodesToBrowse: [BrowseDescription]
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         let part = UInt32(nodesToBrowse.count).bytes
         return secureChannelId.bytes +
             tokenId.bytes +
@@ -52,7 +52,7 @@ struct ViewDescription: OPCUAEncodable {
     var timestamp: UInt64 = 0
     var viewVersion: UInt32 = 0
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return viewId.bytes +
             timestamp.bytes +
             viewVersion.bytes
@@ -77,7 +77,7 @@ public struct BrowseDescription: OPCUAEncodable {
         self.nodeId = nodeId
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return nodeId.bytes +
             browseDirection.rawValue.bytes +
             referenceTypeId.bytes +

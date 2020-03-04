@@ -30,14 +30,14 @@ public struct OPCUAFrame: Equatable {
 }
 
 extension String: OPCUAEncodable {
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         let len = self.isEmpty ? UInt32.max : UInt32(self.utf8.count)
         return len.bytes + self.utf8.map { $0 }
     }
 }
 
 extension Optional where Wrapped == String {
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         self == nil ? UInt32.max.bytes : self!.bytes
     }
 }
@@ -60,7 +60,7 @@ extension Date : OPCUAEncodable {
         }
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return ticks.bytes
     }
 }
@@ -96,7 +96,7 @@ extension FixedWidthInteger {
         self.init(littleEndianBytes: &iter)
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         var _endian = littleEndian
         let bytePtr = withUnsafePointer(to: &_endian) {
             $0.withMemoryRebound(to: UInt8.self, capacity: MemoryLayout<Self>.size) {
@@ -116,7 +116,7 @@ extension Double: OPCUAEncodable, OPCUADecodable {
         self = bytes.withUnsafeBytes{ $0.load(as: Double.self) }
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         var _self = self
         let bytePtr = withUnsafePointer(to: &_self) {
             $0.withMemoryRebound(to: UInt8.self, capacity: MemoryLayout<Self>.size) {
@@ -132,13 +132,13 @@ extension Bool {
         self = byte == 0x01 ? true : false
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return [self ? 0x01 : 0x00]
     }
 }
 
 extension Array where Element: OPCUAEncodable {
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return self.map { $0.bytes }.reduce([], +)
     }
 }

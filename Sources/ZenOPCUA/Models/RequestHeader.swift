@@ -21,7 +21,7 @@ struct RequestHeader: OPCUAEncodable {
         self.authenticationToken = authenticationToken
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return authenticationToken.bytes +
             timestamp.bytes +
             requestHandle.bytes +

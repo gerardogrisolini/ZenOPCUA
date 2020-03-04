@@ -30,7 +30,7 @@ class PublishRequest: MessageBase, OPCUAEncodable {
         self.requestId = requestId
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +

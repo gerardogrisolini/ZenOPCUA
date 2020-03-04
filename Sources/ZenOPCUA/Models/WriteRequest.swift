@@ -28,7 +28,7 @@ class WriteRequest: MessageBase, OPCUAEncodable {
         self.requestId = requestId
     }
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
@@ -55,7 +55,7 @@ public struct WriteValue: OPCUAEncodable {
         self.value = value
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return nodeId.bytes +
             attributeId.bytes +
             indexRange.bytes +

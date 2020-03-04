@@ -122,7 +122,7 @@ public struct QualifiedName: OPCUAEncodable {
     public var id: UInt16 = 0
     public var name: String? = nil
 
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         return id.bytes + name.bytes
     }
 }
