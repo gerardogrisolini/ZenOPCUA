@@ -28,8 +28,14 @@ public class ZenOPCUA {
     public var onHandlerRemoved: OPCUAHandlerRemoved? = nil
     public var onErrorCaught: OPCUAErrorCaught? = nil
     
-    public init(endpoint: String, reconnect: Bool, eventLoopGroup: EventLoopGroup) {
+    public init(
+        eventLoopGroup: EventLoopGroup,
+        endpoint: String,
+        messageSecurityMode: MessageSecurityMode = .none,
+        reconnect: Bool = true
+    ) {
         handler.endpoint = endpoint
+        handler.messageSecurityMode = messageSecurityMode
         self.reconnect = reconnect
         self.eventLoopGroup = eventLoopGroup
     }

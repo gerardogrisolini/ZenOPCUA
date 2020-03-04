@@ -10,7 +10,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .activateSessionRequest)
     let requestHeader: RequestHeader
     let clientSignature: SignatureData = SignatureData()
-    let clientSowtwareCertificates: String? = nil
+    let clientSoftwareCertificates: String? = nil
     let localeIds: String? = nil
     let userIdentityToken: UserIdentityToken
     let userTokenSignature: SignatureData = SignatureData()
@@ -23,7 +23,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
             typeId.bytes +
             requestHeader.bytes +
             clientSignature.bytes +
-            clientSowtwareCertificates.bytes +
+            clientSoftwareCertificates.bytes +
             localeIds.bytes +
             userIdentityToken.bytes +
             userTokenSignature.bytes
@@ -32,20 +32,11 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     init(
         sequenceNumber: UInt32,
         requestId: UInt32,
-        username: String?,
-        password: String?,
-        session: CreateSessionResponse
+        session: CreateSessionResponse,
+        userIdentityToken: UserIdentityToken
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestId, authenticationToken: session.authenticationToken)
-        
-        if let username = username, let password = password {
-            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .userName })!.policyId
-            let identityToken = UserNameIdentityToken(policyId: policyId, username: username, password: password)
-            userIdentityToken = UserIdentityToken(identityToken: identityToken)
-        } else {
-            let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
-            userIdentityToken = UserIdentityToken(identityToken: AnonymousIdentityToken(policyId: policyId))
-        }
+        self.userIdentityToken = userIdentityToken
         super.init()
         self.secureChannelId = session.secureChannelId
         self.tokenId = session.tokenId

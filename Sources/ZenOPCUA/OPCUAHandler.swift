@@ -34,7 +34,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var username: String? = nil
     var password: String? = nil
     var messageSecurityMode: MessageSecurityMode = .none
-    var userTokenType: UserTokenType = .anonymous
     var requestedLifetime: UInt32 = 600000
 
     public init() {
@@ -42,7 +41,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
 
     public func channelActive(context: ChannelHandlerContext) {
         print("OPCUA Client connected to \(context.remoteAddress!)")
-        print("SecurityPolicy not specified -> use default #None")
     }
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
@@ -53,7 +51,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            print("Opened SecureChannel with SecurityPolicy \(response.securityPolicyUri)")
+            print("Opened SecureChannel with SecurityPolicy \(response.securityPolicyUri.rawValue)")
             getEndpoints(context: context, response: response)
         case .error:
             let codeId = UInt32(bytes: frame.body[0...3])
@@ -70,14 +68,27 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
             case .createSessionResponse:
                 sessionActive = CreateSessionResponse(bytes: frame.body)
-                activateSession(context: context)
 
-                print("Found \(sessionActive?.serverEndpoints.count ?? 0) endpoints")
-                if let item = sessionActive?.serverEndpoints.first(where: { $0.messageSecurityMode == .none }) {
+                print("Found \(sessionActive!.serverEndpoints.count) endpoints")
+                if let item = sessionActive!.serverEndpoints.first(where: { $0.messageSecurityMode == messageSecurityMode }) {
                     print("Found \(item.userIdentityTokens.count) policies")
                     print("Selected Endpoint \(item.endpointUrl)")
                     print("SecurityMode \(item.messageSecurityMode)")
-                    print("PolicyId \(item.userIdentityTokens.first(where: { $0.tokenType == .anonymous })?.policyId ?? "None")")
+
+                    var userIdentityToken: UserIdentityToken
+                    if let username = username, let password = password {
+                        let policyId = sessionActive!.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .userName })!.policyId
+                        print("PolicyId \(policyId)")
+                        let identityToken = UserNameIdentityToken(policyId: policyId, username: username, password: password)
+                        userIdentityToken = UserIdentityToken(identityToken: identityToken)
+                    } else {
+                        let policyId = sessionActive!.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
+                        print("PolicyId \(policyId)")
+                        userIdentityToken = UserIdentityToken(identityToken: AnonymousIdentityToken(policyId: policyId))
+                    }
+                    activateSession(context: context, userIdentityToken: userIdentityToken)
+                } else {
+                    promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
                 }
             case .activateSessionResponse:
                 let response = ActivateSessionResponse(bytes: frame.body)
@@ -189,7 +200,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
 
-    fileprivate func activateSession(context: ChannelHandlerContext) {
+    fileprivate func activateSession(context: ChannelHandlerContext, userIdentityToken: UserIdentityToken) {
         guard  let session = sessionActive else { return }
         
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
@@ -197,9 +208,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let body = ActivateSessionRequest(
             sequenceNumber: requestId,
             requestId: requestId,
-            username: username,
-            password: password,
-            session: session
+            session: session,
+            userIdentityToken: userIdentityToken
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         

@@ -18,47 +18,48 @@ final class ZenOPCUATests: XCTestCase {
         let expectation = XCTestExpectation(description: "OPCUA")
 
         let opcua = ZenOPCUA(
+            eventLoopGroup: eventLoopGroup,
             endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
-            reconnect: false,
-            eventLoopGroup: eventLoopGroup
+            messageSecurityMode: .none,
+            reconnect: false
         )
-        
-        let nodes: [MonitoredItemCreateRequest] = [
-            MonitoredItemCreateRequest(
-                itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258)),
-                requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 300, queueSize: 1)
-            ),
-            MonitoredItemCreateRequest(
-                itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
-                requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 300, queueSize: 1)
-            ),
-            MonitoredItemCreateRequest(
-                itemToMonitor:  ReadValue(nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel")),
-                requestedParameters: MonitoringParameters(clientHandle: 3, samplingInterval: 300, queueSize: 1)
-            )
-        ]
-        opcua.onDataChanged = { data in
-            data.forEach { dataChange in
-                print("\(dataChange.typeId)")
-                dataChange.dataChangeNotification.monitoredItems.forEach { item in
-                    if let node = nodes.first(where: { $0.requestedParameters.clientHandle == item.monitoredId }) {
-                        print("\(node.itemToMonitor.nodeId): \(item.value.variant.value)")
-                    }
-                }
-            }
-            
-            if count > 5 {
-                XCTAssertTrue(count > 0)
-                expectation.fulfill()
-            }
-            count += 1
-        }
-        opcua.onHandlerRemoved = {
-            print("OPCUA Client disconnected")
-        }
-        opcua.onErrorCaught = { error in
-            print(error)
-        }
+
+//        let nodes: [MonitoredItemCreateRequest] = [
+//            MonitoredItemCreateRequest(
+//                itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258)),
+//                requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 300, queueSize: 1)
+//            ),
+//            MonitoredItemCreateRequest(
+//                itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
+//                requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 300, queueSize: 1)
+//            ),
+//            MonitoredItemCreateRequest(
+//                itemToMonitor:  ReadValue(nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel")),
+//                requestedParameters: MonitoringParameters(clientHandle: 3, samplingInterval: 300, queueSize: 1)
+//            )
+//        ]
+//        opcua.onDataChanged = { data in
+//            data.forEach { dataChange in
+//                print("\(dataChange.typeId)")
+//                dataChange.dataChangeNotification.monitoredItems.forEach { item in
+//                    if let node = nodes.first(where: { $0.requestedParameters.clientHandle == item.monitoredId }) {
+//                        print("\(node.itemToMonitor.nodeId): \(item.value.variant.value)")
+//                    }
+//                }
+//            }
+//
+//            if count > 5 {
+//                XCTAssertTrue(count > 0)
+//                expectation.fulfill()
+//            }
+//            count += 1
+//        }
+//        opcua.onHandlerRemoved = {
+//            print("OPCUA Client disconnected")
+//        }
+//        opcua.onErrorCaught = { error in
+//            print(error)
+//        }
         
         do {
             try opcua.connect().wait()
@@ -74,30 +75,30 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
             
-            let subscription = Subscription(
-                requestedPubliscingInterval: 1000,
-                requestedLifetimeCount: 5,
-                requesteMaxKeepAliveCount: 5,
-                maxNotificationsPerPublish: 5,
-                publishingEnabled: true,
-                priority: 10
-            )
-            let subId = try opcua.createSubscription(subscription: subscription, startPubliscing: true).wait()
-            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: nodes).wait()
-            results.forEach { result in
-                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
-            }
+//            let subscription = Subscription(
+//                requestedPubliscingInterval: 1000,
+//                requestedLifetimeCount: 5,
+//                requesteMaxKeepAliveCount: 5,
+//                maxNotificationsPerPublish: 5,
+//                publishingEnabled: true,
+//                priority: 10
+//            )
+//            let subId = try opcua.createSubscription(subscription: subscription, startPubliscing: true).wait()
+//            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: nodes).wait()
+//            results.forEach { result in
+//                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+//            }
+//
+//            wait(for: [expectation], timeout: 10.0)
+//
+//            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
+//            deleted.forEach { result in
+//                print("deleteSubscription: \(result)")
+//            }
 
-            wait(for: [expectation], timeout: 10.0)
-
-            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
-            deleted.forEach { result in
-                print("deleteSubscription: \(result)")
-            }
-
-//            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))]
-//            let readed = try opcua.read(nodes: reads).wait()
-//            print(readed.first?.variant.value ?? "nil")
+            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))]
+            let readed = try opcua.read(nodes: reads).wait()
+            print(readed.first?.variant.value ?? "nil")
 
 //            let writes: [WriteValue] = [
 //                WriteValue(

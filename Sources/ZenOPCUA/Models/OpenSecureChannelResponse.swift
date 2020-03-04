@@ -20,7 +20,7 @@ class OpenSecureChannelResponse: OpenSecureChannel, OPCUADecodable {
         let part2 = bytes[103...122].map { $0 }
         securityToken = SecurityToken(bytes: part2)
         serverNonce = nil //bytes[123...126]
-        super.init()
+        super.init(securityPolicyUri: .none)
         secureChannelId = UInt32(bytes: bytes[0...3])
     }
 }
