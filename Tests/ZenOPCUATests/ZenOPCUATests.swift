@@ -14,16 +14,16 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-        var count = 0
-        let expectation = XCTestExpectation(description: "OPCUA")
 
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
             endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
-            messageSecurityMode: .none,
-            reconnect: false
+            securityPolicy: .basic256,
+            messageSecurityMode: .signAndEncrypt
         )
 
+//        var count = 0
+//        let expectation = XCTestExpectation(description: "OPCUA")
 //        let nodes: [MonitoredItemCreateRequest] = [
 //            MonitoredItemCreateRequest(
 //                itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258)),

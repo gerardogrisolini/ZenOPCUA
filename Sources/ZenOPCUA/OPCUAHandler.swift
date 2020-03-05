@@ -34,6 +34,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var username: String? = nil
     var password: String? = nil
     var messageSecurityMode: MessageSecurityMode = .none
+    var securityPolicy: SecurityPolicyUri = .none
     var requestedLifetime: UInt32 = 600000
 
     public init() {
@@ -75,16 +76,16 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     print("Selected Endpoint \(item.endpointUrl)")
                     print("SecurityMode \(item.messageSecurityMode)")
 
-                    var userIdentityToken: UserIdentityToken
+                    var userIdentityToken: UserIdentity
                     if let username = username, let password = password {
                         let policyId = sessionActive!.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .userName })!.policyId
                         print("PolicyId \(policyId)")
-                        let identityToken = UserNameIdentityToken(policyId: policyId, username: username, password: password)
-                        userIdentityToken = UserIdentityToken(identityToken: identityToken)
+                        let identityToken = UserIdentityInfoUserName(policyId: policyId, username: username, password: password)
+                        userIdentityToken = identityToken
                     } else {
                         let policyId = sessionActive!.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
                         print("PolicyId \(policyId)")
-                        userIdentityToken = UserIdentityToken(identityToken: AnonymousIdentityToken(policyId: policyId))
+                        userIdentityToken = AnonymousIdentity(policyId: policyId)
                     }
                     activateSession(context: context, userIdentityToken: userIdentityToken)
                 } else {
@@ -143,6 +144,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
         let body = OpenSecureChannelRequest(
             messageSecurityMode: messageSecurityMode,
+            securityPolicy: securityPolicy,
             userTokenType: .issue,
             requestedLifetime: requestedLifetime
         )
@@ -200,7 +202,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
 
-    fileprivate func activateSession(context: ChannelHandlerContext, userIdentityToken: UserIdentityToken) {
+    fileprivate func activateSession(context: ChannelHandlerContext, userIdentityToken: UserIdentity) {
         guard  let session = sessionActive else { return }
         
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)

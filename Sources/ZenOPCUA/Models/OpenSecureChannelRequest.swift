@@ -32,6 +32,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
     
     init(
         messageSecurityMode: MessageSecurityMode,
+        securityPolicy: SecurityPolicyUri,
         userTokenType: SecurityTokenRequestType,
         requestedLifetime: UInt32
     ) {
@@ -39,7 +40,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         self.messageSecurityMode = messageSecurityMode
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime
-        super.init(securityPolicyUri: .none)
+        super.init(securityPolicyUri: securityPolicy)
         self.secureChannelId = 0
     }
 }
@@ -49,14 +50,6 @@ public enum MessageSecurityMode : UInt32 {
     case none = 1
     case sign = 2
     case signAndEncrypt = 3
-}
-
-public enum UserTokenType : UInt32 {
-    case anonymous = 0      //No token is required.
-    case userName = 1       //A username/password token.
-    case certificate = 2    //An X509v3 Certificate token.
-    case issuedToken = 3    //Any WS-Security defined token.
-    case kerberos = 4
 }
 
 public enum SecurityTokenRequestType: UInt32 {

@@ -12,7 +12,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     let clientSignature: SignatureData = SignatureData()
     let clientSoftwareCertificates: String? = nil
     let localeIds: String? = nil
-    let userIdentityToken: UserIdentityToken
+    let userIdentityToken: UserIdentity
     let userTokenSignature: SignatureData = SignatureData()
 
     internal var bytes: [UInt8] {
@@ -33,7 +33,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
         sequenceNumber: UInt32,
         requestId: UInt32,
         session: CreateSessionResponse,
-        userIdentityToken: UserIdentityToken
+        userIdentityToken: UserIdentity
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestId, authenticationToken: session.authenticationToken)
         self.userIdentityToken = userIdentityToken
@@ -42,53 +42,5 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
         self.tokenId = session.tokenId
         self.sequenceNumber = sequenceNumber
         self.requestId = requestId
-    }
-}
-
-struct UserIdentityToken: OPCUAEncodable {
-    let typeId: NodeIdNumeric = NodeIdNumeric(method: .userIdentityToken)
-    let encodingMask: UInt8 = 0x01
-    let identityToken: OPCUAEncodable
-
-    init(identityToken: OPCUAEncodable) {
-        self.identityToken = identityToken
-    }
-    
-    internal var bytes: [UInt8] {
-        let data = identityToken.bytes
-        return typeId.bytes + [encodingMask] + UInt32(data.count).bytes + data
-    }
-}
-
-struct AnonymousIdentityToken: OPCUAEncodable {
-    let policyId: String
-    
-    init(policyId: String) {
-        self.policyId = policyId
-    }
-    
-    internal var bytes: [UInt8] {
-        return policyId.bytes
-    }
-}
-
-struct UserNameIdentityToken: OPCUAEncodable {
-    let policyId: String
-    let username: String
-    let password: String
-    let encryptionAlgorithm: String?
-
-    init(policyId: String, username: String, password: String, encryptionAlgorithm: String? = nil) {
-        self.policyId = policyId
-        self.username = username
-        self.password = password
-        self.encryptionAlgorithm = encryptionAlgorithm
-    }
-    
-    internal var bytes: [UInt8] {
-        return policyId.bytes +
-            username.bytes +
-            password.bytes +
-            encryptionAlgorithm.bytes
     }
 }
