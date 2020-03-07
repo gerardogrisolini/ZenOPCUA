@@ -5,6 +5,8 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
+import Foundation
+
 class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
     let requestHeader: RequestHeader
@@ -34,14 +36,26 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         messageSecurityMode: MessageSecurityMode,
         securityPolicy: SecurityPolicyUri,
         userTokenType: SecurityTokenRequestType,
-        requestedLifetime: UInt32
+        senderCertificate: String?,
+        receiverCertificateThumbprint: String?,
+        requestedLifetime: UInt32,
+        requestId: UInt32
     ) {
         self.requestHeader = RequestHeader(requestHandle: 0)
         self.messageSecurityMode = messageSecurityMode
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime
-        super.init(securityPolicyUri: securityPolicy)
+        super.init(securityPolicyUri: securityPolicy, requestId: requestId)
         self.secureChannelId = 0
+        
+        if let senderCertificate = senderCertificate,
+            let certificate = try? String(contentsOfFile: senderCertificate) {
+            self.senderCertificate = certificate.data(using: .utf8)!.base64EncodedString()
+        }
+        if let receiverCertificateThumbprint = receiverCertificateThumbprint,
+            let privateKey = try? String(contentsOfFile: receiverCertificateThumbprint) {
+            self.receiverCertificateThumbprint = privateKey.data(using: .utf8)!.base64EncodedString()
+        }
     }
 }
 

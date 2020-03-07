@@ -35,6 +35,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var password: String? = nil
     var messageSecurityMode: MessageSecurityMode = .none
     var securityPolicy: SecurityPolicyUri = .none
+    var senderCertificate: String? = nil
+    var receiverCertificateThumbprint: String? = nil
     var requestedLifetime: UInt32 = 600000
 
     public init() {
@@ -140,17 +142,45 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         errorCaught(error)
     }
 
+    fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
+        let chunkSize: Int = 4098
+
+        if frame.head.messageSize > chunkSize {
+
+            var index = 0
+            while index < frame.head.messageSize {
+                print("\(index) < \(frame.head.messageSize)")
+                let part: OPCUAFrame
+                if (index + chunkSize - 8) >= frame.head.messageSize {
+                    let body = frame.body[index...].map { $0 }
+                    part = OPCUAFrame(head: frame.head, body: body)
+                } else {
+                    let head = OPCUAFrameHead(messageType: frame.head.messageType, chunkType: .part)
+                    let body = frame.body[index..<(index + chunkSize - 8)].map { $0 }
+                    part = OPCUAFrame(head: head, body: body)
+                }
+                context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
+                index += chunkSize - 8
+            }
+            
+        } else {
+            context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+        }
+    }
+    
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
+        let requestId = nextMessageID()
         let body = OpenSecureChannelRequest(
             messageSecurityMode: messageSecurityMode,
             securityPolicy: securityPolicy,
             userTokenType: .issue,
-            requestedLifetime: requestedLifetime
+            senderCertificate: senderCertificate,
+            receiverCertificateThumbprint: receiverCertificateThumbprint,
+            requestedLifetime: requestedLifetime,
+            requestId: requestId
         )
-        let frame = OPCUAFrame(head: head, body: body.bytes)
-        
-        context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+        write(context, OPCUAFrame(head: head, body: body.bytes))
     }
 
     fileprivate func closeSecureChannel(context: ChannelHandlerContext, response: CloseSessionResponse) {
@@ -181,9 +211,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             requestHandle: response.requestId,
             endpointUrl: endpoint
         )
-        let frame = OPCUAFrame(head: head, body: body.bytes)
-        
-        context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+        write(context, OPCUAFrame(head: head, body: body.bytes))
     }
 
     fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) {
@@ -197,9 +225,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             requestHandle: response.requestId,
             endpointUrl: response.endpoints.first!.endpointUrl
         )
-        let frame = OPCUAFrame(head: head, body: body.bytes)
-        
-        context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+        write(context, OPCUAFrame(head: head, body: body.bytes))
     }
 
     fileprivate func activateSession(context: ChannelHandlerContext, userIdentityToken: UserIdentity) {
@@ -213,9 +239,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             session: session,
             userIdentityToken: userIdentityToken
         )
-        let frame = OPCUAFrame(head: head, body: body.bytes)
-        
-        context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+        write(context, OPCUAFrame(head: head, body: body.bytes))
     }
     
     private var messageID = UInt32(1)

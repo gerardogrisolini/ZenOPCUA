@@ -15,11 +15,16 @@ final class ZenOPCUATests: XCTestCase {
 
     func testExample() {
 
+        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_selfsigned_cert_2048.pem"
+        let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
+        
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
             endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
             securityPolicy: .basic256,
-            messageSecurityMode: .signAndEncrypt
+            messageSecurityMode: .signAndEncrypt,
+            senderCertificate: certificateFile,
+            receiverCertificateThumbprint: privateKeyFile
         )
 
 //        var count = 0
@@ -54,12 +59,13 @@ final class ZenOPCUATests: XCTestCase {
 //            }
 //            count += 1
 //        }
-//        opcua.onHandlerRemoved = {
-//            print("OPCUA Client disconnected")
-//        }
-//        opcua.onErrorCaught = { error in
-//            print(error)
-//        }
+
+        opcua.onHandlerRemoved = {
+            print("OPCUA Client disconnected")
+        }
+        opcua.onErrorCaught = { error in
+            print(error)
+        }
         
         do {
             try opcua.connect().wait()
@@ -96,7 +102,7 @@ final class ZenOPCUATests: XCTestCase {
 //                print("deleteSubscription: \(result)")
 //            }
 
-            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))]
+            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"))]
             let readed = try opcua.read(nodes: reads).wait()
             print(readed.first?.variant.value ?? "nil")
 

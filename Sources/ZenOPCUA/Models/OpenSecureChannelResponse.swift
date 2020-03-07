@@ -19,8 +19,11 @@ class OpenSecureChannelResponse: OpenSecureChannel, OPCUADecodable {
         serverProtocolVersion = UInt32(bytes: bytes[99...102])
         let part2 = bytes[103...122].map { $0 }
         securityToken = SecurityToken(bytes: part2)
+        
+        //TODO: complete parsing response
+        
         serverNonce = nil //bytes[123...126]
-        super.init(securityPolicyUri: .none)
+        super.init(securityPolicyUri: .none, requestId: responseHeader.requestHandle)
         secureChannelId = UInt32(bytes: bytes[0...3])
     }
 }
