@@ -101,7 +101,11 @@ struct UserIdentityInfoX509: UserIdentity {
     }
 
     private func signature(_ data: [UInt8], _ key: [UInt8], _ policy: String) -> [UInt8] {
-        //TODO: implement signature
+        
+        // TODO: implement signature
+        // 1. get algorithm from policy
+        // 2. sign data with key
+        
         fatalError("method not implemented")
     }
 }
