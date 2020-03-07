@@ -23,8 +23,8 @@ final class ZenOPCUATests: XCTestCase {
             endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
             securityPolicy: .basic256,
             messageSecurityMode: .signAndEncrypt,
-            senderCertificate: certificateFile,
-            receiverCertificateThumbprint: privateKeyFile
+            certificate: certificateFile,
+            privateKey: privateKeyFile
         )
 
 //        var count = 0

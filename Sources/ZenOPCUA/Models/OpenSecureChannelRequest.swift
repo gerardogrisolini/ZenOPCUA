@@ -47,15 +47,8 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         self.requestedLifetime = requestedLifetime
         super.init(securityPolicyUri: securityPolicy, requestId: requestId)
         self.secureChannelId = 0
-        
-        if let senderCertificate = senderCertificate,
-            let certificate = try? String(contentsOfFile: senderCertificate) {
-            self.senderCertificate = certificate.data(using: .utf8)!.base64EncodedString()
-        }
-        if let receiverCertificateThumbprint = receiverCertificateThumbprint,
-            let privateKey = try? String(contentsOfFile: receiverCertificateThumbprint) {
-            self.receiverCertificateThumbprint = privateKey.data(using: .utf8)!.base64EncodedString()
-        }
+        self.senderCertificate = senderCertificate
+        self.receiverCertificateThumbprint = receiverCertificateThumbprint
     }
 }
 

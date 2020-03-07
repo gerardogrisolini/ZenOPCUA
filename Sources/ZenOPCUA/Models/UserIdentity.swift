@@ -5,10 +5,25 @@
 //  Created by Gerardo Grisolini on 05/03/2020.
 //
 
+import Foundation
+
 protocol UserIdentity: OPCUAEncodable {
-    var typeId: NodeIdNumeric { get }
-    var encodingMask: UInt8 { get }
     var policyId: String { get }
+}
+
+struct UserIdentityToken: OPCUAEncodable {
+    let typeId: NodeIdNumeric = NodeIdNumeric(method: .userIdentityToken)
+    let encodingMask: UInt8 = 0x01
+    let userIdentity: UserIdentity
+
+    init(userIdentity: UserIdentity) {
+        self.userIdentity = userIdentity
+    }
+
+    internal var bytes: [UInt8] {
+        let data = userIdentity.bytes
+        return typeId.bytes + [encodingMask] + UInt32(data.count).bytes + data
+    }
 }
 
 public enum UserTokenType : UInt32 {
@@ -19,9 +34,7 @@ public enum UserTokenType : UInt32 {
 }
 
 struct AnonymousIdentity: UserIdentity {
-    let typeId: NodeIdNumeric = NodeIdNumeric(method: .userIdentityToken)
-    let encodingMask: UInt8 = 0x01
-    let policyId: String
+   let policyId: String
     
     init(policyId: String) {
         self.policyId = policyId
@@ -29,15 +42,12 @@ struct AnonymousIdentity: UserIdentity {
     
     internal var bytes: [UInt8] {
         let data = policyId.bytes
-        return typeId.bytes + [encodingMask] + UInt32(data.count).bytes + data
+        return UInt32(data.count).bytes + data
     }
 }
 
 struct UserIdentityInfoUserName: UserIdentity {
-    let typeId: NodeIdNumeric = NodeIdNumeric(method: .userIdentityToken)
-    let encodingMask: UInt8 = 0x01
     let policyId: String
-    
     let username: String
     let password: String
     let encryptionAlgorithm: String?
@@ -52,7 +62,7 @@ struct UserIdentityInfoUserName: UserIdentity {
     internal var bytes: [UInt8] {
         let data = policyId.bytes
         let bytes = UInt32(data.count).bytes + data
-        return typeId.bytes + [encodingMask] + bytes +
+        return bytes +
             username.bytes +
             password.bytes +
             encryptionAlgorithm.bytes
@@ -60,39 +70,38 @@ struct UserIdentityInfoUserName: UserIdentity {
 }
 
 struct UserIdentityInfoX509: UserIdentity {
-    let typeId: NodeIdNumeric = NodeIdNumeric(method: .userIdentityToken)
-    let encodingMask: UInt8 = 0x01
     let policyId: String
-    
-    let certificateData: String;
-    let privateKey: String;
+    let certificateData: [UInt8]
+    var userTokenSignature: [UInt8] = []
 
-    init(policyId: String, certificateData: String, privateKey: String) {
+    init(
+        policyId: String,
+        certificate: String,
+        privateKey: String,
+        serverCertificate: [UInt8],
+        serverNonce: [UInt8],
+        securityPolicy: String
+    ) {
         self.policyId = policyId
-        self.certificateData = certificateData
-        self.privateKey = privateKey
+        do {
+            self.certificateData = [UInt8](try Data(contentsOf: URL(string: certificate)!))
+            
+            let dataToSign = serverCertificate + serverNonce
+            let key = [UInt8](try Data(contentsOf: URL(string: privateKey)!))
+            self.userTokenSignature = signature(dataToSign, key, securityPolicy)
+        } catch {
+            fatalError(error.localizedDescription)
+        }
     }
 
     internal var bytes: [UInt8] {
         let data = policyId.bytes
         let bytes = UInt32(data.count).bytes + data
-        return typeId.bytes + [encodingMask] + bytes +
-            certificateData.bytes +
-            privateKey.bytes
+        return bytes + certificateData + userTokenSignature
+    }
+
+    private func signature(_ data: [UInt8], _ key: [UInt8], _ policy: String) -> [UInt8] {
+        //TODO: implement signature
+        fatalError("method not implemented")
     }
 }
-
-//struct UserIdentityToken: OPCUAEncodable {
-//    let typeId: NodeIdNumeric = NodeIdNumeric(method: .userIdentityToken)
-//    let encodingMask: UInt8 = 0x01
-//    let identityToken: OPCUAEncodable
-//
-//    init(identityToken: OPCUAEncodable) {
-//        self.identityToken = identityToken
-//    }
-//
-//    internal var bytes: [UInt8] {
-//        let data = identityToken.bytes
-//        return typeId.bytes + [encodingMask] + UInt32(data.count).bytes + data
-//    }
-//}
