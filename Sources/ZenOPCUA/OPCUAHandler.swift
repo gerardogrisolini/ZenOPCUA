@@ -15,8 +15,6 @@ public typealias OPCUAErrorCaught = (Error) -> ()
 
 public protocol Promisable { }
 public struct Empty: Promisable { }
-extension UInt32: Promisable { }
-extension Array: Promisable where Element : Promisable { }
 
 
 final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {

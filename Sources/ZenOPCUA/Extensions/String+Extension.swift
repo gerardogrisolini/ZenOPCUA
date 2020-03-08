@@ -23,3 +23,16 @@ extension String {
         return result
     }
 }
+
+extension String: OPCUAEncodable {
+    internal var bytes: [UInt8] {
+        let len = self.isEmpty ? UInt32.max : UInt32(self.utf8.count)
+        return len.bytes + self.utf8.map { $0 }
+    }
+}
+
+extension Optional where Wrapped == String {
+    internal var bytes: [UInt8] {
+        self == nil ? UInt32.max.bytes : self!.bytes
+    }
+}
