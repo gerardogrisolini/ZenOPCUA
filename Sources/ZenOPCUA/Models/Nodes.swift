@@ -6,7 +6,8 @@
 //
 
 public enum Methods: UInt16 {
-    case userIdentityToken = 321
+    case anonymousIdentityToken = 321
+    case userNameIdentityToken = 324
     case openSecureChannelRequest = 446
     case openSecureChannelResponse = 449
     case getEndpointsRequest = 428

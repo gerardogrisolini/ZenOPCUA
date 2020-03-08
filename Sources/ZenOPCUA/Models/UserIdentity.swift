@@ -7,22 +7,31 @@
 
 import Foundation
 
-protocol UserIdentity: OPCUAEncodable {
+protocol UserIdentityInfo: OPCUAEncodable {
     var policyId: String { get }
 }
 
 struct UserIdentityToken: OPCUAEncodable {
-    let typeId: NodeIdNumeric = NodeIdNumeric(method: .userIdentityToken)
+    let typeId: NodeIdNumeric
     let encodingMask: UInt8 = 0x01
-    let userIdentity: UserIdentity
+    let userIdentityInfo: UserIdentityInfo
 
-    init(userIdentity: UserIdentity) {
-        self.userIdentity = userIdentity
+    init(userIdentityInfo: UserIdentityInfo) {
+        self.userIdentityInfo = userIdentityInfo
+        switch userIdentityInfo.self {
+        case is UserIdentityInfoAnonymous:
+            typeId = NodeIdNumeric(method: .anonymousIdentityToken)
+        case is UserIdentityInfoUserName:
+            typeId = NodeIdNumeric(method: .userNameIdentityToken)
+        default:
+            fatalError("UserIdentityInfoX509 not implemented")
+        }
     }
 
     internal var bytes: [UInt8] {
-        let data = userIdentity.bytes
-        return typeId.bytes + [encodingMask] + UInt32(data.count).bytes + data
+        let data = userIdentityInfo.bytes
+        let count = UInt32(data.count).bytes
+        return typeId.bytes + [encodingMask] + count + data
     }
 }
 
@@ -33,43 +42,54 @@ public enum UserTokenType : UInt32 {
     case issuedToken = 3    //Any WS-Security defined token.
 }
 
-struct AnonymousIdentity: UserIdentity {
-   let policyId: String
+struct UserIdentityInfoAnonymous: UserIdentityInfo {
+    let policyId: String
     
     init(policyId: String) {
         self.policyId = policyId
     }
     
     internal var bytes: [UInt8] {
-        let data = policyId.bytes
-        return UInt32(data.count).bytes + data
+        return policyId.bytes
     }
 }
 
-struct UserIdentityInfoUserName: UserIdentity {
+struct UserIdentityInfoUserName: UserIdentityInfo {
     let policyId: String
     let username: String
-    let password: String
-    let encryptionAlgorithm: String?
+    var password: String
+    var encryptionAlgorithm: String?
 
     init(policyId: String, username: String, password: String, encryptionAlgorithm: String? = nil) {
         self.policyId = policyId
         self.username = username
         self.password = password
-        self.encryptionAlgorithm = encryptionAlgorithm
+        self.encryptionAlgorithm = nil
+        
+        if let encryptionAlgorithm = encryptionAlgorithm,
+            let index = encryptionAlgorithm.lastIndex(of: "#") {
+            let algorithm = encryptionAlgorithm[encryptionAlgorithm.index(after: index)...]
+            print(algorithm)
+            
+            switch algorithm {
+            case "Basic128Rsa15":
+                self.password = try! password.aesEncrypt()
+                self.encryptionAlgorithm = "http://www.w3.org/2001/04/xmlenc#aes128-cbc"
+            default:
+                break
+            }
+        }
     }
     
     internal var bytes: [UInt8] {
-        let data = policyId.bytes
-        let bytes = UInt32(data.count).bytes + data
-        return bytes +
+        return policyId.bytes +
             username.bytes +
             password.bytes +
             encryptionAlgorithm.bytes
     }
 }
 
-struct UserIdentityInfoX509: UserIdentity {
+struct UserIdentityInfoX509: UserIdentityInfo {
     let policyId: String
     let certificateData: [UInt8]
     var userTokenSignature: [UInt8] = []
@@ -95,9 +115,7 @@ struct UserIdentityInfoX509: UserIdentity {
     }
 
     internal var bytes: [UInt8] {
-        let data = policyId.bytes
-        let bytes = UInt32(data.count).bytes + data
-        return bytes + certificateData + userTokenSignature
+        return policyId.bytes + certificateData + userTokenSignature
     }
 
     private func signature(_ data: [UInt8], _ key: [UInt8], _ policy: String) -> [UInt8] {

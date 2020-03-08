@@ -222,7 +222,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             var userIdentityToken: UserIdentityToken
             if let certificate = certificate, let privateKey = privateKey {
                 let policy = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
-                let userIdentity = UserIdentityInfoX509(
+                let userIdentityInfo = UserIdentityInfoX509(
                     policyId: policy.policyId,
                     certificate: certificate,
                     privateKey: privateKey,
@@ -230,16 +230,21 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     serverNonce: session.serverNonce,
                     securityPolicy: policy.securityPolicyUri ?? securityPolicy.rawValue
                 )
-                userIdentityToken = UserIdentityToken(userIdentity: userIdentity)
+                userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
             } else if let username = username, let password = password {
-                let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .userName })!.policyId
-                let userIdentity = UserIdentityInfoUserName(policyId: policyId, username: username, password: password)
-                userIdentityToken = UserIdentityToken(userIdentity: userIdentity)
+                let policy = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .userName })!
+                let userIdentityInfo = UserIdentityInfoUserName(
+                    policyId: policy.policyId,
+                    username: username,
+                    password: password,
+                    encryptionAlgorithm: policy.securityPolicyUri
+                )
+                userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
             } else {
                 let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
-                userIdentityToken = UserIdentityToken(userIdentity: AnonymousIdentity(policyId: policyId))
+                userIdentityToken = UserIdentityToken(userIdentityInfo: UserIdentityInfoAnonymous(policyId: policyId))
             }
-            print("PolicyId \(userIdentityToken.userIdentity.policyId)")
+            print("PolicyId \(userIdentityToken.userIdentityInfo.policyId)")
 
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
             let requestId = nextMessageID()

@@ -15,16 +15,16 @@ final class ZenOPCUATests: XCTestCase {
 
     func testExample() {
 
-        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_selfsigned_cert_2048.pem"
-        let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
+//        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_selfsigned_cert_2048.pem"
+//        let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
         
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
             endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
-            securityPolicy: .basic256,
-            messageSecurityMode: .signAndEncrypt,
-            certificate: certificateFile,
-            privateKey: privateKeyFile
+            securityPolicy: .none,
+            messageSecurityMode: .none
+//            certificate: certificateFile,
+//            privateKey: privateKeyFile
         )
 
 //        var count = 0
@@ -68,7 +68,8 @@ final class ZenOPCUATests: XCTestCase {
         }
         
         do {
-            try opcua.connect().wait()
+            try opcua.connect(username: "admin", password: "admin", reconnect: false).wait()
+            //try opcua.connect().wait()
             
 //            let nodes: [BrowseDescription] = [
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253)),
@@ -117,7 +118,7 @@ final class ZenOPCUATests: XCTestCase {
 
             try opcua.disconnect().wait()
         } catch {
-            XCTFail(error.localizedDescription)
+            XCTFail("\(error)")
         }
     }
     
