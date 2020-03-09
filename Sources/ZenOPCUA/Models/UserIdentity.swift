@@ -60,24 +60,16 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
     var password: String
     var encryptionAlgorithm: String?
 
-    init(policyId: String, username: String, password: String, encryptionAlgorithm: String? = nil) {
+    init(policyId: String, username: String, password: String, securityPolicyUri: String? = nil) {
         self.policyId = policyId
         self.username = username
         self.password = password
         self.encryptionAlgorithm = nil
         
-        if let encryptionAlgorithm = encryptionAlgorithm,
-            let index = encryptionAlgorithm.lastIndex(of: "#") {
-            let algorithm = encryptionAlgorithm[encryptionAlgorithm.index(after: index)...]
-            print(algorithm)
-            
-            switch algorithm {
-            case "Basic128Rsa15":
-                self.password = try! password.aesEncrypt()
-                self.encryptionAlgorithm = "http://www.w3.org/2001/04/xmlenc#aes128-cbc"
-            default:
-                break
-            }
+        if let securityPolicyUri = securityPolicyUri {
+            let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
+            self.encryptionAlgorithm = securityPolicy.asymmetricEncryptionAlgorithm.rawValue.split(separator: ",").first?.description
+            self.password = securityPolicy.crypt(value: password)
         }
     }
     

@@ -18,7 +18,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
     
     internal var bytes: [UInt8] {
         return secureChannelId.bytes +
-            securityPolicyUri.rawValue.bytes +
+            securityPolicyUri.bytes +
             senderCertificate.bytes +
             receiverCertificateThumbprint.bytes +
             sequenseNumber.bytes +
@@ -34,7 +34,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
     
     init(
         messageSecurityMode: MessageSecurityMode,
-        securityPolicy: SecurityPolicyUri,
+        securityPolicy: String,
         userTokenType: SecurityTokenRequestType,
         senderCertificate: String?,
         receiverCertificateThumbprint: String?,

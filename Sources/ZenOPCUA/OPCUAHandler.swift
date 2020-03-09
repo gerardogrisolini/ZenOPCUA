@@ -32,7 +32,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var username: String? = nil
     var password: String? = nil
     var messageSecurityMode: MessageSecurityMode = .none
-    var securityPolicy: SecurityPolicyUri = .none
     var certificate: String? = nil
     var privateKey: String? = nil
     var requestedLifetime: UInt32 = 600000
@@ -52,7 +51,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            print("Opened SecureChannel with SecurityPolicy \(response.securityPolicyUri.rawValue)")
+            print("Opened SecureChannel with SecurityPolicy \(response.securityPolicyUri)")
             getEndpoints(context: context, response: response)
         case .error:
             let codeId = UInt32(bytes: frame.body[0...3])
@@ -152,7 +151,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let requestId = nextMessageID()
         let body = OpenSecureChannelRequest(
             messageSecurityMode: messageSecurityMode,
-            securityPolicy: securityPolicy,
+            securityPolicy: SecurityPolicies.none.uri,
             userTokenType: .issue,
             senderCertificate: nil,
             receiverCertificateThumbprint: nil,
@@ -226,7 +225,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     privateKey: privateKey,
                     serverCertificate: session.serverCertificate,
                     serverNonce: session.serverNonce,
-                    securityPolicy: policy.securityPolicyUri ?? securityPolicy.rawValue
+                    securityPolicy: policy.securityPolicyUri!
                 )
                 userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
             } else if let username = username, let password = password {
@@ -235,7 +234,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     policyId: policy.policyId,
                     username: username,
                     password: password,
-                    encryptionAlgorithm: policy.securityPolicyUri
+                    securityPolicyUri: policy.securityPolicyUri
                 )
                 userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
             } else {

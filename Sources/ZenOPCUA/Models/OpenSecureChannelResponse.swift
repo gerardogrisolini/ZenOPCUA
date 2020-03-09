@@ -23,7 +23,7 @@ class OpenSecureChannelResponse: OpenSecureChannel, OPCUADecodable {
         //TODO: complete parsing response
         
         serverNonce = nil //bytes[123...126]
-        super.init(securityPolicyUri: .none, requestId: responseHeader.requestHandle)
+        super.init(securityPolicyUri: SecurityPolicies.none.uri, requestId: responseHeader.requestHandle)
         secureChannelId = UInt32(bytes: bytes[0...3])
     }
 }
