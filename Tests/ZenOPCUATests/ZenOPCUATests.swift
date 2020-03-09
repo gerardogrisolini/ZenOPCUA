@@ -67,8 +67,8 @@ final class ZenOPCUATests: XCTestCase {
         }
         
         do {
-            try opcua.connect(username: "admin", password: "admin", reconnect: false).wait()
-            //try opcua.connect().wait()
+            //try opcua.connect(username: "admin", password: "admin", reconnect: false).wait()
+            try opcua.connect().wait()
             
 //            let nodes: [BrowseDescription] = [
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253)),

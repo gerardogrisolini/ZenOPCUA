@@ -123,27 +123,27 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     let chunkSize: Int = 4128
 
     fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
-        if frame.head.messageSize > chunkSize {
-
-            var index = 0
-            while index < frame.head.messageSize {
-                print("\(index) < \(frame.head.messageSize)")
-                let part: OPCUAFrame
-                if (index + chunkSize - 8) >= frame.head.messageSize {
-                    let body = frame.body[index...].map { $0 }
-                    part = OPCUAFrame(head: frame.head, body: body)
-                } else {
-                    let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
-                    let body = frame.body[index..<(index + chunkSize - 8)].map { $0 }
-                    part = OPCUAFrame(head: head, body: body)
-                }
-                context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
-                index += chunkSize - 8
-            }
-            
-        } else {
+//        if frame.head.messageSize > chunkSize {
+//
+//            var index = 0
+//            while index < frame.head.messageSize {
+//                print("\(index) < \(frame.head.messageSize)")
+//                let part: OPCUAFrame
+//                if (index + chunkSize - 8) >= frame.head.messageSize {
+//                    let body = frame.body[index...].map { $0 }
+//                    part = OPCUAFrame(head: frame.head, body: body)
+//                } else {
+//                    let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
+//                    let body = frame.body[index..<(index + chunkSize - 8)].map { $0 }
+//                    part = OPCUAFrame(head: head, body: body)
+//                }
+//                context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
+//                index += chunkSize - 8
+//            }
+//
+//        } else {
             context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
-        }
+//        }
     }
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
