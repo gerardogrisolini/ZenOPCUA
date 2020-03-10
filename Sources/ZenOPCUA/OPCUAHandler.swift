@@ -211,7 +211,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         
         print("Found \(sessionActive!.serverEndpoints.count) endpoints")
         
-        if let item = sessionActive!.serverEndpoints.first(where: { $0.messageSecurityMode == messageSecurityMode }) {
+        if let item = session.serverEndpoints.first(where: { $0.messageSecurityMode == messageSecurityMode }) {
         
             print("Found \(item.userIdentityTokens.count) policies")
             print("Selected Endpoint \(item.endpointUrl)")

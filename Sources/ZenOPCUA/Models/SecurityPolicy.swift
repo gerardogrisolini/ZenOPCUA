@@ -7,7 +7,7 @@
 
 import NIO
 import NIOSSL
-import CryptoSwift
+import Crypto
 
 enum SecurityPolicies: String {
     case invalid = "invalid"
@@ -229,7 +229,8 @@ struct SecurityPolicy {
             return 1
         }
     }
-    
+
+    /*
     private func getAndInitializeCipher(_ serverCertificate: NIOSSLCertificate, _ securityPolicy: SecurityPolicy) throws -> Cipher {        
 //        String transformation = securityPolicy.getAsymmetricEncryptionAlgorithm().getTransformation();
 //        Cipher cipher = Cipher.getInstance(transformation);
@@ -237,10 +238,11 @@ struct SecurityPolicy {
 
         let key = try serverCertificate.extractPublicKey()
         let b = try key.toSPKIBytes()
-        let cipher = try Blowfish(key: b, blockMode: ECB(), padding: .zeroPadding)
+        let cipher = try Rabbit(key: b)
 
         return cipher
     }
+    */
     
     func sign(value: String) -> String {
         
@@ -253,9 +255,8 @@ struct SecurityPolicy {
         var buffer = bufferAllocator.buffer(capacity: password.bytes.count + serverNonce.count)
         buffer.writeBytes(password.bytes + serverNonce)
         
-        let certificates = try NIOSSLCertificate.fromPEMBytes(serverCertificate)
-        let certificate = certificates.first!
-        
+        let certificate = try NIOSSLCertificate(bytes: .init(serverCertificate), format: .der)
+       
         let plainTextBlockSize: Int = getAsymmetricPlainTextBlockSize(
             certificate: certificate,
             algorithm: asymmetricEncryptionAlgorithm
@@ -266,15 +267,21 @@ struct SecurityPolicy {
         )
         let blockCount: Int = (buffer.capacity + plainTextBlockSize - 1) / plainTextBlockSize
 
-        let cipher = try getAndInitializeCipher(certificate, SecurityPolicy(securityPolicyUri: securityPolicyUri))
+        //let cipher = try getAndInitializeCipher(certificate, SecurityPolicy(securityPolicyUri: securityPolicyUri))
 
+        let key = SymmetricKey(size: .bits256)
         var cipherTextNioBuffer = bufferAllocator.buffer(capacity: cipherTextBlockSize * blockCount)
              
         for blockNumber in 0..<blockCount {
             let position = blockNumber * plainTextBlockSize
             let limit = min(buffer.readableBytes, (blockNumber + 1) * plainTextBlockSize)
-            let encrypted = try cipher.encrypt(buffer.getBytes(at: position, length: limit)!)
-            cipherTextNioBuffer.writeBytes(encrypted)
+            if position > limit { continue }
+            
+            let bytes = buffer.getBytes(at: position, length: limit - position)!
+            //let encrypted = try AES.GCM.seal(bytes, using: key)
+            let encrypted = try ChaChaPoly.seal(bytes, using: key)
+            
+            cipherTextNioBuffer.writeBytes(encrypted.combined)
          }
 
         var count = cipherTextNioBuffer.readableBytes - 1

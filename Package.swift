@@ -5,16 +5,20 @@ import PackageDescription
 
 let package = Package(
     name: "ZenOPCUA",
+    platforms: [
+        .macOS(.v10_15)
+    ],
     products: [
         .library(name: "ZenOPCUA", targets: ["ZenOPCUA"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", .branch("master")),
-        .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .branch("master"))
+        .package(url: "https://github.com/apple/swift-crypto.git", .branch("master"))
     ],
     targets: [
-        .target(name: "ZenOPCUA",dependencies: ["NIO", "NIOSSL", "CryptoSwift"]),
+        .target(name: "ZenOPCUA",dependencies: ["NIO", "NIOSSL", "Crypto"]),
         .testTarget(name: "ZenOPCUATests", dependencies: ["ZenOPCUA"]),
-    ]
+    ],
+    swiftLanguageVersions: [.v5]
 )

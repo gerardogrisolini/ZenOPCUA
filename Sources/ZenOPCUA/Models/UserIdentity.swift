@@ -76,16 +76,20 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
         if let securityPolicyUri = securityPolicyUri {
             let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
             self.encryptionAlgorithm = securityPolicy.asymmetricEncryptionAlgorithm.rawValue.split(separator: ",").first?.description
-            if let pwd = try? securityPolicy.crypt(password: password, serverNonce: serverNonce, serverCertificate: serverCertificate) {
+            do {
+                let pwd = try securityPolicy.crypt(password: password, serverNonce: serverNonce, serverCertificate: serverCertificate)
                 self.password = pwd
+            } catch {
+                print(error)
             }
         }
     }
     
     internal var bytes: [UInt8] {
+        let len = UInt32(password.count).bytes
         return policyId.bytes +
             username.bytes +
-            password +
+            len + password +
             encryptionAlgorithm.bytes
     }
 }
