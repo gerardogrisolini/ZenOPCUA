@@ -57,26 +57,35 @@ struct UserIdentityInfoAnonymous: UserIdentityInfo {
 struct UserIdentityInfoUserName: UserIdentityInfo {
     let policyId: String
     let username: String
-    var password: String
+    var password: [UInt8]
     var encryptionAlgorithm: String?
 
-    init(policyId: String, username: String, password: String, securityPolicyUri: String? = nil) {
+    init(
+        policyId: String,
+        username: String,
+        password: String,
+        serverCertificate: [UInt8],
+        serverNonce: [UInt8],
+        securityPolicyUri: String? = nil
+    ) {
         self.policyId = policyId
         self.username = username
-        self.password = password
+        self.password = password.bytes
         self.encryptionAlgorithm = nil
         
         if let securityPolicyUri = securityPolicyUri {
             let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
             self.encryptionAlgorithm = securityPolicy.asymmetricEncryptionAlgorithm.rawValue.split(separator: ",").first?.description
-            self.password = securityPolicy.crypt(value: password)
+            if let pwd = try? securityPolicy.crypt(password: password, serverNonce: serverNonce, serverCertificate: serverCertificate) {
+                self.password = pwd
+            }
         }
     }
     
     internal var bytes: [UInt8] {
         return policyId.bytes +
             username.bytes +
-            password.bytes +
+            password +
             encryptionAlgorithm.bytes
     }
 }

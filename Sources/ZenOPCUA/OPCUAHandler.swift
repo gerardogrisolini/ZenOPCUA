@@ -234,6 +234,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     policyId: policy.policyId,
                     username: username,
                     password: password,
+                    serverCertificate: session.serverCertificate,
+                    serverNonce: session.serverNonce,
                     securityPolicyUri: policy.securityPolicyUri
                 )
                 userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)

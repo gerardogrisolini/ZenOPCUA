@@ -189,16 +189,6 @@ struct SecurityPolicy {
         }
     }
     
-    func sign(value: String) -> String {
-        
-        return value
-    }
-
-    func crypt(value: String) -> String {
-        return value
-    }
-    
-    
     func getAsymmetricKeyLength(certificate: NIOSSLCertificate) -> Int {
         do {
             let publicKey = try certificate.extractPublicKey()
@@ -246,12 +236,18 @@ struct SecurityPolicy {
 //        cipher.init(Cipher.ENCRYPT_MODE, serverCertificate.getPublicKey());
 
         let key = try serverCertificate.extractPublicKey()
-        let cipher = try Rabbit(key: key, iv: [])
+        let b = try key.toSPKIBytes()
+        let cipher = try Blowfish(key: b, blockMode: ECB(), padding: .zeroPadding)
 
-        return cipher;
+        return cipher
     }
     
-    func enc(password: String, serverNonce: [UInt8], serverCertificate: [UInt8]) throws {
+    func sign(value: String) -> String {
+        
+        return value
+    }
+
+    func crypt(password: String, serverNonce: [UInt8], serverCertificate: [UInt8]) throws -> [UInt8] {
         let bufferAllocator = ByteBufferAllocator()
 
         var buffer = bufferAllocator.buffer(capacity: password.bytes.count + serverNonce.count)
@@ -272,18 +268,24 @@ struct SecurityPolicy {
 
         let cipher = try getAndInitializeCipher(certificate, SecurityPolicy(securityPolicyUri: securityPolicyUri))
 
-
-        let plainTextNioBuffer = bufferAllocator.buffer(capacity: plainTextBlockSize)
-        let cipherTextNioBuffer = bufferAllocator.buffer(capacity: cipherTextBlockSize * blockCount)
+        var cipherTextNioBuffer = bufferAllocator.buffer(capacity: cipherTextBlockSize * blockCount)
              
-        for var blockNumber in 0..<blockCount {
+        for blockNumber in 0..<blockCount {
             let position = blockNumber * plainTextBlockSize
             let limit = min(buffer.readableBytes, (blockNumber + 1) * plainTextBlockSize)
-            let encrypted = try cipher.encrypt(plainTextNioBuffer.getBytes(at: position, length: limit)!)
+            let encrypted = try cipher.encrypt(buffer.getBytes(at: position, length: limit)!)
             cipherTextNioBuffer.writeBytes(encrypted)
          }
 
-        ((Buffer) cipherTextNioBuffer).flip()
-         buffer = Unpooled.wrappedBuffer(cipherTextNioBuffer)
+        var count = cipherTextNioBuffer.readableBytes - 1
+        buffer.clear()
+        buffer.reserveCapacity(count + 1)
+        
+        while count >= 0 {
+            buffer.writeBytes(cipherTextNioBuffer.getBytes(at: count, length: 1)!)
+            count -= 1
+        }
+
+        return buffer.getBytes(at: 0, length: buffer.readableBytes)!
     }
 }
