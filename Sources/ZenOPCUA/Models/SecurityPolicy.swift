@@ -5,6 +5,8 @@
 //  Created by Gerardo Grisolini on 08/03/2020.
 //
 
+import NIO
+import NIOSSL
 import CryptoSwift
 
 enum SecurityPolicies: String {
@@ -193,14 +195,95 @@ struct SecurityPolicy {
     }
 
     func crypt(value: String) -> String {
-        let key: Array<UInt8> = [0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
+        return value
+    }
+    
+    
+    func getAsymmetricKeyLength(certificate: NIOSSLCertificate) -> Int {
+        do {
+            let publicKey = try certificate.extractPublicKey()
+            return try publicKey.toSPKIBytes().count
+        } catch {
+            print(error)
+            return 0
+        }
+    }
+    
+    func getAsymmetricSignatureSize(certificate: NIOSSLCertificate, algorithm: SecurityAlgorithm) -> Int {
+        switch (algorithm) {
+        case .rsaSha1, .rsaSha256, .rsaSha256Pss:
+            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8
+        default:
+            return 0
+        }
+    }
+
+    func getAsymmetricCipherTextBlockSize(certificate: NIOSSLCertificate, algorithm: SecurityAlgorithm) -> Int {
+        switch (algorithm) {
+        case .rsa15, .rsaOaepSha1, .rsaOaepSha256:
+            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8
+        default:
+            return 1
+        }
+    }
+    
+    func getAsymmetricPlainTextBlockSize(certificate: NIOSSLCertificate, algorithm: SecurityAlgorithm) -> Int {
+        switch (algorithm) {
+        case .rsa15:
+            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8 - 11
+        case .rsaOaepSha1:
+            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8 - 42
+        case .rsaOaepSha256:
+            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8 - 66
+        default:
+            return 1
+        }
+    }
+    
+    private func getAndInitializeCipher(_ serverCertificate: NIOSSLCertificate, _ securityPolicy: SecurityPolicy) throws -> Cipher {        
+//        String transformation = securityPolicy.getAsymmetricEncryptionAlgorithm().getTransformation();
+//        Cipher cipher = Cipher.getInstance(transformation);
+//        cipher.init(Cipher.ENCRYPT_MODE, serverCertificate.getPublicKey());
+
+        let key = try serverCertificate.extractPublicKey()
+        let cipher = try Rabbit(key: key, iv: [])
+
+        return cipher;
+    }
+    
+    func enc(password: String, serverNonce: [UInt8], serverCertificate: [UInt8]) throws {
+        let bufferAllocator = ByteBufferAllocator()
+
+        var buffer = bufferAllocator.buffer(capacity: password.bytes.count + serverNonce.count)
+        buffer.writeBytes(password.bytes + serverNonce)
         
-        let aes = try! AES(key: key, blockMode: ECB(), padding: .pkcs5)
-        let encrypted = try! aes.encrypt(Array(value.utf8))
-        let result = encrypted.toHexString()//.toBase64()!
+        let certificates = try NIOSSLCertificate.fromPEMBytes(serverCertificate)
+        let certificate = certificates.first!
+        
+        let plainTextBlockSize: Int = getAsymmetricPlainTextBlockSize(
+            certificate: certificate,
+            algorithm: asymmetricEncryptionAlgorithm
+        )
+        let cipherTextBlockSize: Int = getAsymmetricCipherTextBlockSize(
+            certificate: certificate,
+            algorithm: asymmetricEncryptionAlgorithm
+        )
+        let blockCount: Int = (buffer.capacity + plainTextBlockSize - 1) / plainTextBlockSize
 
-        print("AES Encryption Result: \(result)")
+        let cipher = try getAndInitializeCipher(certificate, SecurityPolicy(securityPolicyUri: securityPolicyUri))
 
-        return result
+
+        let plainTextNioBuffer = bufferAllocator.buffer(capacity: plainTextBlockSize)
+        let cipherTextNioBuffer = bufferAllocator.buffer(capacity: cipherTextBlockSize * blockCount)
+             
+        for var blockNumber in 0..<blockCount {
+            let position = blockNumber * plainTextBlockSize
+            let limit = min(buffer.readableBytes, (blockNumber + 1) * plainTextBlockSize)
+            let encrypted = try cipher.encrypt(plainTextNioBuffer.getBytes(at: position, length: limit)!)
+            cipherTextNioBuffer.writeBytes(encrypted)
+         }
+
+        ((Buffer) cipherTextNioBuffer).flip()
+         buffer = Unpooled.wrappedBuffer(cipherTextNioBuffer)
     }
 }
