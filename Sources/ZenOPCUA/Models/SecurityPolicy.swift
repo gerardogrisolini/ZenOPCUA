@@ -5,9 +5,9 @@
 //  Created by Gerardo Grisolini on 08/03/2020.
 //
 
-import NIO
-import NIOSSL
+import Foundation
 import Crypto
+import NIO
 
 enum SecurityPolicies: String {
     case invalid = "invalid"
@@ -189,42 +189,36 @@ struct SecurityPolicy {
         }
     }
     
-    func getAsymmetricKeyLength(certificate: NIOSSLCertificate) -> Int {
-        do {
-            let publicKey = try certificate.extractPublicKey()
-            return try publicKey.toSPKIBytes().count
-        } catch {
-            print(error)
-            return 0
-        }
+    func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
+        return 128 //SecKeyGetBlockSize(publicKey)
     }
     
-    func getAsymmetricSignatureSize(certificate: NIOSSLCertificate, algorithm: SecurityAlgorithm) -> Int {
+    func getAsymmetricSignatureSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
         switch (algorithm) {
         case .rsaSha1, .rsaSha256, .rsaSha256Pss:
-            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8
+            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8
         default:
             return 0
         }
     }
 
-    func getAsymmetricCipherTextBlockSize(certificate: NIOSSLCertificate, algorithm: SecurityAlgorithm) -> Int {
+    func getAsymmetricCipherTextBlockSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
         switch (algorithm) {
         case .rsa15, .rsaOaepSha1, .rsaOaepSha256:
-            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8
+            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8
         default:
             return 1
         }
     }
     
-    func getAsymmetricPlainTextBlockSize(certificate: NIOSSLCertificate, algorithm: SecurityAlgorithm) -> Int {
+    func getAsymmetricPlainTextBlockSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
         switch (algorithm) {
         case .rsa15:
-            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8 - 11
+            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8 - 11
         case .rsaOaepSha1:
-            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8 - 42
+            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8 - 42
         case .rsaOaepSha256:
-            return (getAsymmetricKeyLength(certificate: certificate) + 7) / 8 - 66
+            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8 - 66
         default:
             return 1
         }
@@ -249,45 +243,87 @@ struct SecurityPolicy {
         return value
     }
 
-    func crypt(password: String, serverNonce: [UInt8], serverCertificate: [UInt8]) throws -> [UInt8] {
-        let bufferAllocator = ByteBufferAllocator()
+    private func publicKeyForCertificate(certificate: SecCertificate) -> SecKey? {
+        var publicKey: SecKey?
+        var trust: SecTrust?
 
+        let policy = SecPolicyCreateBasicX509()
+        let status = SecTrustCreateWithCertificates(certificate, policy, &trust)
+
+        if status == errSecSuccess, let trust = trust {
+            publicKey = SecTrustCopyPublicKey(trust)!
+        }
+                
+        return publicKey
+    }
+    
+    func crypt(password: String, serverNonce: [UInt8], serverCertificate: [UInt8]) throws -> [UInt8] {
+        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, Data(serverCertificate) as CFData)!
+        let publicKey = publicKeyForCertificate(certificate: certificate)!
+        /*
+        let algorithm: SecKeyAlgorithm = .rsaEncryptionOAEPSHA256
+        
+        guard SecKeyIsAlgorithmSupported(publicKey, .encrypt, algorithm) else {
+            throw OPCUAError.generic("unsupported algorithm")
+        }
+        
+        let data = Data(password.bytes + serverNonce)
+        var error: Unmanaged<CFError>?
+        guard let cipherText = SecKeyCreateEncryptedData(
+            publicKey,
+            algorithm,
+            data as CFData,
+            &error) as Data? else {
+            throw error!.takeRetainedValue() as Error
+        }
+        
+        return [UInt8](cipherText)
+        */
+
+        
+        //let certificate = try NIOSSLCertificate(bytes: .init(serverCertificate), format: .der)
+        //let publicKey = Data(try certificate.extractPublicKey().toSPKIBytes())
+        //let cipher = try getAndInitializeCipher(certificate, SecurityPolicy(securityPolicyUri: securityPolicyUri))
+
+        let bufferAllocator = ByteBufferAllocator()
         var buffer = bufferAllocator.buffer(capacity: password.bytes.count + serverNonce.count)
         buffer.writeBytes(password.bytes + serverNonce)
-        
-        let certificate = try NIOSSLCertificate(bytes: .init(serverCertificate), format: .der)
-       
+
         let plainTextBlockSize: Int = getAsymmetricPlainTextBlockSize(
-            certificate: certificate,
+            publicKey: publicKey,
             algorithm: asymmetricEncryptionAlgorithm
         )
         let cipherTextBlockSize: Int = getAsymmetricCipherTextBlockSize(
-            certificate: certificate,
+            publicKey: publicKey,
             algorithm: asymmetricEncryptionAlgorithm
         )
         let blockCount: Int = (buffer.capacity + plainTextBlockSize - 1) / plainTextBlockSize
 
-        //let cipher = try getAndInitializeCipher(certificate, SecurityPolicy(securityPolicyUri: securityPolicyUri))
-
-        let key = SymmetricKey(size: .bits256)
         var cipherTextNioBuffer = bufferAllocator.buffer(capacity: cipherTextBlockSize * blockCount)
-             
+
+        var ivBytes = [UInt8](repeating: 0, count: 16)
+        guard 0 == SecRandomCopyBytes(kSecRandomDefault, ivBytes.count, &ivBytes) else {
+            fatalError("IV creation failed!")
+        }
+        
+        var encryptor = try AES.GCM.(key: publicKey, blockMode: CBC(iv: ivBytes), padding: .pkcs1).makeEncryptor()
+        
         for blockNumber in 0..<blockCount {
             let position = blockNumber * plainTextBlockSize
             let limit = min(buffer.readableBytes, (blockNumber + 1) * plainTextBlockSize)
             if position > limit { continue }
-            
-            let bytes = buffer.getBytes(at: position, length: limit - position)!
-            //let encrypted = try AES.GCM.seal(bytes, using: key)
-            let encrypted = try ChaChaPoly.seal(bytes, using: key)
-            
-            cipherTextNioBuffer.writeBytes(encrypted.combined)
-         }
+
+            let bytes = Data(buffer.getBytes(at: position, length: limit - position)!)
+            let encrypted = try encryptor.update(withBytes: bytes)
+            cipherTextNioBuffer.writeBytes(encrypted)
+        }
+        cipherTextNioBuffer.writeBytes(try encryptor.finish())
+        print(cipherTextNioBuffer.readableBytes)
 
         var count = cipherTextNioBuffer.readableBytes - 1
         buffer.clear()
         buffer.reserveCapacity(count + 1)
-        
+
         while count >= 0 {
             buffer.writeBytes(cipherTextNioBuffer.getBytes(at: count, length: 1)!)
             count -= 1
