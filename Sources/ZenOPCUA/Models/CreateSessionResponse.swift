@@ -188,12 +188,3 @@ class CreateSessionResponse: MessageBase {
         }
     }
 }
-
-struct SignatureData: OPCUAEncodable {
-    let algorithm: String? = nil
-    let signature: String? = nil
-
-    internal var bytes: [UInt8] {
-        return algorithm.bytes + signature.bytes
-    }
-}

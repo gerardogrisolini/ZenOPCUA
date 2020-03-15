@@ -187,12 +187,7 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .none
         }
     }
-        
-    func sign(value: String) -> String {
-        
-        return value
-    }
-
+    
     private func publicKeyForCertificate(certificate: SecCertificate) -> SecKey? {
         var publicKey: SecKey?
         var trust: SecTrust?
@@ -211,12 +206,56 @@ struct SecurityPolicy {
 //        return data
     }
     
+    func sign(dataToSign: [UInt8], privateKey: Data) throws -> Data {
+       let keyDict: [CFString: Any] = [
+           kSecAttrKeyType: kSecAttrKeyTypeRSA,
+           kSecAttrKeyClass: kSecAttrKeyClassPrivate,
+           kSecAttrKeySizeInBits: NSNumber(value: privateKey.count),
+           kSecReturnPersistentRef: true
+       ]
+
+        let key = SecKeyCreateWithData(privateKey as NSData, keyDict as NSDictionary, nil)!
+        let data = Data(dataToSign)
+        
+        let algorithm: SecKeyAlgorithm
+        switch asymmetricSignatureAlgorithm {
+        case .rsaSha1:
+            algorithm = .rsaSignatureMessagePKCS1v15SHA1
+        case .rsaSha256:
+            algorithm = .rsaSignatureMessagePKCS1v15SHA256
+        default:
+            algorithm = .rsaSignatureMessagePSSSHA256
+        }
+
+        guard SecKeyIsAlgorithmSupported(key, .sign, algorithm) else {
+            throw OPCUAError.generic("unsupported algorithm")
+        }
+        
+        var error: Unmanaged<CFError>?
+        guard let signature = SecKeyCreateSignature(key,
+                                                    algorithm,
+                                                    data as CFData,
+                                                    &error) as Data? else {
+                                                        throw error!.takeRetainedValue() as Error
+        }
+        
+        guard SecKeyVerifySignature(key,
+                                    algorithm,
+                                    data as CFData,
+                                    signature as CFData,
+                                    &error) else {
+                                        throw error!.takeRetainedValue() as Error
+        }
+        
+        return signature
+    }
+
     func crypt(password: String, serverNonce: [UInt8], serverCertificate: [UInt8]) throws -> [UInt8] {
         let dataToEncrypt = password.utf8.map { $0 } + serverNonce
         let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, Data(serverCertificate) as CFData)!
         let publicKey = publicKeyForCertificate(certificate: certificate)!
+
         let algorithm: SecKeyAlgorithm
-        
         switch asymmetricEncryptionAlgorithm {
         case .rsaOaepSha1:
             algorithm = .rsaEncryptionOAEPSHA1

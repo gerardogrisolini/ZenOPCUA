@@ -97,38 +97,37 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
 struct UserIdentityInfoX509: UserIdentityInfo {
     let policyId: String
     let certificateData: [UInt8]
-    var userTokenSignature: [UInt8] = []
-
+    var userTokenSignature: SignatureData = SignatureData()
+    
     init(
         policyId: String,
         certificate: String,
         privateKey: String,
         serverCertificate: [UInt8],
         serverNonce: [UInt8],
-        securityPolicy: String
+        securityPolicyUri: String
     ) {
         self.policyId = policyId
         do {
-            self.certificateData = [UInt8](try Data(contentsOf: URL(string: certificate)!))
-            
-            let dataToSign = serverCertificate + serverNonce
-            let key = [UInt8](try Data(contentsOf: URL(string: privateKey)!))
-            self.userTokenSignature = signature(dataToSign, key, securityPolicy)
+            self.certificateData = [UInt8](try Data(contentsOf: URL(fileURLWithPath: certificate)))
+            let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
+            if securityPolicy.asymmetricSignatureAlgorithm != .none {
+                let dataToSign = serverCertificate + serverNonce
+                let key = try Data(contentsOf: URL(fileURLWithPath: privateKey))
+                let signature = try securityPolicy.sign(dataToSign: dataToSign, privateKey: key)
+                userTokenSignature = SignatureData(
+                    algorithm: securityPolicy.asymmetricSignatureAlgorithm.rawValue,
+                    signature: [UInt8](signature)
+                )
+            } else {
+                userTokenSignature = SignatureData()
+            }
         } catch {
             fatalError(error.localizedDescription)
         }
     }
 
     internal var bytes: [UInt8] {
-        return policyId.bytes + certificateData + userTokenSignature
-    }
-
-    private func signature(_ data: [UInt8], _ key: [UInt8], _ policy: String) -> [UInt8] {
-        
-        // TODO: implement signature
-        // 1. get algorithm from policy
-        // 2. sign data with key
-        
-        fatalError("method not implemented")
+        return policyId.bytes + certificateData + userTokenSignature.bytes
     }
 }

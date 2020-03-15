@@ -225,7 +225,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     privateKey: privateKey,
                     serverCertificate: session.serverCertificate,
                     serverNonce: session.serverNonce,
-                    securityPolicy: policy.securityPolicyUri!
+                    securityPolicyUri: policy.securityPolicyUri!
                 )
                 userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
             } else if let username = username, let password = password {
