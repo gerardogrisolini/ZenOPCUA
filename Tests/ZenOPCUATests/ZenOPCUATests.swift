@@ -15,7 +15,7 @@ final class ZenOPCUATests: XCTestCase {
 
     func testExample() {
 
-        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_selfsigned_cert_2048.pem"
+        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/openssl_crt.der"
         let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
         
         let opcua = ZenOPCUA(
@@ -67,8 +67,8 @@ final class ZenOPCUATests: XCTestCase {
         }
         
         do {
-            try opcua.connect(username: "admin", password: "admin", reconnect: false).wait()
-            //try opcua.connect().wait()
+            //try opcua.connect(username: "admin", password: "admin", reconnect: false).wait()
+            try opcua.connect(reconnect: false).wait()
             
 //            let nodes: [BrowseDescription] = [
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253)),

@@ -10,6 +10,7 @@ struct SignatureData: OPCUAEncodable {
     var signature: [UInt8] = []
 
     internal var bytes: [UInt8] {
-        return algorithm.bytes + signature
+        let len = UInt32(signature.count).bytes
+        return algorithm.bytes + len + signature
     }
 }

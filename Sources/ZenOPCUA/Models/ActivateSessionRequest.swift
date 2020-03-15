@@ -13,7 +13,6 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     let clientSoftwareCertificates: String? = nil
     let localeIds: String? = nil
     let userIdentityToken: UserIdentityToken
-    let userTokenSignature: SignatureData = SignatureData()
 
     internal var bytes: [UInt8] {
         return secureChannelId.bytes +
@@ -25,8 +24,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
             clientSignature.bytes +
             clientSoftwareCertificates.bytes +
             localeIds.bytes +
-            userIdentityToken.bytes +
-            userTokenSignature.bytes
+            userIdentityToken.bytes
     }
     
     init(

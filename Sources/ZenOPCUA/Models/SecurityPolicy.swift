@@ -188,6 +188,53 @@ struct SecurityPolicy {
         }
     }
     
+//   private func privateKeyForCertificate(keyData: Data, withPassword password: String = "") -> SecKey? {
+//        let priKeyECStriped = keyData[32..<keyData.count - 31]
+//        print(String(data: priKeyECStriped, encoding: .utf8))
+//
+//        var privateKey: SecKey? = nil
+//        let options : [String:String] = [kSecImportExportPassphrase as String:password]
+//        var items : CFArray?
+//        if SecPKCS12Import(data as CFData, options as CFDictionary, &items) == errSecSuccess {
+//            if CFArrayGetCount(items) > 0 {
+//                let d = unsafeBitCast(CFArrayGetValueAtIndex(items, 0),to: CFDictionary.self)
+//                let k = Unmanaged.passUnretained(kSecImportItemIdentity as NSString).toOpaque()
+//                let v = CFDictionaryGetValue(d, k)
+//                let secIdentity = unsafeBitCast(v, to: SecIdentity.self)
+//                if SecIdentityCopyPrivateKey(secIdentity, &privateKey) == errSecSuccess {
+//                    return privateKey
+//                }
+//            }
+//        }
+//
+//        return nil
+//    }
+    
+    func getCertificateEncoded(data: Data) -> [UInt8] {
+//        let priKeyECStriped = data[28..<data.count - 27].base64EncodedData()
+//        print(String(data: certData, encoding: .utf8)!)
+        
+        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, data as CFData)!
+        let encoded = SecCertificateCopyNormalizedSubjectSequence(certificate)! as Data
+        return [UInt8](encoded)
+    }
+    
+    private func privateKeyForCertificate(privateKey: Data) -> SecKey? {
+        let priKeyECStriped = privateKey[32..<privateKey.count - 31]
+        //print(String(data: priKeyECStriped, encoding: .utf8)!)
+        let priKeyECData = Data(base64Encoded: priKeyECStriped, options: Data.Base64DecodingOptions.ignoreUnknownCharacters)!
+
+        let keyDict: [CFString: Any] = [
+            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
+            kSecAttrKeySizeInBits: priKeyECStriped.count * 8,
+            kSecReturnPersistentRef: false
+        ]
+        var error: Unmanaged<CFError>?
+        let secKey = SecKeyCreateWithData(priKeyECData as CFData, keyDict as CFDictionary, &error)
+        return secKey
+    }
+
     private func publicKeyForCertificate(certificate: SecCertificate) -> SecKey? {
         var publicKey: SecKey?
         var trust: SecTrust?
@@ -207,15 +254,7 @@ struct SecurityPolicy {
     }
     
     func sign(dataToSign: [UInt8], privateKey: Data) throws -> Data {
-       let keyDict: [CFString: Any] = [
-           kSecAttrKeyType: kSecAttrKeyTypeRSA,
-           kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-           kSecAttrKeySizeInBits: NSNumber(value: privateKey.count),
-           kSecReturnPersistentRef: true
-       ]
-
-        let key = SecKeyCreateWithData(privateKey as NSData, keyDict as NSDictionary, nil)!
-        let data = Data(dataToSign)
+        let key = privateKeyForCertificate(privateKey: privateKey)!
         
         let algorithm: SecKeyAlgorithm
         switch asymmetricSignatureAlgorithm {
@@ -231,6 +270,7 @@ struct SecurityPolicy {
             throw OPCUAError.generic("unsupported algorithm")
         }
         
+        let data = Data(dataToSign)
         var error: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(key,
                                                     algorithm,
@@ -239,13 +279,13 @@ struct SecurityPolicy {
                                                         throw error!.takeRetainedValue() as Error
         }
         
-        guard SecKeyVerifySignature(key,
-                                    algorithm,
-                                    data as CFData,
-                                    signature as CFData,
-                                    &error) else {
-                                        throw error!.takeRetainedValue() as Error
-        }
+//        guard SecKeyVerifySignature(key,
+//                                    algorithm,
+//                                    data as CFData,
+//                                    signature as CFData,
+//                                    &error) else {
+//                                        throw error!.takeRetainedValue() as Error
+//        }
         
         return signature
     }

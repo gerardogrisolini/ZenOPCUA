@@ -19,12 +19,12 @@ struct UserIdentityToken: OPCUAEncodable {
     init(userIdentityInfo: UserIdentityInfo) {
         self.userIdentityInfo = userIdentityInfo
         switch userIdentityInfo.self {
-        case is UserIdentityInfoAnonymous:
-            typeId = NodeIdNumeric(method: .anonymousIdentityToken)
         case is UserIdentityInfoUserName:
             typeId = NodeIdNumeric(method: .userNameIdentityToken)
+        case is UserIdentityInfoX509:
+            typeId = NodeIdNumeric(method: .certificateIdentityToken)
         default:
-            fatalError("UserIdentityInfoX509 not implemented")
+            typeId = NodeIdNumeric(method: .anonymousIdentityToken)
         }
     }
 
@@ -44,13 +44,14 @@ public enum UserTokenType : UInt32 {
 
 struct UserIdentityInfoAnonymous: UserIdentityInfo {
     let policyId: String
-    
+    let userTokenSignature: SignatureData = SignatureData()
+
     init(policyId: String) {
         self.policyId = policyId
     }
     
     internal var bytes: [UInt8] {
-        return policyId.bytes
+        return policyId.bytes + userTokenSignature.bytes
     }
 }
 
@@ -59,6 +60,7 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
     let username: String
     var password: [UInt8]
     var encryptionAlgorithm: String?
+    let userTokenSignature: SignatureData = SignatureData()
 
     init(
         policyId: String,
@@ -90,7 +92,8 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
         return policyId.bytes +
             username.bytes +
             len + password +
-            encryptionAlgorithm.bytes
+            encryptionAlgorithm.bytes +
+            userTokenSignature.bytes
     }
 }
 
@@ -98,7 +101,7 @@ struct UserIdentityInfoX509: UserIdentityInfo {
     let policyId: String
     let certificateData: [UInt8]
     var userTokenSignature: SignatureData = SignatureData()
-    
+
     init(
         policyId: String,
         certificate: String,
@@ -109,8 +112,11 @@ struct UserIdentityInfoX509: UserIdentityInfo {
     ) {
         self.policyId = policyId
         do {
-            self.certificateData = [UInt8](try Data(contentsOf: URL(fileURLWithPath: certificate)))
             let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
+
+            let data = try Data(contentsOf: URL(fileURLWithPath: certificate))
+            self.certificateData = securityPolicy.getCertificateEncoded(data: data)
+
             if securityPolicy.asymmetricSignatureAlgorithm != .none {
                 let dataToSign = serverCertificate + serverNonce
                 let key = try Data(contentsOf: URL(fileURLWithPath: privateKey))
@@ -119,8 +125,6 @@ struct UserIdentityInfoX509: UserIdentityInfo {
                     algorithm: securityPolicy.asymmetricSignatureAlgorithm.rawValue,
                     signature: [UInt8](signature)
                 )
-            } else {
-                userTokenSignature = SignatureData()
             }
         } catch {
             fatalError(error.localizedDescription)
@@ -128,6 +132,7 @@ struct UserIdentityInfoX509: UserIdentityInfo {
     }
 
     internal var bytes: [UInt8] {
-        return policyId.bytes + certificateData + userTokenSignature.bytes
+        let len = UInt32(certificateData.count).bytes
+        return policyId.bytes + len + certificateData + userTokenSignature.bytes
     }
 }
