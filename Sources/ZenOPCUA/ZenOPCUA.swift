@@ -34,11 +34,13 @@ public class ZenOPCUA {
         eventLoopGroup: EventLoopGroup,
         endpoint: String,
         messageSecurityMode: MessageSecurityMode = .none,
+        securityPolicy: SecurityPolicies = .none,
         certificate: String? = nil,
         privateKey: String? = nil
     ) {
         handler.endpoint = endpoint
         handler.messageSecurityMode = messageSecurityMode
+        handler.securityPolicy = securityPolicy
         handler.certificate = certificate
         handler.privateKey = privateKey
         self.eventLoopGroup = eventLoopGroup

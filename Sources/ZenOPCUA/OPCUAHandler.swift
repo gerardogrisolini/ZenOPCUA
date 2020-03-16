@@ -31,7 +31,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var endpoint: String = ""
     var username: String? = nil
     var password: String? = nil
-    var messageSecurityMode: MessageSecurityMode = .none
+    var messageSecurityMode: MessageSecurityMode = .invalid
+    var securityPolicy: SecurityPolicies = .invalid
     var certificate: String? = nil
     var privateKey: String? = nil
     var requestedLifetime: UInt32 = 600000
@@ -151,10 +152,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let requestId = nextMessageID()
         let body = OpenSecureChannelRequest(
             messageSecurityMode: messageSecurityMode,
-            securityPolicy: SecurityPolicies.none.uri,
+            securityPolicy: securityPolicy,
             userTokenType: .issue,
-            senderCertificate: nil,
-            receiverCertificateThumbprint: nil,
+            senderCertificate: certificate,
             requestedLifetime: requestedLifetime,
             requestId: requestId
         )
@@ -216,10 +216,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             print("Found \(item.userIdentityTokens.count) policies")
             print("Selected Endpoint \(item.endpointUrl)")
             print("SecurityMode \(item.messageSecurityMode)")
-            var userIdentityToken: UserIdentityToken
+            var userIdentityInfo: UserIdentityInfo
             if let certificate = certificate, let privateKey = privateKey {
                 let policy = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
-                let userIdentityInfo = UserIdentityInfoX509(
+                userIdentityInfo = UserIdentityInfoX509(
                     policyId: policy.policyId,
                     certificate: certificate,
                     privateKey: privateKey,
@@ -227,10 +227,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     serverNonce: session.serverNonce,
                     securityPolicyUri: policy.securityPolicyUri!
                 )
-                userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
             } else if let username = username, let password = password {
                 let policy = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .userName })!
-                let userIdentityInfo = UserIdentityInfoUserName(
+                userIdentityInfo = UserIdentityInfoUserName(
                     policyId: policy.policyId,
                     username: username,
                     password: password,
@@ -238,12 +237,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     serverNonce: session.serverNonce,
                     securityPolicyUri: policy.securityPolicyUri
                 )
-                userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
             } else {
                 let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
-                userIdentityToken = UserIdentityToken(userIdentityInfo: UserIdentityInfoAnonymous(policyId: policyId))
+                userIdentityInfo = UserIdentityInfoAnonymous(policyId: policyId)
             }
-            print("PolicyId \(userIdentityToken.userIdentityInfo.policyId)")
+            print("PolicyId \(userIdentityInfo.policyId)")
 
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
             let requestId = nextMessageID()
@@ -251,7 +249,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 sequenceNumber: requestId,
                 requestId: requestId,
                 session: session,
-                userIdentityToken: userIdentityToken
+                userIdentityInfo: userIdentityInfo
             )
             write(context, OPCUAFrame(head: head, body: body.bytes))
             

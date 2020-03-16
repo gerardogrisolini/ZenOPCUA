@@ -8,7 +8,6 @@
 extension Array: Promisable where Element : Promisable { }
 
 extension Array where Element: OPCUAEncodable {
-    
     internal var bytes: [UInt8] {
         return self.map { $0.bytes }.reduce([], +)
     }

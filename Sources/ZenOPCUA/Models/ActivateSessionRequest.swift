@@ -6,12 +6,12 @@
 //
 
 class ActivateSessionRequest: MessageBase, OPCUAEncodable {
-
+    
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .activateSessionRequest)
     let requestHeader: RequestHeader
-    let clientSignature: SignatureData = SignatureData()
-    let clientSoftwareCertificates: String? = nil
-    let localeIds: String? = nil
+    var clientSignature: SignatureData = SignatureData()
+    var clientSoftwareCertificates: String? = nil
+    var localeIds: String? = nil
     let userIdentityToken: UserIdentityToken
 
     internal var bytes: [UInt8] {
@@ -31,10 +31,11 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
         sequenceNumber: UInt32,
         requestId: UInt32,
         session: CreateSessionResponse,
-        userIdentityToken: UserIdentityToken
+        userIdentityInfo: UserIdentityInfo
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestId, authenticationToken: session.authenticationToken)
-        self.userIdentityToken = userIdentityToken
+        //self.clientSignature = userIdentityInfo.userTokenSignature
+        self.userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
         super.init()
         self.secureChannelId = session.secureChannelId
         self.tokenId = session.tokenId

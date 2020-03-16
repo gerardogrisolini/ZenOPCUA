@@ -9,12 +9,13 @@ import Foundation
 
 protocol UserIdentityInfo: OPCUAEncodable {
     var policyId: String { get }
+    var userTokenSignature: SignatureData { get set }
 }
 
 struct UserIdentityToken: OPCUAEncodable {
     let typeId: NodeIdNumeric
     let encodingMask: UInt8 = 0x01
-    let userIdentityInfo: UserIdentityInfo
+    var userIdentityInfo: UserIdentityInfo
 
     init(userIdentityInfo: UserIdentityInfo) {
         self.userIdentityInfo = userIdentityInfo
@@ -44,7 +45,7 @@ public enum UserTokenType : UInt32 {
 
 struct UserIdentityInfoAnonymous: UserIdentityInfo {
     let policyId: String
-    let userTokenSignature: SignatureData = SignatureData()
+    var userTokenSignature: SignatureData = SignatureData()
 
     init(policyId: String) {
         self.policyId = policyId
@@ -60,7 +61,7 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
     let username: String
     var password: [UInt8]
     var encryptionAlgorithm: String?
-    let userTokenSignature: SignatureData = SignatureData()
+    var userTokenSignature: SignatureData = SignatureData()
 
     init(
         policyId: String,

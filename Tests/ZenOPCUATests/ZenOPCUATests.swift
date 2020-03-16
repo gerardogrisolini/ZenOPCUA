@@ -15,15 +15,16 @@ final class ZenOPCUATests: XCTestCase {
 
     func testExample() {
 
-        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/openssl_crt.der"
-        let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
+//        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/SimulationServer@MBP-di-Gerardo_2048.der"
+//        let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
         
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
             endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
             messageSecurityMode: .none,
-            certificate: certificateFile,
-            privateKey: privateKeyFile
+            securityPolicy: .none
+//            certificate: certificateFile,
+//            privateKey: privateKeyFile
         )
 
 //        var count = 0

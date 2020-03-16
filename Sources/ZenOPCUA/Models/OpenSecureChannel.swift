@@ -8,8 +8,8 @@
 class OpenSecureChannel {
     var secureChannelId: UInt32 = 0
     let securityPolicyUri: String
-    var senderCertificate: String? = nil
-    var receiverCertificateThumbprint: String? = nil
+    var senderCertificate: [UInt8] = []
+    var receiverCertificateThumbprint: [UInt8] = []
     let sequenseNumber: UInt32
     let requestId: UInt32
     

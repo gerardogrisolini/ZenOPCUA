@@ -8,7 +8,7 @@
 import Foundation
 import NIO
 
-enum SecurityPolicies: String {
+public enum SecurityPolicies: String {
     case invalid = "invalid"
     case none = "None"
     case basic256 = "Basic256"
