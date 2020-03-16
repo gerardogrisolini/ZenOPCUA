@@ -7,11 +7,10 @@
 
 import Foundation
 
-
 public struct OPCUAFrameHead: Equatable {
     public var messageType: MessageTypes = .hello
     public var chunkType: ChunkTypes = .frame
-    public var messageSize: UInt32 = 8
+    public var messageSize: UInt32 = 0
 }
 
 public struct OPCUAFrame: Equatable {
@@ -21,7 +20,7 @@ public struct OPCUAFrame: Equatable {
     public init(head: OPCUAFrameHead, body: [UInt8] = [UInt8]()) {
         self.head = head
         self.body = body
-        self.head.messageSize += UInt32(body.count)
+        self.head.messageSize = UInt32(body.count) + 8
     }
 
     public static func == (lhs: OPCUAFrame, rhs: OPCUAFrame) -> Bool {

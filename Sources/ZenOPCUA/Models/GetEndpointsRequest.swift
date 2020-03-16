@@ -10,10 +10,12 @@ class GetEndpointsRequest: MessageBase, OPCUAEncodable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .getEndpointsRequest)
     let requestHeader: RequestHeader
     let endpointUrl: String
-    var localeIds: String? = nil
-    var profileUris: String? = nil
+    var localeIds: [String] = []
+    var profileUris: [String] = []
     
     internal var bytes: [UInt8] {
+        let ids = UInt32(localeIds.count).bytes + localeIds.map { $0.bytes }.reduce([], +)
+        let uris = UInt32(profileUris.count).bytes + profileUris.map { $0.bytes }.reduce([], +)
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
@@ -21,8 +23,8 @@ class GetEndpointsRequest: MessageBase, OPCUAEncodable {
             typeId.bytes +
             requestHeader.bytes +
             endpointUrl.bytes +
-            localeIds.bytes +
-            profileUris.bytes
+            ids +
+            uris
     }
     
     init(

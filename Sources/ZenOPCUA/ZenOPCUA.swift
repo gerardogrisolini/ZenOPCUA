@@ -38,12 +38,12 @@ public class ZenOPCUA {
         certificate: String? = nil,
         privateKey: String? = nil
     ) {
+        self.eventLoopGroup = eventLoopGroup
         handler.endpoint = endpoint
         handler.messageSecurityMode = messageSecurityMode
         handler.securityPolicy = securityPolicy
         handler.certificate = certificate
         handler.privateKey = privateKey
-        self.eventLoopGroup = eventLoopGroup
     }
     
     private func getHostFromEndpoint() -> (host: String, port: Int) {

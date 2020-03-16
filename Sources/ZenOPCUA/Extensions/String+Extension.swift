@@ -11,7 +11,7 @@ extension String {
             let algorithm = self[self.index(after: index)...]
             return SecurityPolicies(rawValue: algorithm.description)!
         }
-        return .none
+        return .invalid
     }
 }
 

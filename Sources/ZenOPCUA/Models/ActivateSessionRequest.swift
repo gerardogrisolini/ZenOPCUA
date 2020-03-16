@@ -10,11 +10,13 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .activateSessionRequest)
     let requestHeader: RequestHeader
     var clientSignature: SignatureData = SignatureData()
-    var clientSoftwareCertificates: String? = nil
-    var localeIds: String? = nil
+    var clientSoftwareCertificates: [[UInt8]] = []
+    var localeIds: [String] = []
     let userIdentityToken: UserIdentityToken
 
     internal var bytes: [UInt8] {
+        let certificates = UInt32(clientSoftwareCertificates.count).bytes + clientSoftwareCertificates.map { $0 }.reduce([], +)
+        let ids = UInt32(localeIds.count).bytes + localeIds.map { $0.bytes }.reduce([], +)
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
@@ -22,8 +24,8 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
             typeId.bytes +
             requestHeader.bytes +
             clientSignature.bytes +
-            clientSoftwareCertificates.bytes +
-            localeIds.bytes +
+            certificates +
+            ids +
             userIdentityToken.bytes
     }
     

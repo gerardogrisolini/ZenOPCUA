@@ -12,18 +12,36 @@ enum ApplicationType: UInt32 {
     case discoveryServer = 3
 }
 
-struct ApplicationDescription {
+struct ApplicationDescription: OPCUAEncodable {
     var applicationUri: String = ""
     var productUri: String = ""
-    var applicationName: LocalizedText = LocalizedText(encodingMask: 0x00, locale: "en-US", text: "")
+    var applicationName: LocalizedText = LocalizedText(locale: "en-US", text: "ZenOPCUA")
     var applicationType: ApplicationType = .client
     var gatewayServerUri: String? = nil
     var discoveryProfileUri: String? = nil
     var discoveryUrls: [String] = []
+
+    internal var bytes: [UInt8] {
+        let uris = UInt32(discoveryUrls.count).bytes + discoveryUrls.map { $0.bytes }.reduce([], +)
+        return applicationUri.bytes +
+            productUri.bytes +
+            applicationName.bytes +
+            applicationType.rawValue.bytes +
+            gatewayServerUri.bytes +
+            discoveryProfileUri.bytes +
+            uris
+    }
 }
 
-public struct LocalizedText {
-    public var encodingMask: UInt8 = 0x00
+public struct LocalizedText: OPCUAEncodable {
+    public var encodingMask: UInt8 = 0x03
     public var locale: String = ""
     public var text: String = ""
+
+    internal var bytes: [UInt8] {
+        if encodingMask == 0x03 {
+            return [encodingMask] + locale.bytes + text.bytes
+        }
+        return [encodingMask] + text.bytes
+    }
 }

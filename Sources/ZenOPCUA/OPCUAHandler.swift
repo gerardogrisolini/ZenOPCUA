@@ -193,6 +193,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) {
+        endpoint = response.endpoints.first(where: {
+            $0.messageSecurityMode == messageSecurityMode && $0.endpointUrl.hasPrefix("opc.tcp")
+        })!.endpointUrl
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let requestId = nextMessageID()
         let body = CreateSessionRequest(
@@ -201,7 +204,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: response.requestId,
-            endpointUrl: response.endpoints.first!.endpointUrl
+            endpointUrl: endpoint
         )
         write(context, OPCUAFrame(head: head, body: body.bytes))
     }
@@ -211,14 +214,14 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         
         print("Found \(sessionActive!.serverEndpoints.count) endpoints")
         
-        if let item = session.serverEndpoints.first(where: { $0.messageSecurityMode == messageSecurityMode }) {
-        
+        if let item = session.serverEndpoints.first(where: { $0.messageSecurityMode == messageSecurityMode && $0.endpointUrl == endpoint }) {
             print("Found \(item.userIdentityTokens.count) policies")
             print("Selected Endpoint \(item.endpointUrl)")
             print("SecurityMode \(item.messageSecurityMode)")
             var userIdentityInfo: UserIdentityInfo
+            let serverEndpoint = session.serverEndpoints.first!
             if let certificate = certificate, let privateKey = privateKey {
-                let policy = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
+                let policy = serverEndpoint.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
                 userIdentityInfo = UserIdentityInfoX509(
                     policyId: policy.policyId,
                     certificate: certificate,
@@ -228,7 +231,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     securityPolicyUri: policy.securityPolicyUri!
                 )
             } else if let username = username, let password = password {
-                let policy = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .userName })!
+                let policy = serverEndpoint.userIdentityTokens.first(where: { $0.tokenType == .userName })!
                 userIdentityInfo = UserIdentityInfoUserName(
                     policyId: policy.policyId,
                     username: username,
@@ -238,7 +241,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     securityPolicyUri: policy.securityPolicyUri
                 )
             } else {
-                let policyId = session.serverEndpoints.first!.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
+                let policyId = serverEndpoint.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
                 userIdentityInfo = UserIdentityInfoAnonymous(policyId: policyId)
             }
             print("PolicyId \(userIdentityInfo.policyId)")

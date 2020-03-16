@@ -9,7 +9,7 @@ import Foundation
 
 protocol UserIdentityInfo: OPCUAEncodable {
     var policyId: String { get }
-    var userTokenSignature: SignatureData { get set }
+    //var userTokenSignature: SignatureData { get set }
 }
 
 struct UserIdentityToken: OPCUAEncodable {
@@ -30,9 +30,7 @@ struct UserIdentityToken: OPCUAEncodable {
     }
 
     internal var bytes: [UInt8] {
-        let data = userIdentityInfo.bytes
-        let count = UInt32(data.count).bytes
-        return typeId.bytes + [encodingMask] + count + data
+        return typeId.bytes + [encodingMask] + userIdentityInfo.bytes
     }
 }
 
@@ -52,7 +50,9 @@ struct UserIdentityInfoAnonymous: UserIdentityInfo {
     }
     
     internal var bytes: [UInt8] {
-        return policyId.bytes + userTokenSignature.bytes
+        let data = policyId.bytes
+        let count = UInt32(data.count).bytes
+        return count + data + userTokenSignature.bytes
     }
 }
 
@@ -90,11 +90,11 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
     
     internal var bytes: [UInt8] {
         let len = UInt32(password.count).bytes
-        return policyId.bytes +
+        let data = policyId.bytes +
             username.bytes +
             len + password +
-            encryptionAlgorithm.bytes +
-            userTokenSignature.bytes
+            encryptionAlgorithm.bytes
+        return UInt32(data.count).bytes + data + userTokenSignature.bytes
     }
 }
 
@@ -134,6 +134,7 @@ struct UserIdentityInfoX509: UserIdentityInfo {
 
     internal var bytes: [UInt8] {
         let len = UInt32(certificateData.count).bytes
-        return policyId.bytes + len + certificateData + userTokenSignature.bytes
+        let data = policyId.bytes + len + certificateData
+        return UInt32(data.count).bytes + data + userTokenSignature.bytes
     }
 }

@@ -9,7 +9,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
 
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .createSessionRequest)
     let requestHeader: RequestHeader
-    let clientDescription: ClientDescription = ClientDescription()
+    let clientDescription: ApplicationDescription = ApplicationDescription()
     var serverUri: String? = nil
     let endpointUrl: String
     var sessionName: String? = nil
@@ -43,6 +43,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         requestHandle: UInt32,
         endpointUrl: String
     ) {
+        self.sessionName = "ZenOPCUA-session1"
         self.requestHeader = RequestHeader(requestHandle: requestHandle)
         self.endpointUrl = endpointUrl
         super.init(bytes: [])
@@ -50,26 +51,5 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         self.tokenId = tokenId
         self.sequenceNumber = sequenceNumber
         self.requestId = requestId
-    }
-}
-
-
-struct ClientDescription: OPCUAEncodable {
-    let applicationUri: String = "urn:unconfigured:application"
-    let productUri: String? = nil
-    let applicationName: [UInt8] = [0x00]
-    let applicationType: UInt32 = 1
-    let gatewayServerUri: String? = nil
-    let discoveryProfileUri: String? = nil
-    let discoveryUrls: String? = nil
-    
-    internal var bytes: [UInt8] {
-        return applicationUri.bytes +
-            productUri.bytes +
-            applicationName +
-            applicationType.bytes +
-            gatewayServerUri.bytes +
-            discoveryProfileUri.bytes +
-            discoveryUrls.bytes
     }
 }

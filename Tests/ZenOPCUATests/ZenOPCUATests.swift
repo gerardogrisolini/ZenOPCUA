@@ -20,7 +20,7 @@ final class ZenOPCUATests: XCTestCase {
         
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
-            endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
+            endpoint: "opc.tcp://localhost:53530/OPCUA/SimulationServer",
             messageSecurityMode: .none,
             securityPolicy: .none
 //            certificate: certificateFile,
