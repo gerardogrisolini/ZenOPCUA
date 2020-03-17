@@ -211,11 +211,8 @@ struct SecurityPolicy {
 //    }
     
     func getCertificateEncoded(data: Data) -> [UInt8] {
-//        let priKeyECStriped = data[28..<data.count - 27].base64EncodedData()
-//        print(String(data: certData, encoding: .utf8)!)
-        
         let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, data as CFData)!
-        let encoded = SecCertificateCopyNormalizedSubjectSequence(certificate)! as Data
+        let encoded = SecCertificateCopyData(certificate) as Data
         return [UInt8](encoded)
     }
     
@@ -251,6 +248,16 @@ struct SecurityPolicy {
 //        let data = SecKeyCopyExternalRepresentation(publicKey!, &error)! as Data
 //
 //        return data
+    }
+    
+    func generateNonce(lenght: Int = 32) throws -> Data {
+        let nonce = NSMutableData(length: lenght)
+        let result = SecRandomCopyBytes(kSecRandomDefault, nonce!.length, nonce!.mutableBytes)
+        if result == errSecSuccess {
+            return nonce! as Data
+        } else {
+            throw OPCUAError.generic("unsupported")
+        }
     }
     
     func sign(dataToSign: [UInt8], privateKey: Data) throws -> Data {

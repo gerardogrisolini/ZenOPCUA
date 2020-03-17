@@ -33,6 +33,7 @@ public class ZenOPCUA {
     public init(
         eventLoopGroup: EventLoopGroup,
         endpoint: String,
+        applicationName: String = "ZenOPCUA",
         messageSecurityMode: MessageSecurityMode = .none,
         securityPolicy: SecurityPolicies = .none,
         certificate: String? = nil,
@@ -40,6 +41,7 @@ public class ZenOPCUA {
     ) {
         self.eventLoopGroup = eventLoopGroup
         handler.endpoint = endpoint
+        handler.applicationName = applicationName
         handler.messageSecurityMode = messageSecurityMode
         handler.securityPolicy = securityPolicy
         handler.certificate = certificate

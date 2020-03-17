@@ -123,7 +123,7 @@ struct UserIdentityInfoX509: UserIdentityInfo {
                 let key = try Data(contentsOf: URL(fileURLWithPath: privateKey))
                 let signature = try securityPolicy.sign(dataToSign: dataToSign, privateKey: key)
                 userTokenSignature = SignatureData(
-                    algorithm: securityPolicy.asymmetricSignatureAlgorithm.rawValue,
+                    algorithm: securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,
                     signature: [UInt8](signature)
                 )
             }

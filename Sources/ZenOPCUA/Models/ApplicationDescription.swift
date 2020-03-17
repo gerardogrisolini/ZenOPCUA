@@ -15,12 +15,16 @@ enum ApplicationType: UInt32 {
 struct ApplicationDescription: OPCUAEncodable {
     var applicationUri: String = ""
     var productUri: String = ""
-    var applicationName: LocalizedText = LocalizedText(locale: "en-US", text: "ZenOPCUA")
+    var applicationName: LocalizedText
     var applicationType: ApplicationType = .client
     var gatewayServerUri: String? = nil
     var discoveryProfileUri: String? = nil
     var discoveryUrls: [String] = []
 
+    init(applicationName: String = "") {
+        self.applicationName = LocalizedText(locale: "en-US", text: applicationName)
+    }
+    
     internal var bytes: [UInt8] {
         let uris = UInt32(discoveryUrls.count).bytes + discoveryUrls.map { $0.bytes }.reduce([], +)
         return applicationUri.bytes +

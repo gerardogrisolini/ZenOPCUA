@@ -43,26 +43,28 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         requestedLifetime: UInt32,
         requestId: UInt32
     ) {
+        let securityPolicy = SecurityPolicy(securityPolicyUri: policy.uri)
+
         self.requestHeader = RequestHeader(requestHandle: 0)
-        self.messageSecurityMode = messageSecurityMode
+        self.messageSecurityMode = .none
         self.securityTokenRequestType = userTokenType
-        self.clientNonce.append(contentsOf: UInt32.max.bytes)
+        self.clientNonce.append(contentsOf: UInt32(32).bytes)
+        self.clientNonce.append(contentsOf: try! securityPolicy.generateNonce())
         self.requestedLifetime = requestedLifetime
-        super.init(securityPolicyUri: policy.uri, requestId: requestId)
+        super.init(securityPolicyUri: SecurityPolicies.none.uri, requestId: requestId)
         self.secureChannelId = 0
 
-        if let certificate = senderCertificate, let data = try? Data(contentsOf: URL(fileURLWithPath: certificate)) {
-            let securityPolicy = SecurityPolicy(securityPolicyUri: policy.uri)
-            let encoded = securityPolicy.getCertificateEncoded(data: data)
-            self.senderCertificate.append(contentsOf: UInt32(encoded.count).bytes)
-            self.senderCertificate.append(contentsOf: encoded)
-            let digest = Insecure.SHA1.hash(data: encoded)
-            self.receiverCertificateThumbprint.append(contentsOf: UInt32(digest.data.count).bytes)
-            self.receiverCertificateThumbprint.append(contentsOf: digest.data)
-        } else {
+//        if let certificate = senderCertificate, let data = try? Data(contentsOf: URL(fileURLWithPath: certificate)) {
+//            let encoded = securityPolicy.getCertificateEncoded(data: data)
+//            self.senderCertificate.append(contentsOf: UInt32(encoded.count).bytes)
+//            self.senderCertificate.append(contentsOf: encoded)
+//            let digest = Insecure.SHA1.hash(data: encoded)
+//            self.receiverCertificateThumbprint.append(contentsOf: UInt32(digest.data.count).bytes)
+//            self.receiverCertificateThumbprint.append(contentsOf: digest.data)
+//        } else {
             self.senderCertificate.append(contentsOf: UInt32.max.bytes)
             self.receiverCertificateThumbprint.append(contentsOf: UInt32.max.bytes)
-        }
+//        }
     }
 }
 

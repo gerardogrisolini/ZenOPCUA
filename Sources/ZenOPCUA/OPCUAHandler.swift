@@ -29,6 +29,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
     
     var endpoint: String = ""
+    var applicationName: String = ""
     var username: String? = nil
     var password: String? = nil
     var messageSecurityMode: MessageSecurityMode = .invalid
@@ -55,10 +56,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             print("Opened SecureChannel with SecurityPolicy \(response.securityPolicyUri)")
             getEndpoints(context: context, response: response)
         case .error:
-            let codeId = UInt32(bytes: frame.body[0...3])
-            var error = "error code: \(codeId)"
-            if let err = ErrorResponse(rawValue: codeId) {
-                error = "\(err)"
+            var error = UInt32(bytes: frame.body[0...3]).description
+            if frame.body.count > 8, let reason = String(bytes: frame.body[8...], encoding: .utf8) {
+                error = reason
             }
             errorCaught(context: context, error: OPCUAError.generic(error))
         default:
@@ -193,9 +193,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) {
-        endpoint = response.endpoints.first(where: {
+        let first = response.endpoints.first(where: {
             $0.messageSecurityMode == messageSecurityMode && $0.endpointUrl.hasPrefix("opc.tcp")
-        })!.endpointUrl
+        })!
+        endpoint = first.endpointUrl
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let requestId = nextMessageID()
         let body = CreateSessionRequest(
@@ -204,7 +205,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: response.requestId,
-            endpointUrl: endpoint
+            serverUri: first.server.applicationUri,
+            endpointUrl: endpoint,
+            applicationName: applicationName,
+            clientCertificate: certificate,
+            securityPolicyUri: first.securityPolicyUri
         )
         write(context, OPCUAFrame(head: head, body: body.bytes))
     }
