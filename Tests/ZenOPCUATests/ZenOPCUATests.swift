@@ -15,7 +15,7 @@ final class ZenOPCUATests: XCTestCase {
 
     func testExample() {
 
-        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/SimulationServer@MBP-di-Gerardo_2048.der"
+        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_selfsigned_cert_2048.pem"
         let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
         
         let opcua = ZenOPCUA(

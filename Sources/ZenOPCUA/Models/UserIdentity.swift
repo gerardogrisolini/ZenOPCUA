@@ -116,7 +116,7 @@ struct UserIdentityInfoX509: UserIdentityInfo {
             let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
 
             let data = try Data(contentsOf: URL(fileURLWithPath: certificate))
-            self.certificateData = securityPolicy.getCertificateEncoded(data: data)
+            self.certificateData = securityPolicy.getCertificateFromPem(data: data)
 
             if securityPolicy.asymmetricSignatureAlgorithm != .none {
                 let dataToSign = serverCertificate + serverNonce

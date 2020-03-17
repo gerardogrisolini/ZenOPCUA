@@ -66,7 +66,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         self.clientNonce.append(contentsOf: try! securityPolicy.generateNonce())
 
         if let certificate = clientCertificate, let data = try? Data(contentsOf: URL(fileURLWithPath: certificate)) {
-            let encoded = securityPolicy.getCertificateEncoded(data: data)
+            let encoded = securityPolicy.getCertificateFromPem(data: data)
             self.clientCertificate.append(contentsOf: encoded)
         }
     }

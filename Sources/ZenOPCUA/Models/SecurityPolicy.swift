@@ -210,6 +210,28 @@ struct SecurityPolicy {
 //        return nil
 //    }
     
+    func getCertificateFromPem(data: Data) -> [UInt8] {
+        let startIndex = "-----BEGIN CERTIFICATE-----".data(using: .utf8)!
+        let lastIndex = "-----END CERTIFICATE-----".data(using: .utf8)!
+        
+        var index = 0
+        for i in 0..<data.count {
+            index = i + startIndex.count
+            if data[i..<index] == startIndex {
+                index += 1
+                break
+            }
+        }
+        
+        // remove header, footer and newlines from pem string
+        let pemWithoutHeaderFooterNewlines = data[index..<(data.count - lastIndex.count - 2)]
+        //print(String(data: pemWithoutHeaderFooterNewlines, encoding: .utf8)!)
+
+        let certData = Data(base64Encoded: pemWithoutHeaderFooterNewlines, options: Data.Base64DecodingOptions.ignoreUnknownCharacters)!
+        
+        return getCertificateEncoded(data: certData)
+    }
+    
     func getCertificateEncoded(data: Data) -> [UInt8] {
         let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, data as CFData)!
         let encoded = SecCertificateCopyData(certificate) as Data
