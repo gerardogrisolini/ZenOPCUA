@@ -37,6 +37,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var certificate: String? = nil
     var privateKey: String? = nil
     var requestedLifetime: UInt32 = 600000
+    var maxRequestMessageSize: Int = 4128
 
     public init() {
     }
@@ -69,6 +70,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
             case .createSessionResponse:
                 sessionActive = CreateSessionResponse(bytes: frame.body)
+                if sessionActive!.maxRequestMessageSize > 0 {
+                    maxRequestMessageSize = Int(sessionActive!.maxRequestMessageSize)
+                }
                 if !activateSession(context: context) {
                     promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
                 }
@@ -121,30 +125,26 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         errorCaught(error)
     }
 
-    let chunkSize: Int = 4128
-
     fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
-//        if frame.head.messageSize > chunkSize {
-//
-//            var index = 0
-//            while index < frame.head.messageSize {
-//                print("\(index) < \(frame.head.messageSize)")
-//                let part: OPCUAFrame
-//                if (index + chunkSize - 8) >= frame.head.messageSize {
-//                    let body = frame.body[index...].map { $0 }
-//                    part = OPCUAFrame(head: frame.head, body: body)
-//                } else {
-//                    let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
-//                    let body = frame.body[index..<(index + chunkSize - 8)].map { $0 }
-//                    part = OPCUAFrame(head: head, body: body)
-//                }
-//                context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
-//                index += chunkSize - 8
-//            }
-//
-//        } else {
+        if frame.head.messageSize > maxRequestMessageSize {
+            var index = 0
+            while index < frame.head.messageSize {
+                print("\(index) < \(frame.head.messageSize)")
+                let part: OPCUAFrame
+                if (index + maxRequestMessageSize - 8) >= frame.head.messageSize {
+                    let body = frame.body[index...].map { $0 }
+                    part = OPCUAFrame(head: frame.head, body: body)
+                } else {
+                    let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
+                    let body = frame.body[index..<(index + maxRequestMessageSize - 8)].map { $0 }
+                    part = OPCUAFrame(head: head, body: body)
+                }
+                context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
+                index += maxRequestMessageSize - 8
+            }
+        } else {
             context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
-//        }
+        }
     }
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
