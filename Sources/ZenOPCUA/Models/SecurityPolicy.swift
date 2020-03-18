@@ -127,12 +127,14 @@ struct SecurityPolicy {
     let asymmetricKeyWrapAlgorithm: SecurityAlgorithm
     let keyDerivationAlgorithm: SecurityAlgorithm
     let certificateSignatureAlgorithm: SecurityAlgorithm
-
+    let symmetricKeyLength: Int
+    
     init(securityPolicyUri: String) {
         self.securityPolicyUri = securityPolicyUri
         
         switch securityPolicyUri.securityPolicy {
         case .basic128Rsa15:
+            self.symmetricKeyLength = 16
             self.symmetricSignatureAlgorithm = .hmacSha1
             self.symmetricEncryptionAlgorithm = .aes128
             self.asymmetricSignatureAlgorithm = .rsaSha1
@@ -142,6 +144,7 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha1
 
         case .basic256:
+            self.symmetricKeyLength = 32
             self.symmetricSignatureAlgorithm = .hmacSha1
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha1
@@ -151,6 +154,7 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha1
 
         case .basic256Sha256:
+            self.symmetricKeyLength = 32
             self.symmetricSignatureAlgorithm = .hmacSha256
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha256
@@ -160,6 +164,7 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha256
 
         case .aes128Sha256RsaOaep:
+            self.symmetricKeyLength = 32
             self.symmetricSignatureAlgorithm = .hmacSha256
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha256
@@ -169,6 +174,7 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha256
 
         case .aes256Sha256RsaPss:
+            self.symmetricKeyLength = 32
             self.symmetricSignatureAlgorithm = .hmacSha256
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha256Pss
@@ -178,6 +184,7 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha256
 
         default:
+            self.symmetricKeyLength = 0
             self.symmetricSignatureAlgorithm = .none
             self.symmetricEncryptionAlgorithm = .none
             self.asymmetricSignatureAlgorithm = .none
@@ -272,7 +279,7 @@ struct SecurityPolicy {
 //        return data
     }
     
-    func generateNonce(lenght: Int = 32) throws -> Data {
+    func generateNonce(_ lenght: Int) throws -> Data {
         let nonce = NSMutableData(length: lenght)
         let result = SecRandomCopyBytes(kSecRandomDefault, nonce!.length, nonce!.mutableBytes)
         if result == errSecSuccess {

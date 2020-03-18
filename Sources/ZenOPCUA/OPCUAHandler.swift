@@ -153,7 +153,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let body = OpenSecureChannelRequest(
             messageSecurityMode: messageSecurityMode,
             securityPolicy: securityPolicy,
-            userTokenType: .issue,
+            userTokenType: sessionActive == nil ? .issue : .renew,
             senderCertificate: certificate,
             requestedLifetime: requestedLifetime,
             requestId: requestId
