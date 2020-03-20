@@ -28,6 +28,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public var sessionActive: CreateSessionResponse? = nil
     public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
     
+    var isAcknowledge: Bool = false
     var endpoint: EndpointDescription = EndpointDescription()
     var applicationName: String = ""
     var username: String? = nil
@@ -78,6 +79,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
             case .createSessionResponse:
+                isAcknowledge = false
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
                     promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))

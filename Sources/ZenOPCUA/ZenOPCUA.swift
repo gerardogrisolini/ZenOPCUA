@@ -123,6 +123,8 @@ public class ZenOPCUA {
 
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true) -> EventLoopFuture<Void> {
         self.reconnect = reconnect
+        var isAcknowledgeSecure = handler.messageSecurityMode != .none
+        handler.isAcknowledge = true
         handler.username = username
         handler.password = password
         handler.dataChanged = onDataChanged
@@ -132,11 +134,10 @@ public class ZenOPCUA {
                 onHandlerRemoved()
             }
                         
-            if self.reconnect || self.handler.endpoint.serverCertificate.count > 0 && self.handler.sessionActive == nil {
+            if self.reconnect && !self.handler.isAcknowledge || isAcknowledgeSecure{
                 self.stop().whenComplete { _ in
-                    print("STOP")
                     self.start().whenComplete { _ in
-                        print("START")
+                        isAcknowledgeSecure = false
                     }
                 }
             }

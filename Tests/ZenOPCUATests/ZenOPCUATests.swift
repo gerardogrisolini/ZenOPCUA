@@ -20,11 +20,11 @@ final class ZenOPCUATests: XCTestCase {
         
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
-            endpoint: "opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer"
-//            messageSecurityMode: .sign,
-//            securityPolicy: .basic256Sha256,
-//            certificate: certificateFile,
-//            privateKey: privateKeyFile
+            endpoint: "opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
+            messageSecurityMode: .sign,
+            securityPolicy: .basic256Sha256,
+            certificate: certificateFile,
+            privateKey: privateKeyFile
         )
 
 //        var count = 0
@@ -69,7 +69,7 @@ final class ZenOPCUATests: XCTestCase {
         
         do {
             //try opcua.connect(username: "admin", password: "admin", reconnect: false).wait()
-            try opcua.connect(reconnect: false).wait()
+            try opcua.connect(reconnect: true).wait()
             
 //            let nodes: [BrowseDescription] = [
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253)),
