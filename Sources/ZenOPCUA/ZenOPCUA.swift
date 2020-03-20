@@ -40,7 +40,7 @@ public class ZenOPCUA {
         privateKey: String? = nil
     ) {
         self.eventLoopGroup = eventLoopGroup
-        handler.endpoint = endpoint
+        handler.endpoint.endpointUrl = endpoint
         handler.applicationName = applicationName
         handler.messageSecurityMode = messageSecurityMode
         handler.securityPolicy = securityPolicy
@@ -49,7 +49,7 @@ public class ZenOPCUA {
     }
     
     private func getHostFromEndpoint() -> (host: String, port: Int) {
-        let url = handler.endpoint
+        let url = handler.endpoint.endpointUrl
         if let index = url.lastIndex(of: ":") {
             let host = url[url.startIndex..<index]
                 .replacingOccurrences(of: "opc.tcp://", with: "")
@@ -110,8 +110,6 @@ public class ZenOPCUA {
                 self.handler.promises.removeValue(forKey: 0)
                 self.handler.promises[0] = channel.eventLoop.makePromise()
                 
-                self.sendHello()
-
                 return self.handler.promises[0]!.futureResult.map { promise -> () in
                     ()
                 }
@@ -129,13 +127,6 @@ public class ZenOPCUA {
         }
     }
 
-    fileprivate func sendHello() {
-        guard let channel = channel else { return }
-        let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
-        let body = Hello(endpointUrl: handler.endpoint)
-        channel.writeAndFlush(OPCUAFrame(head: head, body: body.bytes), promise: nil)
-    }
-
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true) -> EventLoopFuture<Void> {
         self.reconnect = reconnect
         handler.username = username
@@ -146,8 +137,8 @@ public class ZenOPCUA {
             if let onHandlerRemoved = self.onHandlerRemoved {
                 onHandlerRemoved()
             }
-            
-            if self.reconnect {
+                        
+            if self.reconnect { //|| self.handler.endpoint.serverCertificate.count > 0 && self.handler.sessionActive == nil {
                 self.stop().whenComplete { _ in
                     self.start().whenComplete { _ in }
                 }
