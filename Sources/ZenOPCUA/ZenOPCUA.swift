@@ -94,6 +94,7 @@ public class ZenOPCUA {
         return ClientBootstrap(group: eventLoopGroup)
             // Enable SO_REUSEADDR.
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_KEEPALIVE), value: 1)
             .channelInitializer { channel in
 //                if let sslContext = self.sslContext,
 //                    let sslClientHandler = try? NIOSSLClientHandler(context: sslContext, serverHostname: server.host) {
@@ -104,15 +105,8 @@ public class ZenOPCUA {
                 return channel.pipeline.addHandlers(handlers)
             }
             .connect(host: server.host, port: server.port)
-            .flatMap { channel -> EventLoopFuture<Void> in
+            .map { channel -> Void in
                 self.channel = channel
-                
-                self.handler.promises.removeValue(forKey: 0)
-                self.handler.promises[0] = channel.eventLoop.makePromise()
-                
-                return self.handler.promises[0]!.futureResult.map { promise -> () in
-                    ()
-                }
             }
     }
     
@@ -138,14 +132,23 @@ public class ZenOPCUA {
                 onHandlerRemoved()
             }
                         
-            if self.reconnect { //|| self.handler.endpoint.serverCertificate.count > 0 && self.handler.sessionActive == nil {
+            if self.reconnect || self.handler.endpoint.serverCertificate.count > 0 && self.handler.sessionActive == nil {
                 self.stop().whenComplete { _ in
-                    self.start().whenComplete { _ in }
+                    print("STOP")
+                    self.start().whenComplete { _ in
+                        print("START")
+                    }
                 }
             }
         }
         
-        return start()
+        return start().flatMap { () -> EventLoopFuture<Void> in
+            //self.handler.promises.removeValue(forKey: 0)
+            self.handler.promises[0] = self.channel!.eventLoop.makePromise()
+            return self.handler.promises[0]!.futureResult.map { item -> Void in
+                ()
+            }
+        }
     }
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {

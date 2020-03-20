@@ -18,11 +18,11 @@ class Handshake {
 class Acknowledge: Handshake, OPCUADecodable {
     required init(bytes: [UInt8]) {
         super.init()
-        version = UInt32(bytes: bytes[8...11])
-        receiveBufferSize = UInt32(bytes: bytes[12...15])
-        sendBufferSize = UInt32(bytes: bytes[16...19])
-        maxMessageSize = UInt32(bytes: bytes[20...23])
-        maxChunkCount = UInt32(bytes: bytes[24...27])
+        version = UInt32(bytes: bytes[0..<4])
+        receiveBufferSize = UInt32(bytes: bytes[4..<8])
+        sendBufferSize = UInt32(bytes: bytes[8..<12])
+        maxMessageSize = UInt32(bytes: bytes[12..<16])
+        maxChunkCount = UInt32(bytes: bytes[16..<20])
     }
 }
 

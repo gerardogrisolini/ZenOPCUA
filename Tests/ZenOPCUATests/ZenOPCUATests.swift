@@ -20,11 +20,11 @@ final class ZenOPCUATests: XCTestCase {
         
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
-            endpoint: "opc.tcp://localhost:53530/OPCUA/SimulationServer",
-            messageSecurityMode: .sign,
-            securityPolicy: .basic256Sha256,
-            certificate: certificateFile,
-            privateKey: privateKeyFile
+            endpoint: "opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer"
+//            messageSecurityMode: .sign,
+//            securityPolicy: .basic256Sha256,
+//            certificate: certificateFile,
+//            privateKey: privateKeyFile
         )
 
 //        var count = 0

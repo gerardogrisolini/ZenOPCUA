@@ -37,7 +37,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var certificate: String? = nil
     var privateKey: String? = nil
     var requestedLifetime: UInt32 = 600000
-    var maxRequestMessageSize: Int = 4128
+    var bufferSize: Int = 8196
 
     public init() {
     }
@@ -50,7 +50,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     fileprivate func sendHello(context: ChannelHandlerContext) {
         let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
         let body = Hello(endpointUrl: endpoint.endpointUrl)
-        print("hello")
         let frame = OPCUAFrame(head: head, body: body.bytes)
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
@@ -60,6 +59,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         
         switch frame.head.messageType {
         case .acknowledge:
+            bufferSize = Int(Acknowledge(bytes: frame.body).receiveBufferSize)
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
@@ -78,11 +78,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
             case .createSessionResponse:
-                sessionActive = CreateSessionResponse(bytes: frame.body)
-                if sessionActive!.maxRequestMessageSize > 0 {
-                    maxRequestMessageSize = Int(sessionActive!.maxRequestMessageSize)
+                let response = CreateSessionResponse(bytes: frame.body)
+                if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
+                    promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
                 }
-                if !activateSession(context: context) {
+                else if !activateSession(context: context, response: response) {
                     promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
                 }
             case .activateSessionResponse:
@@ -135,21 +135,21 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
-        if frame.head.messageSize > maxRequestMessageSize {
+        if frame.head.messageSize > bufferSize {
             var index = 0
             while index < frame.head.messageSize {
                 print("\(index) < \(frame.head.messageSize)")
                 let part: OPCUAFrame
-                if (index + maxRequestMessageSize - 8) >= frame.head.messageSize {
+                if (index + bufferSize - 8) >= frame.head.messageSize {
                     let body = frame.body[index...].map { $0 }
                     part = OPCUAFrame(head: frame.head, body: body)
                 } else {
                     let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
-                    let body = frame.body[index..<(index + maxRequestMessageSize - 8)].map { $0 }
+                    let body = frame.body[index..<(index + bufferSize - 8)].map { $0 }
                     part = OPCUAFrame(head: head, body: body)
                 }
                 context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
-                index += maxRequestMessageSize - 8
+                index += bufferSize - 8
             }
         } else {
             context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
@@ -257,13 +257,14 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         write(context, frame)
     }
 
-    fileprivate func activateSession(context: ChannelHandlerContext) -> Bool {
-        guard  let session = sessionActive else { return false }
+    fileprivate func activateSession(context: ChannelHandlerContext, response: CreateSessionResponse) -> Bool {
+        sessionActive = response
+        guard let session = sessionActive else { return false }
         
-        print("Found \(sessionActive!.serverEndpoints.count) endpoints")
+        print("Found \(session.serverEndpoints.count) endpoints")
         
         if let item = session.serverEndpoints.first(where: {
-            $0.messageSecurityMode == messageSecurityMode && $0.endpointUrl == endpoint.endpointUrl
+            $0.messageSecurityMode == messageSecurityMode && $0.endpointUrl.hasPrefix("opc.tcp")
         }) {
             print("Found \(item.userIdentityTokens.count) policies")
             print("Selected Endpoint \(item.endpointUrl)")

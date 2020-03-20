@@ -21,20 +21,19 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
     let maxResponseMessageSize: UInt32 = 2147483647
     
     internal var bytes: [UInt8] {
-        let nonce = UInt32(clientNonce.count).bytes + clientNonce
-        let certificate = UInt32(clientCertificate.count).bytes + clientCertificate
-        return secureChannelId.bytes +
+        let header = secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
             requestId.bytes +
-            typeId.bytes +
+            typeId.bytes
+        let cert = clientNonce + clientCertificate
+        return header +
             requestHeader.bytes +
             clientDescription.bytes +
             serverUri.bytes +
             endpointUrl.bytes +
             sessionName.bytes +
-            nonce +
-            certificate +
+            cert +
             requestedSessionTimeout.bytes +
             maxResponseMessageSize.bytes
     }
@@ -63,11 +62,19 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         self.requestId = requestId
         
         let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
-        self.clientNonce.append(contentsOf: try! securityPolicy.generateNonce(securityPolicy.symmetricKeyLength))
-
+        if securityPolicy.symmetricKeyLength > 0 {
+            self.clientNonce.append(contentsOf: UInt32(securityPolicy.symmetricKeyLength).bytes)
+            self.clientNonce.append(contentsOf: try! securityPolicy.generateNonce(securityPolicy.symmetricKeyLength))
+        } else {
+            self.clientNonce.append(contentsOf: UInt32.max.bytes)
+        }
+        
         if let certificate = clientCertificate, let data = try? Data(contentsOf: URL(fileURLWithPath: certificate)) {
             let encoded = securityPolicy.getCertificateFromPem(data: data)
+            self.clientCertificate.append(contentsOf: UInt32(encoded.count).bytes)
             self.clientCertificate.append(contentsOf: encoded)
+        } else {
+            self.clientCertificate.append(contentsOf: UInt32.max.bytes)
         }
     }
 }
