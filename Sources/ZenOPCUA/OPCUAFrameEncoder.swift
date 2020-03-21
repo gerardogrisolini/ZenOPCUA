@@ -15,7 +15,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     let byteBufferAllocator = ByteBufferAllocator()
     let securityPolicy: SecurityPolicy
     var publicKey: SecKey? = nil
-    var privateKey: SecKey? = nil
+    //var privateKey: SecKey? = nil
+    var privateKeyData: Data = Data()
     var localCertificateChain: Data = Data()
     
     lazy var remoteCertificateThumbprint: Data = {
@@ -36,7 +37,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 localCertificateChain.append(contentsOf: certificateDate)
             }
             if let privateKeyData = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
-                privateKey = securityPolicy.privateKeyFromData(privateKey: privateKeyData)
+                //privateKey = securityPolicy.privateKeyFromData(privateKey: privateKeyData)
+                self.privateKeyData = privateKeyData
             }
         }
     }
@@ -52,11 +54,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             byteBuffer.writeString("\(value.head.messageType.rawValue)\(value.head.chunkType.rawValue)")
             byteBuffer.writeBytes(value.head.messageSize.bytes)
             byteBuffer.writeBytes(value.body)
-            signAndEncrypt(byteBuffer: byteBuffer, out: &out)
+            try signAndEncrypt(messageBuffer: byteBuffer, out: &out)
         }
     }
     
-    func signAndEncrypt(byteBuffer: ByteBuffer, out: inout ByteBuffer) {
+    func signAndEncrypt(messageBuffer: ByteBuffer, out: inout ByteBuffer) throws {
         
         let SEQUENCE_HEADER_SIZE: Int = 8
         let SECURE_MESSAGE_HEADER_SIZE: Int = 12
@@ -78,71 +80,114 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
         assert (maxPlainTextSize + securityHeaderSize + SECURE_MESSAGE_HEADER_SIZE <= maxChunkSize)
 
-        
-        /*
-        /* Padding and Signature */
-        if (encrypted) {
-            writePadding(cipherTextBlockSize, paddingSize, chunkBuffer);
-        }
+        while (messageBuffer.readableBytes > 0) {
+            let bodySize = min(messageBuffer.readableBytes, maxBodySize)
 
-        if (isSigningEnabled(channel)) {
-            ByteBuffer chunkNioBuffer = chunkBuffer.nioBuffer(0, chunkBuffer.writerIndex());
+            var paddingSize: Int
+            if encrypted {
+                let plainTextSize = SEQUENCE_HEADER_SIZE + bodySize + paddingOverhead + signatureSize
+                let remaining = plainTextSize % plainTextBlockSize
+                paddingSize = remaining > 0 ? plainTextBlockSize - remaining : 0
+            } else {
+                paddingSize = 0
+            }
 
-            byte[] signature = signChunk(channel, chunkNioBuffer);
+            let plainTextContentSize = SEQUENCE_HEADER_SIZE + bodySize +
+                signatureSize + paddingSize + paddingOverhead
 
-            chunkBuffer.writeBytes(signature);
-        }
+            assert (plainTextContentSize % plainTextBlockSize == 0)
 
-        /* Encryption */
-        if (encrypted) {
-            chunkBuffer.readerIndex(SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize);
+            let chunkSize = SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize +
+                (plainTextContentSize / plainTextBlockSize) * cipherTextBlockSize
 
-            assert (chunkBuffer.readableBytes() % plainTextBlockSize == 0);
+            assert (chunkSize <= maxChunkSize)
 
-            try {
-                int blockCount = chunkBuffer.readableBytes() / plainTextBlockSize;
+            var chunkBuffer = byteBufferAllocator.buffer(capacity: chunkSize)
+            chunkBuffer.writeBytes(messageBuffer.getBytes(at: 0, length: bodySize)!)
 
-                ByteBuffer chunkNioBuffer = chunkBuffer.nioBuffer(
-                    chunkBuffer.readerIndex(), blockCount * cipherTextBlockSize);
+            /* Padding and Signature */
+            if encrypted {
+                writePadding(cipherTextBlockSize, paddingSize, &chunkBuffer)
+            }
 
-                ByteBuf copyBuffer = chunkBuffer.copy();
-                ByteBuffer plainTextNioBuffer = copyBuffer.nioBuffer();
+            if OPCUAHandler.messageSecurityMode != .none {
+                let dataToSign = chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!
+                let signature = try! securityPolicy.sign(dataToSign: dataToSign, privateKey: privateKeyData, clientCertificate: localCertificateChain)
+                chunkBuffer.writeBytes(signature)
+            }
 
-                Cipher cipher = getCipher(channel);
+            /* Encryption */
+            if (encrypted) {
+                chunkBuffer.moveReaderIndex(to: SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize)
 
-                if (isAsymmetric()) {
-                    for (int blockNumber = 0; blockNumber < blockCount; blockNumber++) {
-                        int position = blockNumber * plainTextBlockSize;
-                        int limit = (blockNumber + 1) * plainTextBlockSize;
-                        ((Buffer) plainTextNioBuffer).position(position);
-                        ((Buffer) plainTextNioBuffer).limit(limit);
+                assert (chunkBuffer.readableBytes % plainTextBlockSize == 0)
 
-                        int bytesWritten = cipher.doFinal(plainTextNioBuffer, chunkNioBuffer);
+                let blockCount = chunkBuffer.readableBytes / plainTextBlockSize
 
-                        assert (bytesWritten == cipherTextBlockSize);
-                    }
-                } else {
-                    cipher.doFinal(plainTextNioBuffer, chunkNioBuffer);
+//                ByteBuffer chunkNioBuffer = chunkBuffer.nioBuffer(
+//                    chunkBuffer.readerIndex(), blockCount * cipherTextBlockSize);
+//                ByteBuf copyBuffer = chunkBuffer.copy()
+//                ByteBuffer plainTextNioBuffer = copyBuffer.nioBuffer()
+//
+//                Cipher cipher = getCipher(channel)
+//
+//                if (isAsymmetric()) {
+//                    for (int blockNumber = 0; blockNumber < blockCount; blockNumber++) {
+//                        int position = blockNumber * plainTextBlockSize;
+//                        int limit = (blockNumber + 1) * plainTextBlockSize;
+//                        ((Buffer) plainTextNioBuffer).position(position);
+//                        ((Buffer) plainTextNioBuffer).limit(limit);
+//
+//                        int bytesWritten = cipher.doFinal(plainTextNioBuffer, chunkNioBuffer);
+//
+//                        assert (bytesWritten == cipherTextBlockSize);
+//                    }
+//                } else {
+//                    cipher.doFinal(plainTextNioBuffer, chunkNioBuffer);
+//                }
+//
+//                copyBuffer.release();
+
+                let serverCertificate = Data(OPCUAHandler.endpoint.serverCertificate)
+
+                var chunkNioBuffer = byteBufferAllocator.buffer(capacity: blockCount * cipherTextBlockSize)
+                for blockNumber in 0..<blockCount {
+                    let position = blockNumber * plainTextBlockSize
+                    let limit = (blockNumber + 1) * plainTextBlockSize
+                    let dataToEncrypt = chunkBuffer.getBytes(at: position, length: limit)!
+                    let dataEncrypted = try securityPolicy.crypt(dataToEncrypt: dataToEncrypt, serverCertificate: serverCertificate)
+
+                    assert (dataEncrypted.count == cipherTextBlockSize)
+                    chunkNioBuffer.writeBytes(dataEncrypted)
                 }
-
-                copyBuffer.release();
-            } catch (GeneralSecurityException e) {
-                throw new UaException(StatusCodes.Bad_SecurityChecksFailed, e);
+                
+                out.writeBuffer(&chunkNioBuffer)
+            } else {
+//                chunkBuffer.moveReaderIndex(to: 0)
+                out.writeBuffer(&chunkBuffer)
             }
         }
-
-        chunkBuffer.readerIndex(0).writerIndex(chunkSize);
-        */
-        
-        
-        
-//        let privateKey = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
-//        let signed = try! securityPolicy.sign(dataToSign: dataToSign, privateKey: privateKey, clientCertificate: Data(senderCertificate[4...]))
-//        let len = UInt32(signed.count).bytes
-
-        
     }
     
+    func writePadding(_ cipherTextBlockSize: Int, _ paddingSize: Int, _ buffer: inout ByteBuffer) {
+        if cipherTextBlockSize > 256 {
+            buffer.writeInteger(paddingSize)
+        } else {
+            buffer.writeBytes(paddingSize.bytes)
+        }
+
+        for _ in 0..<paddingSize {
+            buffer.writeBytes(paddingSize.bytes)
+        }
+
+        if cipherTextBlockSize > 256 {
+            // Replace the last byte with the MSB of the 2-byte padding length
+            let paddingLengthMsb: Int = paddingSize >> 8
+            buffer.moveWriterIndex(to: buffer.writerIndex - 1)
+            buffer.writeBytes(paddingLengthMsb.bytes)
+        }
+    }
+
     func getSecurityHeaderSize() -> Int {
         return 12 + OPCUAHandler.securityPolicy.uri.count +
             localCertificateChain.count +
