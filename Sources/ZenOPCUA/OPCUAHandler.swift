@@ -27,15 +27,16 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public var sessionActive: CreateSessionResponse? = nil
     public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
     
+    static var messageSecurityMode: MessageSecurityMode = .invalid
+    static var securityPolicy: SecurityPolicies = .invalid
+    static var certificate: String? = nil
+    static var privateKey: String? = nil
+    static var endpoint: EndpointDescription = EndpointDescription()
+
     var isAcknowledge: Bool = false
-    var endpoint: EndpointDescription = EndpointDescription()
     var applicationName: String = ""
     var username: String? = nil
     var password: String? = nil
-    var messageSecurityMode: MessageSecurityMode = .invalid
-    var securityPolicy: SecurityPolicies = .invalid
-    var certificate: String? = nil
-    var privateKey: String? = nil
     var requestedLifetime: UInt32 = 600000
     var bufferSize: Int = 8196
 
@@ -49,7 +50,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     fileprivate func sendHello(context: ChannelHandlerContext) {
         let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
-        let body = Hello(endpointUrl: endpoint.endpointUrl)
+        let body = Hello(endpointUrl: OPCUAHandler.endpoint.endpointUrl)
         let frame = OPCUAFrame(head: head, body: body.bytes)
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
@@ -158,12 +159,12 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
-        var securityMode = messageSecurityMode
-        var policy = securityPolicy
+        var securityMode = OPCUAHandler.messageSecurityMode
+        var policy = OPCUAHandler.securityPolicy
         var userTokenType: SecurityTokenRequestType = sessionActive == nil ? .issue : .renew
         
-        if certificate != nil {
-            if endpoint.serverCertificate.count > 0 {
+        if OPCUAHandler.certificate != nil {
+            if OPCUAHandler.endpoint.serverCertificate.count > 0 {
                 userTokenType = .renew
             } else {
                 securityMode = .none
@@ -177,8 +178,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             messageSecurityMode: securityMode,
             securityPolicy: policy,
             userTokenType: userTokenType,
-            senderCertificate: certificate,
-            serverCertificate: endpoint.serverCertificate,
+            senderCertificate: OPCUAHandler.certificate,
+            serverCertificate: OPCUAHandler.endpoint.serverCertificate,
             requestedLifetime: requestedLifetime,
             requestId: requestId
         )
@@ -212,7 +213,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: response.requestId,
-            endpointUrl: endpoint.endpointUrl
+            endpointUrl: OPCUAHandler.endpoint.endpointUrl
         )
         write(context, OPCUAFrame(head: head, body: body.bytes))
     }
@@ -221,8 +222,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let requestId = nextMessageID()
         let frame: OPCUAFrame
         
-        if certificate != nil && endpoint.serverCertificate.count == 0 {
-            endpoint = response.endpoints.first(where: { $0.messageSecurityMode == messageSecurityMode })!
+        if OPCUAHandler.certificate != nil && OPCUAHandler.endpoint.serverCertificate.count == 0 {
+            OPCUAHandler.endpoint = response.endpoints.first(where: { $0.messageSecurityMode == OPCUAHandler.messageSecurityMode })!
 
             let head = OPCUAFrameHead(messageType: .closeChannel, chunkType: .frame)
             let body = CloseSecureChannelRequest(
@@ -234,7 +235,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             )
             frame = OPCUAFrame(head: head, body: body.bytes)
         } else {
-            endpoint = response.endpoints.first(where: { $0.messageSecurityMode == messageSecurityMode })!
+            OPCUAHandler.endpoint = response.endpoints.first(where: { $0.messageSecurityMode == OPCUAHandler.messageSecurityMode })!
 
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
             let body = CreateSessionRequest(
@@ -243,11 +244,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 sequenceNumber: requestId,
                 requestId: requestId,
                 requestHandle: response.requestId,
-                serverUri: endpoint.server.applicationUri,
-                endpointUrl: endpoint.endpointUrl,
+                serverUri: OPCUAHandler.endpoint.server.applicationUri,
+                endpointUrl: OPCUAHandler.endpoint.endpointUrl,
                 applicationName: applicationName,
-                clientCertificate: certificate,
-                securityPolicyUri: endpoint.securityPolicyUri
+                clientCertificate: OPCUAHandler.certificate,
+                securityPolicyUri: OPCUAHandler.endpoint.securityPolicyUri
             )
             frame = OPCUAFrame(head: head, body: body.bytes)
         }
@@ -262,14 +263,14 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         print("Found \(session.serverEndpoints.count) endpoints")
         
         if let item = session.serverEndpoints.first(where: {
-            $0.messageSecurityMode == messageSecurityMode && $0.endpointUrl.hasPrefix("opc.tcp")
+            $0.messageSecurityMode == OPCUAHandler.messageSecurityMode && $0.endpointUrl.hasPrefix("opc.tcp")
         }) {
             print("Found \(item.userIdentityTokens.count) policies")
             print("Selected Endpoint \(item.endpointUrl)")
             print("SecurityMode \(item.messageSecurityMode)")
             var userIdentityInfo: UserIdentityInfo
             let serverEndpoint = session.serverEndpoints.first!
-            if let certificate = certificate, let privateKey = privateKey {
+            if let certificate = OPCUAHandler.certificate, let privateKey = OPCUAHandler.privateKey {
                 let policy = serverEndpoint.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
                 userIdentityInfo = UserIdentityInfoX509(
                     policyId: policy.policyId,

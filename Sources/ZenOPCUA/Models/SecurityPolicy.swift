@@ -245,7 +245,7 @@ struct SecurityPolicy {
         return [UInt8](encoded)
     }
     
-    private func privateKeyForCertificate(privateKey: Data) -> SecKey? {
+    func privateKeyFromData(privateKey: Data) -> SecKey? {
         let priKeyECStriped = privateKey[32..<privateKey.count - 31]
         //print(String(data: priKeyECStriped, encoding: .utf8)!)
         let priKeyECData = Data(base64Encoded: priKeyECStriped, options: Data.Base64DecodingOptions.ignoreUnknownCharacters)!
@@ -261,12 +261,14 @@ struct SecurityPolicy {
         return secKey
     }
 
-    private func publicKeyForCertificate(certificate: SecCertificate) -> SecKey? {
+    func publicKeyFromData(certificate: Data) -> SecKey? {
         var publicKey: SecKey?
         var trust: SecTrust?
 
+        let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData)!
+
         let policy = SecPolicyCreateBasicX509()
-        let status = SecTrustCreateWithCertificates(certificate, policy, &trust)
+        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
 
         if status == errSecSuccess, let trust = trust {
             publicKey = SecTrustCopyPublicKey(trust)!
@@ -290,7 +292,7 @@ struct SecurityPolicy {
     }
     
     func sign(dataToSign: [UInt8], privateKey: Data, clientCertificate: Data) throws -> Data {
-        let key = privateKeyForCertificate(privateKey: privateKey)!
+        let key = privateKeyFromData(privateKey: privateKey)!
         
         let algorithm: SecKeyAlgorithm
         switch asymmetricSignatureAlgorithm {
@@ -315,8 +317,7 @@ struct SecurityPolicy {
                                                         throw error!.takeRetainedValue() as Error
         }
         
-        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, clientCertificate as CFData)!
-        let publicKey = publicKeyForCertificate(certificate: certificate)!
+        let publicKey = publicKeyFromData(certificate: clientCertificate)!
 
         guard SecKeyIsAlgorithmSupported(publicKey, .verify, algorithm) else {
             throw OPCUAError.generic("unsupported verify algorithm")
@@ -334,8 +335,7 @@ struct SecurityPolicy {
     }
 
     func crypt(dataToEncrypt: [UInt8], serverCertificate: Data) throws -> [UInt8] {
-        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, serverCertificate as CFData)!
-        let publicKey = publicKeyForCertificate(certificate: certificate)!
+        let publicKey = publicKeyFromData(certificate: serverCertificate)!
 
         let algorithm: SecKeyAlgorithm
         switch asymmetricEncryptionAlgorithm {
@@ -409,7 +409,6 @@ struct SecurityPolicy {
         */
     }
     
-    /*
     func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
         return SecKeyGetBlockSize(publicKey)
     }
@@ -444,5 +443,4 @@ struct SecurityPolicy {
             return 1
         }
     }
-    */
 }

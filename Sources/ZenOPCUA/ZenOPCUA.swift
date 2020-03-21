@@ -40,16 +40,16 @@ public class ZenOPCUA {
         privateKey: String? = nil
     ) {
         self.eventLoopGroup = eventLoopGroup
-        handler.endpoint.endpointUrl = endpoint
         handler.applicationName = applicationName
-        handler.messageSecurityMode = messageSecurityMode
-        handler.securityPolicy = securityPolicy
-        handler.certificate = certificate
-        handler.privateKey = privateKey
+        OPCUAHandler.endpoint.endpointUrl = endpoint
+        OPCUAHandler.messageSecurityMode = messageSecurityMode
+        OPCUAHandler.securityPolicy = securityPolicy
+        OPCUAHandler.certificate = certificate
+        OPCUAHandler.privateKey = privateKey
     }
     
     private func getHostFromEndpoint() -> (host: String, port: Int) {
-        let url = handler.endpoint.endpointUrl
+        let url = OPCUAHandler.endpoint.endpointUrl
         if let index = url.lastIndex(of: ":") {
             let host = url[url.startIndex..<index]
                 .replacingOccurrences(of: "opc.tcp://", with: "")
@@ -123,7 +123,7 @@ public class ZenOPCUA {
 
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true) -> EventLoopFuture<Void> {
         self.reconnect = reconnect
-        var isAcknowledgeSecure = handler.messageSecurityMode != .none
+        var isAcknowledgeSecure = OPCUAHandler.messageSecurityMode != .none
         handler.isAcknowledge = true
         handler.username = username
         handler.password = password

@@ -26,23 +26,12 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
             receiverCertificateThumbprint +
             sequenseNumber.bytes +
             requestId.bytes
-        var body = typeId.bytes +
+        let body = typeId.bytes +
             requestHeader.bytes +
             clientProtocolVersion.bytes +
             securityTokenRequestType.rawValue.bytes +
             messageSecurityMode.rawValue.bytes
-        body += clientNonce +
-            requestedLifetime.bytes
-        
-        let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
-        if messageSecurityMode == .sign,
-            let privateKey = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
-            let signed = try! securityPolicy.sign(dataToSign: body, privateKey: privateKey, clientCertificate: Data(senderCertificate[4...]))
-            //let len = UInt32(signed.count).bytes
-            return header + body + signed
-        }
-
-        return header + body
+        return header + body + clientNonce + requestedLifetime.bytes
     }
     
     init(
@@ -60,7 +49,6 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         self.messageSecurityMode = messageSecurityMode
         securityPolicy = SecurityPolicy(securityPolicyUri: policy.uri)
         super.init(securityPolicyUri: policy.uri, requestId: requestId)
-
 
         if serverCertificate.count == 0 {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)
