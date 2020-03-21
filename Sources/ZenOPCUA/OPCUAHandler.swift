@@ -32,13 +32,13 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     static var certificate: String? = nil
     static var privateKey: String? = nil
     static var endpoint: EndpointDescription = EndpointDescription()
+    static var bufferSize: Int = 8196
 
     var isAcknowledge: Bool = false
     var applicationName: String = ""
     var username: String? = nil
     var password: String? = nil
     var requestedLifetime: UInt32 = 600000
-    var bufferSize: Int = 8196
 
     public init() {
     }
@@ -60,7 +60,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         
         switch frame.head.messageType {
         case .acknowledge:
-            bufferSize = Int(Acknowledge(bytes: frame.body).receiveBufferSize)
+            OPCUAHandler.bufferSize = Int(Acknowledge(bytes: frame.body).receiveBufferSize)
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
@@ -137,21 +137,21 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
-        if frame.head.messageSize > bufferSize {
+        if frame.head.messageSize > OPCUAHandler.bufferSize {
             var index = 0
             while index < frame.head.messageSize {
                 print("\(index) < \(frame.head.messageSize)")
                 let part: OPCUAFrame
-                if (index + bufferSize - 8) >= frame.head.messageSize {
+                if (index + OPCUAHandler.bufferSize - 8) >= frame.head.messageSize {
                     let body = frame.body[index...].map { $0 }
                     part = OPCUAFrame(head: frame.head, body: body)
                 } else {
                     let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
-                    let body = frame.body[index..<(index + bufferSize - 8)].map { $0 }
+                    let body = frame.body[index..<(index + OPCUAHandler.bufferSize - 8)].map { $0 }
                     part = OPCUAFrame(head: head, body: body)
                 }
                 context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
-                index += bufferSize - 8
+                index += OPCUAHandler.bufferSize - 8
             }
         } else {
             context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
