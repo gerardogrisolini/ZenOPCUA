@@ -289,7 +289,7 @@ struct SecurityPolicy {
         }
     }
     
-    func sign(dataToSign: [UInt8], privateKey: Data) throws -> Data {
+    func sign(dataToSign: [UInt8], privateKey: Data, clientCertificate: Data) throws -> Data {
         let key = privateKeyForCertificate(privateKey: privateKey)!
         
         let algorithm: SecKeyAlgorithm
@@ -303,7 +303,7 @@ struct SecurityPolicy {
         }
 
         guard SecKeyIsAlgorithmSupported(key, .sign, algorithm) else {
-            throw OPCUAError.generic("unsupported algorithm")
+            throw OPCUAError.generic("unsupported sign algorithm")
         }
         
         let data = Data(dataToSign)
@@ -315,20 +315,26 @@ struct SecurityPolicy {
                                                         throw error!.takeRetainedValue() as Error
         }
         
-//        guard SecKeyVerifySignature(key,
-//                                    algorithm,
-//                                    data as CFData,
-//                                    signature as CFData,
-//                                    &error) else {
-//                                        throw error!.takeRetainedValue() as Error
-//        }
+        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, clientCertificate as CFData)!
+        let publicKey = publicKeyForCertificate(certificate: certificate)!
+
+        guard SecKeyIsAlgorithmSupported(publicKey, .verify, algorithm) else {
+            throw OPCUAError.generic("unsupported verify algorithm")
+        }
+
+        guard SecKeyVerifySignature(publicKey,
+                                    algorithm,
+                                    data as CFData,
+                                    signature as CFData,
+                                    &error) else {
+                                        throw error!.takeRetainedValue() as Error
+        }
         
         return signature
     }
 
-    func crypt(password: String, serverNonce: [UInt8], serverCertificate: [UInt8]) throws -> [UInt8] {
-        let dataToEncrypt = password.utf8.map { $0 } + serverNonce
-        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, Data(serverCertificate) as CFData)!
+    func crypt(dataToEncrypt: [UInt8], serverCertificate: Data) throws -> [UInt8] {
+        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, serverCertificate as CFData)!
         let publicKey = publicKeyForCertificate(certificate: certificate)!
 
         let algorithm: SecKeyAlgorithm

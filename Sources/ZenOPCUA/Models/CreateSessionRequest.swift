@@ -8,7 +8,8 @@
 import Foundation
 
 class CreateSessionRequest: MessageBase, OPCUAEncodable {
-
+    let securityPolicy: SecurityPolicy
+    
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .createSessionRequest)
     let requestHeader: RequestHeader
     let clientDescription: ApplicationDescription
@@ -24,10 +25,9 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         let header = secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
-            requestId.bytes +
-            typeId.bytes
+            requestId.bytes
         let cert = clientNonce + clientCertificate
-        return header +
+        let body = typeId.bytes +
             requestHeader.bytes +
             clientDescription.bytes +
             serverUri.bytes +
@@ -36,6 +36,7 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
             cert +
             requestedSessionTimeout.bytes +
             maxResponseMessageSize.bytes
+        return header + body
     }
     
     init(
@@ -50,6 +51,8 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         clientCertificate: String?,
         securityPolicyUri: String
     ) {
+        securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
+
         self.requestHeader = RequestHeader(requestHandle: requestHandle)
         self.serverUri = serverUri
         self.endpointUrl = endpointUrl
@@ -61,7 +64,6 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         self.sequenceNumber = sequenceNumber
         self.requestId = requestId
         
-        let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
         if securityPolicy.symmetricKeyLength > 0 {
             self.clientNonce.append(contentsOf: UInt32(securityPolicy.symmetricKeyLength).bytes)
             self.clientNonce.append(contentsOf: try! securityPolicy.generateNonce(securityPolicy.symmetricKeyLength))

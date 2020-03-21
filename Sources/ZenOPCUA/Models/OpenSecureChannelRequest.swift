@@ -6,8 +6,11 @@
 //
 
 import Foundation
+import CryptoKit
 
 class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
+    let securityPolicy: SecurityPolicy
+
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
     let requestHeader: RequestHeader
     var clientProtocolVersion: UInt32 = 0
@@ -23,15 +26,23 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
             receiverCertificateThumbprint +
             sequenseNumber.bytes +
             requestId.bytes
-        let part = header +
-            typeId.bytes +
+        var body = typeId.bytes +
             requestHeader.bytes +
             clientProtocolVersion.bytes +
             securityTokenRequestType.rawValue.bytes +
             messageSecurityMode.rawValue.bytes
-        return part +
-            clientNonce +
+        body += clientNonce +
             requestedLifetime.bytes
+        
+        let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/client_key_2048.pem"
+        if messageSecurityMode == .sign,
+            let privateKey = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
+            let signed = try! securityPolicy.sign(dataToSign: body, privateKey: privateKey, clientCertificate: Data(senderCertificate[4...]))
+            //let len = UInt32(signed.count).bytes
+            return header + body + signed
+        }
+
+        return header + body
     }
     
     init(
@@ -39,7 +50,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         securityPolicy policy: SecurityPolicies,
         userTokenType: SecurityTokenRequestType,
         senderCertificate: String?,
-        receiverCertificateThumbprint: [UInt8],
+        serverCertificate: [UInt8],
         requestedLifetime: UInt32,
         requestId: UInt32
     ) {
@@ -47,10 +58,11 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime
         self.messageSecurityMode = messageSecurityMode
-        let securityPolicy = SecurityPolicy(securityPolicyUri: policy.uri)
+        securityPolicy = SecurityPolicy(securityPolicyUri: policy.uri)
         super.init(securityPolicyUri: policy.uri, requestId: requestId)
 
-        if receiverCertificateThumbprint.count == 0 {
+
+        if serverCertificate.count == 0 {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)
             self.senderCertificate.append(contentsOf: UInt32.max.bytes)
             self.receiverCertificateThumbprint.append(contentsOf: UInt32.max.bytes)
@@ -62,8 +74,9 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
             self.clientNonce.append(contentsOf: UInt32(securityPolicy.symmetricKeyLength).bytes)
             self.clientNonce.append(contentsOf: try! securityPolicy.generateNonce(securityPolicy.symmetricKeyLength))
 
-            self.receiverCertificateThumbprint.append(contentsOf: UInt32(receiverCertificateThumbprint.count).bytes)
-            self.receiverCertificateThumbprint.append(contentsOf: receiverCertificateThumbprint)
+            let thumbprint = Insecure.SHA1.hash(data: serverCertificate)
+            self.receiverCertificateThumbprint.append(contentsOf: UInt32(thumbprint.data.count).bytes)
+            self.receiverCertificateThumbprint.append(contentsOf: thumbprint)
         }
     }
 }

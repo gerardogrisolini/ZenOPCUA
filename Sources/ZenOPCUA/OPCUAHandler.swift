@@ -7,7 +7,6 @@
 
 import Foundation
 import NIO
-import CryptoKit
 
 public typealias OPCUADataChanged = ([DataChange]) -> ()
 public typealias OPCUAHandlerRemoved = () -> ()
@@ -162,13 +161,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         var securityMode = messageSecurityMode
         var policy = securityPolicy
         var userTokenType: SecurityTokenRequestType = sessionActive == nil ? .issue : .renew
-        var receiverCertificateThumbprint: [UInt8] = []
         
         if certificate != nil {
             if endpoint.serverCertificate.count > 0 {
                 userTokenType = .renew
-                let digest = Insecure.SHA1.hash(data: endpoint.serverCertificate)
-                receiverCertificateThumbprint.append(contentsOf: digest.data)
             } else {
                 securityMode = .none
                 policy = .none
@@ -182,7 +178,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             securityPolicy: policy,
             userTokenType: userTokenType,
             senderCertificate: certificate,
-            receiverCertificateThumbprint: receiverCertificateThumbprint,
+            serverCertificate: endpoint.serverCertificate,
             requestedLifetime: requestedLifetime,
             requestId: requestId
         )

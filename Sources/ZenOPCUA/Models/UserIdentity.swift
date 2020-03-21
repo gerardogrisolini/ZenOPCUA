@@ -59,7 +59,7 @@ struct UserIdentityInfoAnonymous: UserIdentityInfo {
 struct UserIdentityInfoUserName: UserIdentityInfo {
     let policyId: String
     let username: String
-    var password: [UInt8]
+    var password: [UInt8] = []
     var encryptionAlgorithm: String?
     var userTokenSignature: SignatureData = SignatureData()
 
@@ -73,15 +73,14 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
     ) {
         self.policyId = policyId
         self.username = username
-        self.password = password.bytes
         self.encryptionAlgorithm = nil
         
         if let securityPolicyUri = securityPolicyUri {
             let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
             self.encryptionAlgorithm = securityPolicy.asymmetricEncryptionAlgorithm.rawValue.split(separator: ",").first?.description
             do {
-                let pwd = try securityPolicy.crypt(password: password, serverNonce: serverNonce, serverCertificate: serverCertificate)
-                self.password = pwd
+                let dataToEncrypt = password.utf8.map { $0 } + serverNonce
+                self.password = try securityPolicy.crypt(dataToEncrypt: dataToEncrypt, serverCertificate: Data(serverCertificate))
             } catch {
                 print(error)
             }
@@ -121,7 +120,7 @@ struct UserIdentityInfoX509: UserIdentityInfo {
             if securityPolicy.asymmetricSignatureAlgorithm != .none {
                 let dataToSign = serverCertificate + serverNonce
                 let key = try Data(contentsOf: URL(fileURLWithPath: privateKey))
-                let signature = try securityPolicy.sign(dataToSign: dataToSign, privateKey: key)
+                let signature = try securityPolicy.sign(dataToSign: dataToSign, privateKey: key, clientCertificate: Data(certificateData))
                 userTokenSignature = SignatureData(
                     algorithm: securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,
                     signature: [UInt8](signature)
