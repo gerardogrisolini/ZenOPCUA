@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoKit
 import NIO
 
 public enum SecurityPolicies: String {
@@ -414,7 +415,7 @@ struct SecurityPolicy {
     }
 
     func getAsymmetricSignatureSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
-        switch (algorithm) {
+        switch asymmetricSignatureAlgorithm {
         case .rsaSha1, .rsaSha256, .rsaSha256Pss:
             return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8
         default:
@@ -443,4 +444,145 @@ struct SecurityPolicy {
             return 1
         }
     }
+    
+    func getSymmetricBlockSize() -> Int {
+        switch symmetricEncryptionAlgorithm {
+        case .aes128, .aes256:
+            return 16
+        default:
+            return 1
+        }
+    }
+
+    func getSymmetricSignatureSize() -> Int {
+        switch symmetricSignatureAlgorithm {
+        case .hmacSha1:
+                return 20
+        case .hmacSha256:
+                return 32
+            default:
+                return 0
+        }
+    }
+
+    func getSymmetricSignatureKeySize() -> Int {
+        switch securityPolicyUri.securityPolicy {
+        case .none:
+            return 0
+        case .basic128Rsa15:
+            return 16
+        case .basic256:
+            return 24
+        case .basic256Sha256, .aes128Sha256RsaOaep, .aes256Sha256RsaPss:
+            return 32
+        default:
+            return 0
+        }
+    }
+    
+    func getSymmetricEncryptionKeySize() -> Int {
+        switch securityPolicyUri.securityPolicy {
+        case .none:
+            return 0
+        case .basic128Rsa15, .aes128Sha256RsaOaep:
+            return 16
+        case .basic256, .basic256Sha256, .aes256Sha256RsaPss:
+            return 32
+        default:
+            return 0
+        }
+    }
+    
+    func generateKeyPair(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
+//        let privateAttributes = [String(kSecAttrIsPermanent): true,
+//                                 String(kSecAttrApplicationTag): clientNonce,
+//                                 String(kSecAttrAccessible): kSecAttrAccessibleAfterFirstUnlock] as [String : Any]
+//        let publicAttributes = [String(kSecAttrIsPermanent): true,
+//                                String(kSecAttrApplicationTag): serverNonce,
+//                                String(kSecAttrAccessible): kSecAttrAccessibleAfterFirstUnlock] as [String : Any]
+//
+//        let pairAttributes = [String(kSecAttrKeyType): kSecAttrKeyTypeRSA,
+//                              String(kSecAttrKeySizeInBits): 2048,
+//                              String(kSecPublicKeyAttrs): publicAttributes as [String : Any],
+//                              String(kSecPrivateKeyAttrs): privateAttributes] as [String : Any]
+//        var pubKey, privKey: SecKey?
+//        _ = SecKeyGeneratePair(pairAttributes as CFDictionary, &pubKey, &privKey)
+//        return (pubKey, privKey)
+//    }
+        
+        let signatureKeySize = getSymmetricSignatureKeySize()
+        let encryptionKeySize = getSymmetricEncryptionKeySize()
+        let cipherTextBlockSize = getSymmetricBlockSize()
+
+        assert(clientNonce.count > 0)
+        assert(serverNonce.count > 0)
+
+        let clientSignatureKey = keyDerivationAlgorithm == .pSha1
+            ? createPSha1Key(serverNonce, clientNonce, 0, signatureKeySize)
+            : createPSha256Key(serverNonce, clientNonce, 0, signatureKeySize)
+    
+        let clientEncryptionKey = keyDerivationAlgorithm == .pSha1
+            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
+            : createPSha256Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
+
+        let clientInitializationVector = keyDerivationAlgorithm == .pSha1
+            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+            : createPSha256Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+
+        let serverSignatureKey = keyDerivationAlgorithm == .pSha1
+            ? createPSha1Key(clientNonce, serverNonce, 0, signatureKeySize)
+            : createPSha256Key(clientNonce, serverNonce, 0, signatureKeySize)
+
+        let serverEncryptionKey = keyDerivationAlgorithm == .pSha1
+            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
+            : createPSha256Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
+
+        let serverInitializationVector = keyDerivationAlgorithm == .pSha1
+            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+            : createPSha256Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+
+        return SecurityKeys(
+            clientKeys: SecretKeys(
+                signatureKey: clientSignatureKey,
+                encryptionKey: clientEncryptionKey,
+                initializationVector: clientInitializationVector
+            ),
+            serverKeys: SecretKeys(
+                signatureKey: serverSignatureKey,
+                encryptionKey: serverEncryptionKey,
+                initializationVector: serverInitializationVector
+            )
+        )
+    }
+    
+    private func createPSha1Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
+        let key = SymmetricKey(data: clientNonce)
+        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: serverNonce, using: key)
+        let data = Data(hash)
+        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
+            print("Validated ✅")
+        }
+        return data[start..<end].map { $0 }
+    }
+
+    private func createPSha256Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
+        let key = SymmetricKey(data: clientNonce)
+        let hash = HMAC<SHA256>.authenticationCode(for: serverNonce, using: key)
+        let data = Data(hash)
+        if HMAC<SHA256>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
+            print("Validated ✅")
+        }
+        return data[start..<end].map { $0 }
+    }
+}
+
+struct SecurityKeys {
+    let clientKeys: SecretKeys
+    let serverKeys: SecretKeys
+}
+
+struct SecretKeys {
+    let signatureKey: [UInt8]
+    let encryptionKey: [UInt8]
+    let initializationVector: [UInt8]
 }
