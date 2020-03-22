@@ -14,17 +14,25 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
     let byteBufferAllocator = ByteBufferAllocator()
     let securityPolicy: SecurityPolicy
-    var publicKey: SecKey? = nil
-    //var privateKey: SecKey? = nil
     var privateKeyData: Data = Data()
-    var localCertificateChain: Data = Data()
+    var localCertificate: Data = Data()
     
-    lazy var remoteCertificateThumbprint: Data = {
-        let thumbprint = Insecure.SHA1.hash(data: OPCUAHandler.endpoint.serverCertificate)
-        return thumbprint.data
+    lazy var serverPublicKey: SecKey? = {
+        return securityPolicy.publicKeyFromData(certificate: Data(OPCUAHandler.endpoint.serverCertificate))
+    }()
+
+    lazy var clientPublicKey: SecKey? = {
+        return securityPolicy.publicKeyFromData(certificate: Data(localCertificate))
     }()
     
+    lazy var remoteCertificateThumbprint: Data = {
+        return Insecure.SHA1.hash(data: OPCUAHandler.endpoint.serverCertificate).data
+    }()
     
+    lazy var localCertificateThumbprint: Data = {
+        return Insecure.SHA1.hash(data: localCertificate).data
+    }()
+
     init() {
         securityPolicy = SecurityPolicy(securityPolicyUri: OPCUAHandler.securityPolicy.uri)
         
@@ -33,8 +41,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             let privateKeyFile = OPCUAHandler.privateKey {
             
             if let certificateDate = try? Data(contentsOf: URL(fileURLWithPath: certificateFile)) {
-                publicKey = securityPolicy.publicKeyFromData(certificate: certificateDate)
-                localCertificateChain.append(contentsOf: certificateDate)
+                let certificate = securityPolicy.getCertificateFromPem(data: certificateDate)
+                localCertificate.append(contentsOf: certificate)
             }
             if let privateKeyData = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
                 //privateKey = securityPolicy.privateKeyFromData(privateKey: privateKeyData)
@@ -44,8 +52,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     }
     
     public func encode(data value: OPCUAFrame, out: inout ByteBuffer) throws {
-        //print(value)
-        if OPCUAHandler.messageSecurityMode == .none || OPCUAHandler.isAcknowledge {
+        //print(value.head)
+        if OPCUAHandler.messageSecurityMode == .none || OPCUAHandler.isAcknowledgeSecure {
             out.writeString("\(value.head.messageType.rawValue)\(value.head.chunkType.rawValue)")
             out.writeBytes(value.head.messageSize.bytes)
             out.writeBytes(value.body)
@@ -105,6 +113,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             var chunkBuffer = byteBufferAllocator.buffer(capacity: chunkSize)
             chunkBuffer.writeBytes(messageBuffer.getBytes(at: 0, length: bodySize)!)
 
+            
             /* Padding and Signature */
             if encrypted {
                 writePadding(cipherTextBlockSize, paddingSize, &chunkBuffer)
@@ -112,10 +121,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
             if OPCUAHandler.messageSecurityMode != .none {
                 let dataToSign = chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!
-                let signature = try! securityPolicy.sign(dataToSign: dataToSign, privateKey: privateKeyData, clientCertificate: localCertificateChain)
+                let signature = try! securityPolicy.sign(dataToSign: dataToSign, privateKey: privateKeyData, clientCertificate: localCertificate)
                 chunkBuffer.writeBytes(signature)
             }
 
+            
             /* Encryption */
             if (encrypted) {
                 chunkBuffer.moveReaderIndex(to: SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize)
@@ -124,35 +134,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
                 let blockCount = chunkBuffer.readableBytes / plainTextBlockSize
 
-//                ByteBuffer chunkNioBuffer = chunkBuffer.nioBuffer(
-//                    chunkBuffer.readerIndex(), blockCount * cipherTextBlockSize);
-//                ByteBuf copyBuffer = chunkBuffer.copy()
-//                ByteBuffer plainTextNioBuffer = copyBuffer.nioBuffer()
-//
-//                Cipher cipher = getCipher(channel)
-//
-//                if (isAsymmetric()) {
-//                    for (int blockNumber = 0; blockNumber < blockCount; blockNumber++) {
-//                        int position = blockNumber * plainTextBlockSize;
-//                        int limit = (blockNumber + 1) * plainTextBlockSize;
-//                        ((Buffer) plainTextNioBuffer).position(position);
-//                        ((Buffer) plainTextNioBuffer).limit(limit);
-//
-//                        int bytesWritten = cipher.doFinal(plainTextNioBuffer, chunkNioBuffer);
-//
-//                        assert (bytesWritten == cipherTextBlockSize);
-//                    }
-//                } else {
-//                    cipher.doFinal(plainTextNioBuffer, chunkNioBuffer);
-//                }
-//
-//                copyBuffer.release();
-
-                let serverCertificate = Data(OPCUAHandler.endpoint.serverCertificate)
-
                 var chunkNioBuffer = byteBufferAllocator.buffer(capacity: chunkBuffer.readerIndex + blockCount * cipherTextBlockSize)
                 chunkNioBuffer.writeBytes(chunkBuffer.getBytes(at: 0, length: chunkBuffer.readerIndex)!)
                 
+                let serverCertificate = Data(OPCUAHandler.endpoint.serverCertificate)
+
                 for blockNumber in 0..<blockCount {
                     let position = blockNumber * plainTextBlockSize
                     let limit = (blockNumber + 1) * plainTextBlockSize
@@ -193,19 +179,19 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
     func getSecurityHeaderSize() -> Int {
         return 12 + OPCUAHandler.securityPolicy.uri.count +
-            localCertificateChain.count +
+            localCertificate.count +
             remoteCertificateThumbprint.count
     }
 
     func getCipherTextBlockSize() -> Int {
-        return securityPolicy.getAsymmetricCipherTextBlockSize(publicKey: publicKey!, algorithm: securityPolicy.asymmetricEncryptionAlgorithm)
+        return securityPolicy.getAsymmetricCipherTextBlockSize(publicKey: serverPublicKey!, algorithm: securityPolicy.asymmetricEncryptionAlgorithm)
     }
 
     func getPlainTextBlockSize() -> Int {
-        return securityPolicy.getAsymmetricPlainTextBlockSize(publicKey: publicKey!, algorithm: securityPolicy.asymmetricEncryptionAlgorithm)
+        return securityPolicy.getAsymmetricPlainTextBlockSize(publicKey: serverPublicKey!, algorithm: securityPolicy.asymmetricEncryptionAlgorithm)
     }
 
     func getSignatureSize() -> Int {
-        return securityPolicy.getAsymmetricSignatureSize(publicKey: publicKey!, algorithm: securityPolicy.asymmetricSignatureAlgorithm)
+        return securityPolicy.getAsymmetricSignatureSize(publicKey: clientPublicKey!, algorithm: securityPolicy.asymmetricSignatureAlgorithm)
     }
 }

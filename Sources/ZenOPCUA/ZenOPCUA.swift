@@ -103,7 +103,7 @@ public class ZenOPCUA {
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true) -> EventLoopFuture<Void> {
         self.reconnect = reconnect
         OPCUAHandler.isAcknowledge = true
-        var isAcknowledgeSecure = OPCUAHandler.messageSecurityMode != .none
+        OPCUAHandler.isAcknowledgeSecure = OPCUAHandler.messageSecurityMode != .none
         
         handler.username = username
         handler.password = password
@@ -114,10 +114,10 @@ public class ZenOPCUA {
                 onHandlerRemoved()
             }
                         
-            if self.reconnect && !OPCUAHandler.isAcknowledge || isAcknowledgeSecure {
+            if self.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
                     self.start().whenComplete { _ in
-                        isAcknowledgeSecure = false
+                        OPCUAHandler.isAcknowledgeSecure = false
                     }
                 }
             }

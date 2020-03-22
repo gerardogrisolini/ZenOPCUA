@@ -34,6 +34,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     static var endpoint: EndpointDescription = EndpointDescription()
     static var bufferSize: Int = 8196
     static var isAcknowledge: Bool = false
+    static var isAcknowledgeSecure: Bool = false
     
     var applicationName: String = ""
     var username: String? = nil

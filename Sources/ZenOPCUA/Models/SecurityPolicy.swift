@@ -410,7 +410,7 @@ struct SecurityPolicy {
     }
     
     func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
-        return SecKeyGetBlockSize(publicKey)
+        return SecKeyGetBlockSize(publicKey) * 8
     }
 
     func getAsymmetricSignatureSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
@@ -430,15 +430,15 @@ struct SecurityPolicy {
             return 1
         }
     }
-
+    
     func getAsymmetricPlainTextBlockSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
         switch (algorithm) {
         case .rsa15:
-            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8 - 11
+            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 11
         case .rsaOaepSha1:
-            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8 - 42
+            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 42
         case .rsaOaepSha256:
-            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8 - 66
+            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 66
         default:
             return 1
         }
