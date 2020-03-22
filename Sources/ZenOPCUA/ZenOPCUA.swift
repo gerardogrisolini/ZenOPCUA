@@ -7,7 +7,6 @@
 
 import Foundation
 import NIO
-//import NIOSSL
 
 enum OPCUAError : Error {
     case connectionError
@@ -21,7 +20,6 @@ public class ZenOPCUA {
     private let eventLoopGroup: EventLoopGroup
     private let handler = OPCUAHandler()
     private var channel: Channel? = nil
-//    private var sslContext: NIOSSLContext? = nil
 
     public var onDataChanged: OPCUADataChanged? = nil
     public var onHandlerRemoved: OPCUAHandlerRemoved? = nil
@@ -53,7 +51,7 @@ public class ZenOPCUA {
         if let index = url.lastIndex(of: ":") {
             let host = url[url.startIndex..<index]
                 .replacingOccurrences(of: "opc.tcp://", with: "")
-                .replacingOccurrences(of: "opc.https://", with: "")
+                //.replacingOccurrences(of: "opc.https://", with: "")
             var port = 0
             
             let part = url[url.index(after: index)...].description
@@ -68,19 +66,6 @@ public class ZenOPCUA {
 
         return ("", 0)
     }
-
-//    public func addTLS(cert: String, key: String) throws {
-//        let cert = try NIOSSLCertificate.fromPEMFile(cert)
-//        let key = try NIOSSLPrivateKey.init(file: key, format: .pem)
-//
-//        let config = TLSConfiguration.forClient(
-//            certificateVerification: .none,
-//            certificateChain: [.certificate(cert.first!)],
-//            privateKey: .privateKey(key)
-//        )
-//
-//        sslContext = try NIOSSLContext(configuration: config)
-//    }
     
     private func start() -> EventLoopFuture<Void> {
         let server = getHostFromEndpoint()
@@ -96,13 +81,7 @@ public class ZenOPCUA {
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_KEEPALIVE), value: 1)
             .channelInitializer { channel in
-//                if let sslContext = self.sslContext,
-//                    let sslClientHandler = try? NIOSSLClientHandler(context: sslContext, serverHostname: server.host) {
-//                    return channel.pipeline.addHandler(sslClientHandler).flatMap { () -> EventLoopFuture<Void> in
-//                        channel.pipeline.addHandlers(handlers)
-//                    }
-//                }
-                return channel.pipeline.addHandlers(handlers)
+                channel.pipeline.addHandlers(handlers)
             }
             .connect(host: server.host, port: server.port)
             .map { channel -> Void in
@@ -123,8 +102,9 @@ public class ZenOPCUA {
 
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true) -> EventLoopFuture<Void> {
         self.reconnect = reconnect
+        OPCUAHandler.isAcknowledge = true
         var isAcknowledgeSecure = OPCUAHandler.messageSecurityMode != .none
-        handler.isAcknowledge = true
+        
         handler.username = username
         handler.password = password
         handler.dataChanged = onDataChanged
@@ -134,7 +114,7 @@ public class ZenOPCUA {
                 onHandlerRemoved()
             }
                         
-            if self.reconnect && !self.handler.isAcknowledge || isAcknowledgeSecure{
+            if self.reconnect && !OPCUAHandler.isAcknowledge || isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
                     self.start().whenComplete { _ in
                         isAcknowledgeSecure = false

@@ -33,8 +33,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     static var privateKey: String? = nil
     static var endpoint: EndpointDescription = EndpointDescription()
     static var bufferSize: Int = 8196
-
-    var isAcknowledge: Bool = false
+    static var isAcknowledge: Bool = false
+    
     var applicationName: String = ""
     var username: String? = nil
     var password: String? = nil
@@ -60,7 +60,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         
         switch frame.head.messageType {
         case .acknowledge:
-            OPCUAHandler.bufferSize = Int(Acknowledge(bytes: frame.body).receiveBufferSize)
+            OPCUAHandler.bufferSize = Int(Acknowledge(bytes: frame.body).sendBufferSize)
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
@@ -79,7 +79,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .getEndpointsResponse:
                 createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
             case .createSessionResponse:
-                isAcknowledge = false
+                OPCUAHandler.isAcknowledge = false
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
                     promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))

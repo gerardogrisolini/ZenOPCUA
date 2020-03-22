@@ -45,7 +45,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     
     public func encode(data value: OPCUAFrame, out: inout ByteBuffer) throws {
         //print(value)
-        if OPCUAHandler.messageSecurityMode == .none {
+        if OPCUAHandler.messageSecurityMode == .none || OPCUAHandler.isAcknowledge {
             out.writeString("\(value.head.messageType.rawValue)\(value.head.chunkType.rawValue)")
             out.writeBytes(value.head.messageSize.bytes)
             out.writeBytes(value.body)
@@ -150,7 +150,9 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
                 let serverCertificate = Data(OPCUAHandler.endpoint.serverCertificate)
 
-                var chunkNioBuffer = byteBufferAllocator.buffer(capacity: blockCount * cipherTextBlockSize)
+                var chunkNioBuffer = byteBufferAllocator.buffer(capacity: chunkBuffer.readerIndex + blockCount * cipherTextBlockSize)
+                chunkNioBuffer.writeBytes(chunkBuffer.getBytes(at: 0, length: chunkBuffer.readerIndex)!)
+                
                 for blockNumber in 0..<blockCount {
                     let position = blockNumber * plainTextBlockSize
                     let limit = (blockNumber + 1) * plainTextBlockSize
@@ -161,9 +163,10 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                     chunkNioBuffer.writeBytes(dataEncrypted)
                 }
                 
+                chunkNioBuffer.moveReaderIndex(to: 0)
                 out.writeBuffer(&chunkNioBuffer)
             } else {
-//                chunkBuffer.moveReaderIndex(to: 0)
+                chunkBuffer.moveReaderIndex(to: 0)
                 out.writeBuffer(&chunkBuffer)
             }
         }
