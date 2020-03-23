@@ -71,7 +71,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         let SEQUENCE_HEADER_SIZE: Int = 8
         let SECURE_MESSAGE_HEADER_SIZE: Int = 12
         
-        let encrypted: Bool = OPCUAHandler.messageSecurityMode == .signAndEncrypt
+        let encrypted: Bool = OPCUAHandler.messageSecurityMode != .none //.signAndEncrypt
 
         let securityHeaderSize: Int = getSecurityHeaderSize()
         let cipherTextBlockSize: Int = getCipherTextBlockSize()
@@ -88,7 +88,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
         assert (maxPlainTextSize + securityHeaderSize + SECURE_MESSAGE_HEADER_SIZE <= maxChunkSize)
 
-        var readedBytes = 0
+        let header = SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize
+        var readedBytes = header + SEQUENCE_HEADER_SIZE
         while readedBytes < messageBuffer.readableBytes {
             let bodySize = min(messageBuffer.readableBytes - readedBytes, maxBodySize)
 
@@ -112,12 +113,16 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             assert (chunkSize <= maxChunkSize)
 
             var chunkBuffer = byteBufferAllocator.buffer(capacity: chunkSize)
+            chunkBuffer.writeBytes(messageBuffer.getBytes(at: 0, length: header + SEQUENCE_HEADER_SIZE)!)
             chunkBuffer.writeBytes(messageBuffer.getBytes(at: readedBytes, length: bodySize)!)
             readedBytes += bodySize
-            
+
             /* Padding and Signature */
             if encrypted {
+                print("writePadding: \(paddingSize)")
+                let l = chunkBuffer.readableBytes
                 writePadding(cipherTextBlockSize, paddingSize, &chunkBuffer)
+                print(chunkBuffer.readableBytes - l)
             }
 
             if OPCUAHandler.messageSecurityMode != .none {
@@ -129,21 +134,20 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             
             /* Encryption */
             if (encrypted) {
-                chunkBuffer.moveReaderIndex(to: SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize)
+                out.writeBytes(chunkBuffer.getBytes(at: 0, length: header + SEQUENCE_HEADER_SIZE)!)
+                
+                assert ((chunkBuffer.readableBytes - header) % plainTextBlockSize == 0)
 
-                assert (chunkBuffer.readableBytes % plainTextBlockSize == 0)
+                let blockCount = (chunkBuffer.readableBytes - header) / plainTextBlockSize
 
-                let blockCount = chunkBuffer.readableBytes / plainTextBlockSize
-
-                var chunkNioBuffer = byteBufferAllocator.buffer(capacity: chunkBuffer.readerIndex + blockCount * cipherTextBlockSize)
-                chunkNioBuffer.writeBytes(chunkBuffer.getBytes(at: 0, length: chunkBuffer.readerIndex)!)
+                var chunkNioBuffer = byteBufferAllocator.buffer(capacity: blockCount * cipherTextBlockSize)
                 
                 let serverCertificate = Data(OPCUAHandler.endpoint.serverCertificate)
 
                 for blockNumber in 0..<blockCount {
                     let position = blockNumber * plainTextBlockSize
                     let limit = (blockNumber + 1) * plainTextBlockSize
-                    let dataToEncrypt = chunkBuffer.getBytes(at: position, length: limit)!
+                    let dataToEncrypt = chunkBuffer.getBytes(at: position + header, length: limit)!
                     let dataEncrypted = try securityPolicy.crypt(dataToEncrypt: dataToEncrypt, serverCertificate: serverCertificate)
 
                     assert (dataEncrypted.count == cipherTextBlockSize)
@@ -161,11 +165,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         if cipherTextBlockSize > 256 {
             buffer.writeInteger(paddingSize)
         } else {
-            buffer.writeBytes(paddingSize.bytes)
+            buffer.writeBytes([UInt8(paddingSize)])
         }
 
         for _ in 0..<paddingSize {
-            buffer.writeBytes(paddingSize.bytes)
+            buffer.writeBytes([UInt8(paddingSize)])
         }
 
         if cipherTextBlockSize > 256 {
