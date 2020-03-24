@@ -437,7 +437,7 @@ struct SecurityPolicy {
         case .rsa15:
             return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 11
         case .rsaOaepSha1:
-            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 42
+            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 132 //42
         case .rsaOaepSha256:
             return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 66
         default:

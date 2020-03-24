@@ -66,12 +66,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         }
     }
     
+    let SEQUENCE_HEADER_SIZE: Int = 8
+    let SECURE_MESSAGE_HEADER_SIZE: Int = 12
+
     func signAndEncrypt(messageBuffer: ByteBuffer, out: inout ByteBuffer) throws {
-        
-        let SEQUENCE_HEADER_SIZE: Int = 8
-        let SECURE_MESSAGE_HEADER_SIZE: Int = 12
-        
-        let encrypted: Bool = OPCUAHandler.messageSecurityMode != .none //.signAndEncrypt
+        let encrypted: Bool = OPCUAHandler.messageSecurityMode == .signAndEncrypt
 
         let securityHeaderSize: Int = getSecurityHeaderSize()
         let cipherTextBlockSize: Int = getCipherTextBlockSize()
@@ -107,13 +106,15 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
             assert (plainTextContentSize % plainTextBlockSize == 0)
 
-            let chunkSize = SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize +
+            let chunkSize = SEQUENCE_HEADER_SIZE + SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize +
                 (plainTextContentSize / plainTextBlockSize) * cipherTextBlockSize
 
             assert (chunkSize <= maxChunkSize)
 
             var chunkBuffer = byteBufferAllocator.buffer(capacity: chunkSize)
-            chunkBuffer.writeBytes(messageBuffer.getBytes(at: 0, length: header + SEQUENCE_HEADER_SIZE)!)
+            chunkBuffer.writeBytes(messageBuffer.getBytes(at: 0, length: 4)!)
+            chunkBuffer.writeBytes(UInt32(chunkSize).bytes)
+            chunkBuffer.writeBytes(messageBuffer.getBytes(at: 8, length: header)!)
             chunkBuffer.writeBytes(messageBuffer.getBytes(at: readedBytes, length: bodySize)!)
             readedBytes += bodySize
 
@@ -131,29 +132,25 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 chunkBuffer.writeBytes(signature)
             }
 
-            
             /* Encryption */
             if (encrypted) {
-                out.writeBytes(chunkBuffer.getBytes(at: 0, length: header + SEQUENCE_HEADER_SIZE)!)
-                
                 assert ((chunkBuffer.readableBytes - header) % plainTextBlockSize == 0)
 
-                let blockCount = (chunkBuffer.readableBytes - header) / plainTextBlockSize
-
-                var chunkNioBuffer = byteBufferAllocator.buffer(capacity: blockCount * cipherTextBlockSize)
-                
                 let serverCertificate = Data(OPCUAHandler.endpoint.serverCertificate)
+
+                let blockCount = (chunkBuffer.readableBytes - header) / plainTextBlockSize
+                var chunkNioBuffer = byteBufferAllocator.buffer(capacity: blockCount * cipherTextBlockSize)
 
                 for blockNumber in 0..<blockCount {
                     let position = blockNumber * plainTextBlockSize
-                    let limit = (blockNumber + 1) * plainTextBlockSize
-                    let dataToEncrypt = chunkBuffer.getBytes(at: position + header, length: limit)!
+                    let dataToEncrypt = chunkBuffer.getBytes(at: position + header, length: plainTextBlockSize)!
                     let dataEncrypted = try securityPolicy.crypt(dataToEncrypt: dataToEncrypt, serverCertificate: serverCertificate)
 
                     assert (dataEncrypted.count == cipherTextBlockSize)
                     chunkNioBuffer.writeBytes(dataEncrypted)
                 }
                 
+                out.writeBytes(chunkBuffer.getBytes(at: 0, length: header + SEQUENCE_HEADER_SIZE)!)
                 out.writeBuffer(&chunkNioBuffer)
             } else {
                 out.writeBuffer(&chunkBuffer)
@@ -181,7 +178,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     }
 
     func getSecurityHeaderSize() -> Int {
-        return 12 + OPCUAHandler.securityPolicy.uri.count +
+        return SECURE_MESSAGE_HEADER_SIZE +
+            OPCUAHandler.securityPolicy.uri.count +
             localCertificate.count +
             remoteCertificateThumbprint.count
     }
