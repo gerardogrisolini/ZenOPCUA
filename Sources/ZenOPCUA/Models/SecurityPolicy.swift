@@ -352,8 +352,8 @@ struct SecurityPolicy {
             throw OPCUAError.generic("unsupported algorithm")
         }
 
-        guard (dataToEncrypt.count < (SecKeyGetBlockSize(publicKey)-130)) else {
-            throw OPCUAError.generic("condition the proceedings on a length")
+        guard (dataToEncrypt.count < (SecKeyGetBlockSize(publicKey)-134)) else {
+            throw OPCUAError.generic("data exceeds the allowed length")
         }
 
         let data = Data(UInt32(dataToEncrypt.count).bytes + dataToEncrypt)
@@ -437,7 +437,7 @@ struct SecurityPolicy {
         case .rsa15:
             return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 11
         case .rsaOaepSha1:
-            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 132 //42
+            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 136 //42
         case .rsaOaepSha256:
             return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 66
         default:

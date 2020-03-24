@@ -118,18 +118,22 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             chunkBuffer.writeBytes(messageBuffer.getBytes(at: readedBytes, length: bodySize)!)
             readedBytes += bodySize
 
+            print("bodySize = \(bodySize)")
+            print("body => \(chunkBuffer.readableBytes - (header + SEQUENCE_HEADER_SIZE))")
+
             /* Padding and Signature */
             if encrypted {
-                print("writePadding: \(paddingSize)")
-                let l = chunkBuffer.readableBytes
                 writePadding(cipherTextBlockSize, paddingSize, &chunkBuffer)
-                print(chunkBuffer.readableBytes - l)
+
+                print("body => padding = \(paddingSize) => \(chunkBuffer.readableBytes - (header + SEQUENCE_HEADER_SIZE))")
             }
 
             if OPCUAHandler.messageSecurityMode != .none {
                 let dataToSign = chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!
                 let signature = try securityPolicy.sign(dataToSign: dataToSign, privateKey: privateKeyData, clientCertificate: localCertificate)
                 chunkBuffer.writeBytes(signature)
+
+                print("body => sign => \(chunkBuffer.readableBytes - (header + SEQUENCE_HEADER_SIZE))")
             }
 
             /* Encryption */
@@ -150,6 +154,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                     chunkNioBuffer.writeBytes(dataEncrypted)
                 }
                 
+                print("body => encrypt => \(chunkNioBuffer.readableBytes)")
+
                 out.writeBytes(chunkBuffer.getBytes(at: 0, length: header + SEQUENCE_HEADER_SIZE)!)
                 out.writeBuffer(&chunkNioBuffer)
             } else {
@@ -165,9 +171,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             buffer.writeBytes([UInt8(paddingSize)])
         }
 
-        for _ in 0..<paddingSize {
-            buffer.writeBytes([UInt8(paddingSize)])
-        }
+        buffer.writeBytes([UInt8](repeating: UInt8(paddingSize), count: paddingSize))
 
         if cipherTextBlockSize > 256 {
             // Replace the last byte with the MSB of the 2-byte padding length
