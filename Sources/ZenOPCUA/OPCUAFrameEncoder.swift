@@ -132,7 +132,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
             if isAsymmetricSigningEnabled() {
                 let dataToSign = chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!
-                let signature = try securityPolicy.sign(dataToSign: dataToSign, privateKey: privateKeyData, clientCertificate: serverCertificate)
+                let signature = try securityPolicy.sign(dataToSign: dataToSign, privateKey: privateKeyData, clientCertificate: localCertificate)
                 chunkBuffer.writeBytes(signature)
 
                 print("body => sign => \(chunkBuffer.readableBytes - header)")

@@ -9,6 +9,9 @@ import Foundation
 import CryptoKit
 import NIO
 
+
+public typealias KeyPair = (privateKey: SecKey, publicKey: SecKey)
+
 public enum SecurityPolicies: String {
     case invalid = "invalid"
     case none = "None"
@@ -367,47 +370,6 @@ struct SecurityPolicy {
         }
 
         return [UInt8](cipherText)
-        
-  
-        /*
-        /// https://github.com/airsidemobile/JOSESwift
-         
-        let encrypter = Encrypter(keyManagementAlgorithm: .RSA1_5, contentEncryptionAlgorithm: .A128CBCHS256, encryptionKey: publicKey)!
-        let header = JWEHeader(keyManagementAlgorithm: .RSA1_5, contentEncryptionAlgorithm: .A128CBCHS256)
-
-        let plainTextBlockSize: Int = getAsymmetricPlainTextBlockSize(
-            publicKey: publicKey,
-            algorithm: asymmetricEncryptionAlgorithm
-        )
-        let cipherTextBlockSize: Int = getAsymmetricCipherTextBlockSize(
-            publicKey: publicKey,
-            algorithm: asymmetricEncryptionAlgorithm
-        )
-        let blockCount: Int = (dataToEncrypt.count + plainTextBlockSize - 1) / plainTextBlockSize
-        //let blockCount = ((dataToEncrypt.count + 4) / plainTextBlockSize) + 1
-        
-        let bufferAllocator = ByteBufferAllocator()
-        var cipherTextNioBuffer = bufferAllocator.buffer(capacity: cipherTextBlockSize * blockCount)
-        var plainTextNioBuffer = bufferAllocator.buffer(capacity: plainTextBlockSize * blockCount)
-        plainTextNioBuffer.writeBytes(UInt32(dataToEncrypt.count).bytes)
-        plainTextNioBuffer.writeBytes(dataToEncrypt)
-
-        for blockNumber in 0..<blockCount {
-            let position = blockNumber * plainTextBlockSize
-            let limit = min(plainTextNioBuffer.readableBytes, (blockNumber + 1) * plainTextBlockSize)
-
-            let bytes = Data(plainTextNioBuffer.getBytes(at: position, length: limit - position)!)
-            let encryped = try encrypter.encrypt(header: header, payload: Payload(bytes))
-            cipherTextNioBuffer.writeBytes(encryped.ciphertext)
-//            let jwe = try JWE(header: header, payload: Payload(bytes), encrypter: encrypter)
-//            cipherTextNioBuffer.writeBytes(jwe.ciphertext)
-            
-            print(bytes.count)
-        }
-
-        print(cipherTextNioBuffer.readableBytes)
-        return cipherTextNioBuffer.getBytes(at: 0, length: cipherTextNioBuffer.readableBytes)!
-        */
     }
     
     func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
@@ -493,23 +455,25 @@ struct SecurityPolicy {
         }
     }
     
-    func generateKeyPair(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
-//        let privateAttributes = [String(kSecAttrIsPermanent): true,
-//                                 String(kSecAttrApplicationTag): clientNonce,
-//                                 String(kSecAttrAccessible): kSecAttrAccessibleAfterFirstUnlock] as [String : Any]
-//        let publicAttributes = [String(kSecAttrIsPermanent): true,
-//                                String(kSecAttrApplicationTag): serverNonce,
-//                                String(kSecAttrAccessible): kSecAttrAccessibleAfterFirstUnlock] as [String : Any]
-//
-//        let pairAttributes = [String(kSecAttrKeyType): kSecAttrKeyTypeRSA,
-//                              String(kSecAttrKeySizeInBits): 2048,
-//                              String(kSecPublicKeyAttrs): publicAttributes as [String : Any],
-//                              String(kSecPrivateKeyAttrs): privateAttributes] as [String : Any]
-//        var pubKey, privKey: SecKey?
-//        _ = SecKeyGeneratePair(pairAttributes as CFDictionary, &pubKey, &privKey)
-//        return (pubKey, privKey)
-//    }
-        
+    func generateKeyPair(ofSize bits: UInt) throws -> KeyPair? {
+        let pubKeyAttrs = [ kSecAttrIsPermanent as String: true ]
+        let privKeyAttrs = [ kSecAttrIsPermanent as String: true ]
+        let params: NSDictionary = [ kSecAttrKeyType as String : kSecAttrKeyTypeRSA as String,
+                       kSecAttrKeySizeInBits as String : bits,
+                       kSecPublicKeyAttrs as String : pubKeyAttrs,
+                       kSecPrivateKeyAttrs as String : privKeyAttrs ]
+        var pubKey: SecKey?
+        var privKey: SecKey?
+        let status = SecKeyGeneratePair(params, &pubKey, &privKey)
+        switch status {
+        case noErr:
+            return (privKey!, pubKey!)
+        default:
+            return nil
+        }
+    }
+
+    func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
         let signatureKeySize = getSymmetricSignatureKeySize()
         let encryptionKeySize = getSymmetricEncryptionKeySize()
         let cipherTextBlockSize = getSymmetricBlockSize()
