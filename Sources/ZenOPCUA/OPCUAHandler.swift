@@ -27,8 +27,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public var sessionActive: CreateSessionResponse? = nil
     public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
     
-    static var messageSecurityMode: MessageSecurityMode = .invalid
-    static var securityPolicy: SecurityPolicies = .invalid
+    static var securityPolicy: SecurityPolicy = SecurityPolicy()
+    static var messageSecurityMode: MessageSecurityMode = .none
     static var certificate: String? = nil
     static var privateKey: String? = nil
     static var endpoint: EndpointDescription = EndpointDescription()
@@ -84,10 +84,13 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
                 }
             case .createSessionResponse:
-                OPCUAHandler.isAcknowledge = false
+                OPCUAHandler.isAcknowledgeSecure = false
+                ZenOPCUA.reconnect = false
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
                     promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
+                } else {
+                    activateSession(context: context, response: response)
                 }
             case .activateSessionResponse:
                 let response = ActivateSessionResponse(bytes: frame.body)
@@ -138,31 +141,30 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         errorCaught(error)
     }
 
-    fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
-        if frame.head.messageSize > OPCUAHandler.bufferSize {
-            var index = 0
-            while index < frame.head.messageSize {
-                print("\(index) < \(frame.head.messageSize)")
-                let part: OPCUAFrame
-                if (index + OPCUAHandler.bufferSize - 8) >= frame.head.messageSize {
-                    let body = frame.body[index...].map { $0 }
-                    part = OPCUAFrame(head: frame.head, body: body)
-                } else {
-                    let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
-                    let body = frame.body[index..<(index + OPCUAHandler.bufferSize - 8)].map { $0 }
-                    part = OPCUAFrame(head: head, body: body)
-                }
-                context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
-                index += OPCUAHandler.bufferSize - 8
-            }
-        } else {
-            context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
-        }
-    }
+//    fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
+//        if frame.head.messageSize > OPCUAHandler.bufferSize {
+//            var index = 0
+//            while index < frame.head.messageSize {
+//                print("\(index) < \(frame.head.messageSize)")
+//                let part: OPCUAFrame
+//                if (index + OPCUAHandler.bufferSize - 8) >= frame.head.messageSize {
+//                    let body = frame.body[index...].map { $0 }
+//                    part = OPCUAFrame(head: frame.head, body: body)
+//                } else {
+//                    let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
+//                    let body = frame.body[index..<(index + OPCUAHandler.bufferSize - 8)].map { $0 }
+//                    part = OPCUAFrame(head: head, body: body)
+//                }
+//                context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
+//                index += OPCUAHandler.bufferSize - 8
+//            }
+//        } else {
+//            context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+//        }
+//    }
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         var securityMode = OPCUAHandler.messageSecurityMode
-        var policy = OPCUAHandler.securityPolicy
         var userTokenType: SecurityTokenRequestType = sessionActive == nil ? .issue : .renew
         
         if OPCUAHandler.certificate != nil {
@@ -170,7 +172,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 userTokenType = .renew
             } else {
                 securityMode = .none
-                policy = .none
             }
         }
         
@@ -178,7 +179,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let requestId = nextMessageID()
         let body = OpenSecureChannelRequest(
             messageSecurityMode: securityMode,
-            securityPolicy: policy,
+            securityPolicy: OPCUAHandler.isAcknowledgeSecure ? SecurityPolicy() : OPCUAHandler.securityPolicy,
             userTokenType: userTokenType,
             senderCertificate: OPCUAHandler.certificate,
             serverCertificate: OPCUAHandler.endpoint.serverCertificate,
@@ -186,7 +187,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             requestId: requestId
         )
         
-        write(context, OPCUAFrame(head: head, body: body.bytes))
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+        context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
 
     fileprivate func closeSecureChannel(context: ChannelHandlerContext, response: CloseSessionResponse) {
@@ -217,7 +219,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             requestHandle: response.requestId,
             endpointUrl: OPCUAHandler.endpoint.endpointUrl
         )
-        write(context, OPCUAFrame(head: head, body: body.bytes))
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+        context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
 
     fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) -> Bool {
@@ -251,13 +254,13 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 endpointUrl: OPCUAHandler.endpoint.endpointUrl,
                 applicationName: applicationName,
                 clientCertificate: OPCUAHandler.certificate,
-                securityPolicyUri: OPCUAHandler.endpoint.securityPolicyUri
+                securityPolicy: OPCUAHandler.securityPolicy
             )
             frame = OPCUAFrame(head: head, body: body.bytes)
         }
 
-        write(context, frame)
-        
+        context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+
         return true
     }
 
@@ -282,8 +285,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     certificate: certificate,
                     privateKey: privateKey,
                     serverCertificate: session.serverCertificate,
-                    serverNonce: session.serverNonce,
-                    securityPolicyUri: policy.securityPolicyUri!
+                    serverNonce: session.serverNonce
                 )
             } else if let username = username, let password = password {
                 let policy = serverEndpoint.userIdentityTokens.first(where: { $0.tokenType == .userName })!
@@ -309,7 +311,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 session: session,
                 userIdentityInfo: userIdentityInfo
             )
-            write(context, OPCUAFrame(head: head, body: body.bytes))
+            let frame = OPCUAFrame(head: head, body: body.bytes)
+            context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
         }
     }
     

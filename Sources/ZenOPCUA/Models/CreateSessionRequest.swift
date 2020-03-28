@@ -8,8 +8,6 @@
 import Foundation
 
 class CreateSessionRequest: MessageBase, OPCUAEncodable {
-    let securityPolicy: SecurityPolicy
-    
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .createSessionRequest)
     let requestHeader: RequestHeader
     let clientDescription: ApplicationDescription
@@ -49,32 +47,29 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         endpointUrl: String,
         applicationName: String,
         clientCertificate: String?,
-        securityPolicyUri: String
+        securityPolicy: SecurityPolicy
     ) {
-        securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
-
         self.requestHeader = RequestHeader(requestHandle: requestHandle)
         self.serverUri = serverUri
         self.endpointUrl = endpointUrl
         self.clientDescription = ApplicationDescription(applicationName: applicationName)
         self.sessionName = "\(applicationName)-Session"
-        super.init(bytes: [])
+        super.init()
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
         self.sequenceNumber = sequenceNumber
         self.requestId = requestId
         
-        if securityPolicy.symmetricKeyLength > 0 {
-            self.clientNonce.append(contentsOf: UInt32(securityPolicy.symmetricKeyLength).bytes)
-            self.clientNonce.append(contentsOf: try! securityPolicy.generateNonce(securityPolicy.symmetricKeyLength))
+        if securityPolicy.clientNonce.count > 0 {
+            self.clientNonce.append(contentsOf: UInt32(32).bytes)
+            self.clientNonce.append(contentsOf: securityPolicy.clientNonce)
         } else {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)
         }
         
-        if let certificate = clientCertificate, let data = try? Data(contentsOf: URL(fileURLWithPath: certificate)) {
-            let encoded = securityPolicy.getCertificateFromPem(data: data)
-            self.clientCertificate.append(contentsOf: UInt32(encoded.count).bytes)
-            self.clientCertificate.append(contentsOf: encoded)
+        if securityPolicy.clientCertificate.count > 0 {
+            self.clientCertificate.append(contentsOf: UInt32(securityPolicy.clientCertificate.count).bytes)
+            self.clientCertificate.append(contentsOf: securityPolicy.clientCertificate)
         } else {
             self.clientCertificate.append(contentsOf: UInt32.max.bytes)
         }

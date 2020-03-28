@@ -122,7 +122,11 @@ enum SecurityAlgorithm: String {
     case sha256 = "http://www.w3.org/2001/04/xmlenc#sha256,SHA-256"
 }
 
-struct SecurityPolicy {
+class SecurityPolicy {
+    var clientNonce: Data = Data()
+    var clientCertificate: Data = Data()
+    var clientPrivateKey: Data = Data()
+
     let securityPolicyUri: String
     let symmetricSignatureAlgorithm: SecurityAlgorithm
     let symmetricEncryptionAlgorithm: SecurityAlgorithm
@@ -131,14 +135,16 @@ struct SecurityPolicy {
     let asymmetricKeyWrapAlgorithm: SecurityAlgorithm
     let keyDerivationAlgorithm: SecurityAlgorithm
     let certificateSignatureAlgorithm: SecurityAlgorithm
-    let symmetricKeyLength: Int
+    
+    convenience init() {
+        self.init(securityPolicyUri: SecurityPolicies.none.uri)
+    }
     
     init(securityPolicyUri: String) {
         self.securityPolicyUri = securityPolicyUri
         
         switch securityPolicyUri.securityPolicy {
         case .basic128Rsa15:
-            self.symmetricKeyLength = 16
             self.symmetricSignatureAlgorithm = .hmacSha1
             self.symmetricEncryptionAlgorithm = .aes128
             self.asymmetricSignatureAlgorithm = .rsaSha1
@@ -148,7 +154,6 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha1
 
         case .basic256:
-            self.symmetricKeyLength = 32
             self.symmetricSignatureAlgorithm = .hmacSha1
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha1
@@ -158,7 +163,6 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha1
 
         case .basic256Sha256:
-            self.symmetricKeyLength = 32
             self.symmetricSignatureAlgorithm = .hmacSha256
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha256
@@ -168,7 +172,6 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha256
 
         case .aes128Sha256RsaOaep:
-            self.symmetricKeyLength = 32
             self.symmetricSignatureAlgorithm = .hmacSha256
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha256
@@ -178,7 +181,6 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha256
 
         case .aes256Sha256RsaPss:
-            self.symmetricKeyLength = 32
             self.symmetricSignatureAlgorithm = .hmacSha256
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha256Pss
@@ -188,7 +190,6 @@ struct SecurityPolicy {
             self.certificateSignatureAlgorithm = .sha256
 
         default:
-            self.symmetricKeyLength = 0
             self.symmetricSignatureAlgorithm = .none
             self.symmetricEncryptionAlgorithm = .none
             self.asymmetricSignatureAlgorithm = .none
@@ -199,6 +200,39 @@ struct SecurityPolicy {
         }
     }
     
+    func makeClientNonce() throws {
+        self.clientNonce = securityPolicyUri.securityPolicy != .none
+            ? try generateNonce(32)
+            : Data()
+        
+        if let certificateFile = OPCUAHandler.certificate, let privateKeyFile = OPCUAHandler.privateKey {
+            if let certificateDate = try? Data(contentsOf: URL(fileURLWithPath: certificateFile)) {
+               OPCUAHandler.securityPolicy.setCertificateFromPem(data: certificateDate)
+            }
+                
+            if let privateKeyData = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
+                //privateKey = securityPolicy.privateKeyFromData(privateKey: privateKeyData)
+                OPCUAHandler.securityPolicy.clientPrivateKey = privateKeyData
+            }
+        }
+    }
+    
+    lazy var serverPublicKey: SecKey? = {
+        return publicKeyFromData(certificate: Data(OPCUAHandler.endpoint.serverCertificate))
+    }()
+
+    lazy var clientPublicKey: SecKey? = {
+        return publicKeyFromData(certificate: Data(clientCertificate))
+    }()
+    
+    lazy var remoteCertificateThumbprint: Data = {
+        return Insecure.SHA1.hash(data: OPCUAHandler.endpoint.serverCertificate).data
+    }()
+    
+    lazy var localCertificateThumbprint: Data = {
+        return Insecure.SHA1.hash(data: clientCertificate).data
+    }()
+
 //   private func privateKeyForCertificate(keyData: Data, withPassword password: String = "") -> SecKey? {
 //        let priKeyECStriped = keyData[32..<keyData.count - 31]
 //        print(String(data: priKeyECStriped, encoding: .utf8))
@@ -221,7 +255,7 @@ struct SecurityPolicy {
 //        return nil
 //    }
     
-    func getCertificateFromPem(data: Data) -> [UInt8] {
+    func setCertificateFromPem(data: Data) {
         let startIndex = "-----BEGIN CERTIFICATE-----".data(using: .utf8)!
         let lastIndex = "-----END CERTIFICATE-----".data(using: .utf8)!
         
@@ -240,13 +274,12 @@ struct SecurityPolicy {
 
         let certData = Data(base64Encoded: pemWithoutHeaderFooterNewlines, options: Data.Base64DecodingOptions.ignoreUnknownCharacters)!
         
-        return getCertificateEncoded(data: certData)
+        clientCertificate = getCertificateEncoded(data: certData)
     }
     
-    func getCertificateEncoded(data: Data) -> [UInt8] {
+    func getCertificateEncoded(data: Data) -> Data {
         let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, data as CFData)!
-        let encoded = SecCertificateCopyData(certificate) as Data
-        return [UInt8](encoded)
+        return SecCertificateCopyData(certificate) as Data
     }
     
     func privateKeyFromData(privateKey: Data) -> SecKey? {
@@ -295,8 +328,8 @@ struct SecurityPolicy {
         }
     }
     
-    func sign(dataToSign: [UInt8], privateKey: Data, clientCertificate: Data) throws -> Data {
-        let key = privateKeyFromData(privateKey: privateKey)!
+    func sign(dataToSign: [UInt8]) throws -> Data {
+        let key = privateKeyFromData(privateKey: clientPrivateKey)!
         
         let algorithm: SecKeyAlgorithm
         switch asymmetricSignatureAlgorithm {

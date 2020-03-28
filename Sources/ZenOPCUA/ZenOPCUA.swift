@@ -41,7 +41,7 @@ public class ZenOPCUA {
         handler.applicationName = applicationName
         OPCUAHandler.endpoint.endpointUrl = endpoint
         OPCUAHandler.messageSecurityMode = messageSecurityMode
-        OPCUAHandler.securityPolicy = securityPolicy
+        OPCUAHandler.securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
         OPCUAHandler.certificate = certificate
         OPCUAHandler.privateKey = privateKey
     }
@@ -124,7 +124,6 @@ public class ZenOPCUA {
         }
         
         return start().flatMap { () -> EventLoopFuture<Void> in
-            //self.handler.promises.removeValue(forKey: 0)
             if self.handler.promises.index(forKey: 0) == nil {
                 self.handler.promises[0] = self.channel!.eventLoop.makePromise()
             }

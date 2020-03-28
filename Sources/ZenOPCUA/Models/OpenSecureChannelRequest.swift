@@ -9,8 +9,6 @@ import Foundation
 import CryptoKit
 
 class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
-    let securityPolicy: SecurityPolicy
-
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
     let requestHeader: RequestHeader
     var clientProtocolVersion: UInt32 = 0
@@ -26,19 +24,19 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
             receiverCertificateThumbprint +
             sequenseNumber.bytes +
             requestId.bytes
-        print("header: \(header.count)")
+        //print("header: \(header.count)")
         let body = typeId.bytes +
             requestHeader.bytes +
             clientProtocolVersion.bytes +
             securityTokenRequestType.rawValue.bytes +
             messageSecurityMode.rawValue.bytes
-        print("body: \(body.count + clientNonce.count + requestedLifetime.bytes.count)")
+        //print("body: \(body.count + clientNonce.count + requestedLifetime.bytes.count)")
         return header + body + clientNonce + requestedLifetime.bytes
     }
     
     init(
         messageSecurityMode: MessageSecurityMode,
-        securityPolicy policy: SecurityPolicies,
+        securityPolicy: SecurityPolicy,
         userTokenType: SecurityTokenRequestType,
         senderCertificate: String?,
         serverCertificate: [UInt8],
@@ -49,23 +47,21 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime
         self.messageSecurityMode = messageSecurityMode
-        securityPolicy = SecurityPolicy(securityPolicyUri: policy.uri)
-        super.init(securityPolicyUri: policy.uri, requestId: requestId)
+        super.init(securityPolicyUri: securityPolicy.securityPolicyUri, requestId: requestId)
 
         if serverCertificate.count == 0 {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)
             self.senderCertificate.append(contentsOf: UInt32.max.bytes)
             self.receiverCertificateThumbprint.append(contentsOf: UInt32.max.bytes)
-        } else if let certificate = senderCertificate, let data = try? Data(contentsOf: URL(fileURLWithPath: certificate)) {
-            let encoded = securityPolicy.getCertificateFromPem(data: data)
-            self.senderCertificate.append(contentsOf: UInt32(encoded.count).bytes)
-            self.senderCertificate.append(contentsOf: encoded)
+        } else if securityPolicy.clientCertificate.count > 0 {
+            self.senderCertificate.append(contentsOf: UInt32(securityPolicy.clientCertificate.count).bytes)
+            self.senderCertificate.append(contentsOf: securityPolicy.clientCertificate)
 
-            self.clientNonce.append(contentsOf: UInt32(securityPolicy.symmetricKeyLength).bytes)
-            self.clientNonce.append(contentsOf: try! securityPolicy.generateNonce(securityPolicy.symmetricKeyLength))
+            self.clientNonce.append(contentsOf: UInt32(securityPolicy.clientNonce.count).bytes)
+            self.clientNonce.append(contentsOf: securityPolicy.clientNonce)
 
-            let thumbprint = Insecure.SHA1.hash(data: serverCertificate)
-            self.receiverCertificateThumbprint.append(contentsOf: UInt32(thumbprint.data.count).bytes)
+            let thumbprint = securityPolicy.remoteCertificateThumbprint
+            self.receiverCertificateThumbprint.append(contentsOf: UInt32(thumbprint.count).bytes)
             self.receiverCertificateThumbprint.append(contentsOf: thumbprint)
         }
     }

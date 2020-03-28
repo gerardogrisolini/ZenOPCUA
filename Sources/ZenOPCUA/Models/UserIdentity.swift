@@ -107,22 +107,17 @@ struct UserIdentityInfoX509: UserIdentityInfo {
         certificate: String,
         privateKey: String,
         serverCertificate: [UInt8],
-        serverNonce: [UInt8],
-        securityPolicyUri: String
+        serverNonce: [UInt8]
     ) {
         self.policyId = policyId
         do {
-            let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
+            self.certificateData = [UInt8](OPCUAHandler.securityPolicy.clientCertificate)
 
-            let data = try Data(contentsOf: URL(fileURLWithPath: certificate))
-            self.certificateData = securityPolicy.getCertificateFromPem(data: data)
-
-            if securityPolicy.asymmetricSignatureAlgorithm != .none {
+            if OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm != .none {
                 let dataToSign = serverCertificate + serverNonce
-                let key = try Data(contentsOf: URL(fileURLWithPath: privateKey))
-                let signature = try securityPolicy.sign(dataToSign: dataToSign, privateKey: key, clientCertificate: Data(certificateData))
+                let signature = try OPCUAHandler.securityPolicy.sign(dataToSign: dataToSign)
                 userTokenSignature = SignatureData(
-                    algorithm: securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,
+                    algorithm: OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,
                     signature: [UInt8](signature)
                 )
             }
