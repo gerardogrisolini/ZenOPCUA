@@ -15,17 +15,21 @@ final class ZenOPCUATests: XCTestCase {
 
     func testExample() {
 
-        let certificateFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/cert.pem"
-        let privateKeyFile = "/Users/gerardo/Projects/ZenOPCUA/certificates/key.pem"
-        
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
             endpoint: "opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
             messageSecurityMode: .signAndEncrypt,
             securityPolicy: .basic128Rsa15,
-            certificate: certificateFile,
-            privateKey: privateKeyFile
+            certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/cert.pem",
+            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/key.pem"
         )
+
+//        let opcua = ZenOPCUA(
+//            eventLoopGroup: eventLoopGroup,
+//            endpoint: "opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
+//            messageSecurityMode: .none,
+//            securityPolicy: .none
+//        )
 
 //        var count = 0
 //        let expectation = XCTestExpectation(description: "OPCUA")
