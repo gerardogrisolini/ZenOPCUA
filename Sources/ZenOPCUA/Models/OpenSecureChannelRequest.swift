@@ -38,7 +38,6 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         messageSecurityMode: MessageSecurityMode,
         securityPolicy: SecurityPolicy,
         userTokenType: SecurityTokenRequestType,
-        senderCertificate: String?,
         serverCertificate: [UInt8],
         requestedLifetime: UInt32,
         requestId: UInt32

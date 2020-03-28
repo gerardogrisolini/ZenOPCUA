@@ -104,14 +104,13 @@ struct UserIdentityInfoX509: UserIdentityInfo {
 
     init(
         policyId: String,
-        certificate: String,
-        privateKey: String,
+        certificate: Data,
         serverCertificate: [UInt8],
         serverNonce: [UInt8]
     ) {
         self.policyId = policyId
         do {
-            self.certificateData = [UInt8](OPCUAHandler.securityPolicy.clientCertificate)
+            self.certificateData = [UInt8](certificate)
 
             if OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm != .none {
                 let dataToSign = serverCertificate + serverNonce

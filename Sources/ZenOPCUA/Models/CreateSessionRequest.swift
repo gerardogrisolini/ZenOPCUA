@@ -46,7 +46,6 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         serverUri: String,
         endpointUrl: String,
         applicationName: String,
-        clientCertificate: String?,
         securityPolicy: SecurityPolicy
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestHandle)

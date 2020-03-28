@@ -139,10 +139,24 @@ class SecurityPolicy {
     convenience init() {
         self.init(securityPolicyUri: SecurityPolicies.none.uri)
     }
-    
-    init(securityPolicyUri: String) {
-        self.securityPolicyUri = securityPolicyUri
+
+    init(securityPolicyUri: String, certificate: String? = nil, privateKey: String? = nil) {
+        self.clientNonce = securityPolicyUri.securityPolicy != .none
+            ? try! SecurityPolicy.generateNonce(32)
+            : Data()
         
+        if let certificateFile = certificate, let privateKeyFile = privateKey {
+            if let certificateDate = try? Data(contentsOf: URL(fileURLWithPath: certificateFile)) {
+               OPCUAHandler.securityPolicy.setCertificateFromPem(data: certificateDate)
+            }
+                
+            if let privateKeyData = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
+                //privateKey = securityPolicy.privateKeyFromData(privateKey: privateKeyData)
+                OPCUAHandler.securityPolicy.clientPrivateKey = privateKeyData
+            }
+        }
+
+        self.securityPolicyUri = securityPolicyUri
         switch securityPolicyUri.securityPolicy {
         case .basic128Rsa15:
             self.symmetricSignatureAlgorithm = .hmacSha1
@@ -199,24 +213,7 @@ class SecurityPolicy {
             self.certificateSignatureAlgorithm = .none
         }
     }
-    
-    func makeClientNonce() throws {
-        self.clientNonce = securityPolicyUri.securityPolicy != .none
-            ? try generateNonce(32)
-            : Data()
         
-        if let certificateFile = OPCUAHandler.certificate, let privateKeyFile = OPCUAHandler.privateKey {
-            if let certificateDate = try? Data(contentsOf: URL(fileURLWithPath: certificateFile)) {
-               OPCUAHandler.securityPolicy.setCertificateFromPem(data: certificateDate)
-            }
-                
-            if let privateKeyData = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
-                //privateKey = securityPolicy.privateKeyFromData(privateKey: privateKeyData)
-                OPCUAHandler.securityPolicy.clientPrivateKey = privateKeyData
-            }
-        }
-    }
-    
     lazy var serverPublicKey: SecKey? = {
         return publicKeyFromData(certificate: Data(OPCUAHandler.endpoint.serverCertificate))
     }()
@@ -232,6 +229,16 @@ class SecurityPolicy {
     lazy var localCertificateThumbprint: Data = {
         return Insecure.SHA1.hash(data: clientCertificate).data
     }()
+
+    private static func generateNonce(_ lenght: Int) throws -> Data {
+        let nonce = NSMutableData(length: lenght)
+        let result = SecRandomCopyBytes(kSecRandomDefault, nonce!.length, nonce!.mutableBytes)
+        if result == errSecSuccess {
+            return nonce! as Data
+        } else {
+            throw OPCUAError.generic("unsupported")
+        }
+    }
 
 //   private func privateKeyForCertificate(keyData: Data, withPassword password: String = "") -> SecKey? {
 //        let priKeyECStriped = keyData[32..<keyData.count - 31]
@@ -316,16 +323,6 @@ class SecurityPolicy {
 //        let data = SecKeyCopyExternalRepresentation(publicKey!, &error)! as Data
 //
 //        return data
-    }
-    
-    func generateNonce(_ lenght: Int) throws -> Data {
-        let nonce = NSMutableData(length: lenght)
-        let result = SecRandomCopyBytes(kSecRandomDefault, nonce!.length, nonce!.mutableBytes)
-        if result == errSecSuccess {
-            return nonce! as Data
-        } else {
-            throw OPCUAError.generic("unsupported")
-        }
     }
     
     func sign(dataToSign: [UInt8]) throws -> Data {

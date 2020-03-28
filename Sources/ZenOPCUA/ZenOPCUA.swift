@@ -41,9 +41,11 @@ public class ZenOPCUA {
         handler.applicationName = applicationName
         OPCUAHandler.endpoint.endpointUrl = endpoint
         OPCUAHandler.messageSecurityMode = messageSecurityMode
-        OPCUAHandler.securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
-        OPCUAHandler.certificate = certificate
-        OPCUAHandler.privateKey = privateKey
+        OPCUAHandler.securityPolicy = SecurityPolicy(
+            securityPolicyUri: securityPolicy.uri,
+            certificate: certificate,
+            privateKey: privateKey
+        )
     }
     
     private func getHostFromEndpoint() -> (host: String, port: Int) {
