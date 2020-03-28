@@ -78,15 +78,16 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             //print(method)
             switch method {
             case .getEndpointsResponse:
-                createSession(context: context, response: GetEndpointsResponse(bytes: frame.body))
+                if !createSession(context: context, response: GetEndpointsResponse(bytes: frame.body)) {
+                    OPCUAHandler.isAcknowledgeSecure = false
+                    ZenOPCUA.reconnect = false
+                    promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
+                }
             case .createSessionResponse:
                 OPCUAHandler.isAcknowledge = false
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
                     promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
-                }
-                else if !activateSession(context: context, response: response) {
-                    promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
                 }
             case .activateSessionResponse:
                 let response = ActivateSessionResponse(bytes: frame.body)
@@ -219,13 +220,16 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         write(context, OPCUAFrame(head: head, body: body.bytes))
     }
 
-    fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) {
+    fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) -> Bool {
+        guard let endpoint = response.endpoints.first(where: { $0.messageSecurityMode == OPCUAHandler.messageSecurityMode }) else {
+            return false
+        }
+        OPCUAHandler.endpoint = endpoint
+
         let requestId = nextMessageID()
         let frame: OPCUAFrame
-        
-        if OPCUAHandler.certificate != nil && OPCUAHandler.endpoint.serverCertificate.count == 0 {
-            OPCUAHandler.endpoint = response.endpoints.first(where: { $0.messageSecurityMode == OPCUAHandler.messageSecurityMode })!
 
+        if OPCUAHandler.certificate != nil && OPCUAHandler.endpoint.serverCertificate.count == 0 {
             let head = OPCUAFrameHead(messageType: .closeChannel, chunkType: .frame)
             let body = CloseSecureChannelRequest(
                 secureChannelId: response.secureChannelId,
@@ -236,8 +240,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             )
             frame = OPCUAFrame(head: head, body: body.bytes)
         } else {
-            OPCUAHandler.endpoint = response.endpoints.first(where: { $0.messageSecurityMode == OPCUAHandler.messageSecurityMode })!
-
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
             let body = CreateSessionRequest(
                 secureChannelId: response.secureChannelId,
@@ -255,11 +257,13 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         }
 
         write(context, frame)
+        
+        return true
     }
 
-    fileprivate func activateSession(context: ChannelHandlerContext, response: CreateSessionResponse) -> Bool {
+    fileprivate func activateSession(context: ChannelHandlerContext, response: CreateSessionResponse) {
         sessionActive = response
-        guard let session = sessionActive else { return false }
+        guard let session = sessionActive else { return }
         
         print("Found \(session.serverEndpoints.count) endpoints")
         
@@ -306,11 +310,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 userIdentityInfo: userIdentityInfo
             )
             write(context, OPCUAFrame(head: head, body: body.bytes))
-            
-            return true
         }
-        
-        return false
     }
     
     private var messageID = UInt32(1)

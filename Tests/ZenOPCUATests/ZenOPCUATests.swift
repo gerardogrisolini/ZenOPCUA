@@ -20,7 +20,7 @@ final class ZenOPCUATests: XCTestCase {
         
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
-            endpoint: "opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
+            endpoint: "opc.tcp://concentratoreviet.ddns.net:4842", //"opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
             messageSecurityMode: .signAndEncrypt,
             securityPolicy: .basic256Sha256,
             certificate: certificateFile,
@@ -75,12 +75,12 @@ final class ZenOPCUATests: XCTestCase {
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253)),
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2256))
 //            ]
-//            let items = try opcua.browse(nodes: nodes).wait()
-//            for item in items {
-//                item.references.forEach { ref in
-//                    print("\(ref.displayName.text): \(ref.nodeId)")
-//                }
-//            }
+            let items = try opcua.browse().wait()
+            for item in items {
+                item.references.forEach { ref in
+                    print("\(ref.displayName.text): \(ref.nodeId)")
+                }
+            }
             
 //            let subscription = Subscription(
 //                requestedPubliscingInterval: 1000,
@@ -103,9 +103,9 @@ final class ZenOPCUATests: XCTestCase {
 //                print("deleteSubscription: \(result)")
 //            }
 
-            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"))]
-            let readed = try opcua.read(nodes: reads).wait()
-            print(readed.first?.variant.value ?? "nil")
+//            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"))]
+//            let readed = try opcua.read(nodes: reads).wait()
+//            print(readed.first?.variant.value ?? "nil")
 
 //            let writes: [WriteValue] = [
 //                WriteValue(

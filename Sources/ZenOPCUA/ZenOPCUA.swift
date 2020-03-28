@@ -25,7 +25,7 @@ public class ZenOPCUA {
     public var onHandlerRemoved: OPCUAHandlerRemoved? = nil
     public var onErrorCaught: OPCUAErrorCaught? = nil
     
-    private var reconnect: Bool = false
+    static var reconnect: Bool = false
 
     
     public init(
@@ -101,7 +101,7 @@ public class ZenOPCUA {
     }
 
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true) -> EventLoopFuture<Void> {
-        self.reconnect = reconnect
+        ZenOPCUA.reconnect = reconnect
         OPCUAHandler.isAcknowledge = true
         OPCUAHandler.isAcknowledgeSecure = OPCUAHandler.messageSecurityMode != .none
         
@@ -114,7 +114,7 @@ public class ZenOPCUA {
                 onHandlerRemoved()
             }
                         
-            if self.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
+            if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
                     self.start().whenComplete { _ in
                         OPCUAHandler.isAcknowledgeSecure = false
@@ -125,7 +125,9 @@ public class ZenOPCUA {
         
         return start().flatMap { () -> EventLoopFuture<Void> in
             //self.handler.promises.removeValue(forKey: 0)
-            self.handler.promises[0] = self.channel!.eventLoop.makePromise()
+            if self.handler.promises.index(forKey: 0) == nil {
+                self.handler.promises[0] = self.channel!.eventLoop.makePromise()
+            }
             return self.handler.promises[0]!.futureResult.map { item -> Void in
                 ()
             }
@@ -133,7 +135,7 @@ public class ZenOPCUA {
     }
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
-        reconnect = false
+        ZenOPCUA.reconnect = false
         return closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { (_) -> EventLoopFuture<Void> in
             return self.stop()
         }
