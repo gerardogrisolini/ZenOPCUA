@@ -20,8 +20,8 @@ final class ZenOPCUATests: XCTestCase {
             endpoint: "opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
             messageSecurityMode: .signAndEncrypt,
             securityPolicy: .basic128Rsa15,
-            certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/cert.pem",
-            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/key.pem"
+            certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/certificate.crt",
+            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/private-rsa.key"
         )
 
 //        let opcua = ZenOPCUA(

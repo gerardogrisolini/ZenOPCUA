@@ -172,12 +172,12 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 securityMode = .none
             }
         }
-        
+
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
         let requestId = nextMessageID()
         let body = OpenSecureChannelRequest(
             messageSecurityMode: securityMode,
-            securityPolicy: OPCUAHandler.isAcknowledgeSecure ? SecurityPolicy() : OPCUAHandler.securityPolicy,
+            securityPolicy: securityMode == .none ? SecurityPolicy() : OPCUAHandler.securityPolicy,
             userTokenType: userTokenType,
             serverCertificate: OPCUAHandler.endpoint.serverCertificate,
             requestedLifetime: requestedLifetime,
@@ -229,7 +229,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let requestId = nextMessageID()
         let frame: OPCUAFrame
 
-        if OPCUAHandler.messageSecurityMode != .none && OPCUAHandler.endpoint.serverCertificate.count == 0 {
+        if OPCUAHandler.isAcknowledgeSecure {
             let head = OPCUAFrameHead(messageType: .closeChannel, chunkType: .frame)
             let body = CloseSecureChannelRequest(
                 secureChannelId: response.secureChannelId,
