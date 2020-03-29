@@ -6,8 +6,12 @@
 //
 
 import Foundation
-import CryptoKit
 import NIO
+#if os(Linux)
+import Crypto
+#else
+import CryptoKit
+#endif
 
 
 public typealias KeyPair = (privateKey: SecKey, publicKey: SecKey)

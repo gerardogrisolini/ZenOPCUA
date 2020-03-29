@@ -19,7 +19,7 @@ final class ZenOPCUATests: XCTestCase {
             eventLoopGroup: eventLoopGroup,
             endpoint: "opc.tcp://MBP-di-Gerardo.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
             messageSecurityMode: .signAndEncrypt,
-            securityPolicy: .basic256,
+            securityPolicy: .aes256Sha256RsaPss,
             certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/certificate.crt",
             privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/private-rsa.key"
         )

@@ -40,7 +40,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         assert (maxPlainTextSize + securityHeaderSize + SECURE_MESSAGE_HEADER_SIZE <= maxChunkSize)
 
         let header = encrypted ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize : 0
-        var readedBytes = header + SEQUENCE_HEADER_SIZE
+        var readedBytes = header + 8
         while readedBytes < messageBuffer.readableBytes {
             let bodySize = min(messageBuffer.readableBytes - readedBytes, maxBodySize)
 
@@ -61,7 +61,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             let chunkSize = encrypted
                 ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize +
                 (plainTextContentSize / plainTextBlockSize) * cipherTextBlockSize
-                : bodySize + 8
+                : header + SEQUENCE_HEADER_SIZE + bodySize
 
             assert (chunkSize <= maxChunkSize)
 
@@ -72,23 +72,17 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             chunkBuffer.writeBytes(messageBuffer.getBytes(at: readedBytes, length: bodySize)!)
             readedBytes += bodySize
 
-            print("header - bodySize = \(header) - \(bodySize) => \(header + bodySize)")
-            print("content => \(chunkBuffer.readableBytes - header)")
-
             /* Padding and Signature */
             if encrypted {
                 writePadding(cipherTextBlockSize, paddingSize, &chunkBuffer)
-
-                print("content => padding = \(paddingSize) => \(chunkBuffer.readableBytes - header) -- \(chunkBuffer.readableBytes)")
             }
 
             if isAsymmetricSigningEnabled {
-                print("chunkSize = \(chunkSize) : chunkBuffer: \(chunkBuffer.writerIndex)")
-                let dataToSign = chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!
+                let dataToSign = chunkBuffer.getBytes(at: 0, length: chunkBuffer.readableBytes)!
                 let signature = try OPCUAHandler.securityPolicy.sign(dataToSign: dataToSign)
                 chunkBuffer.writeBytes(signature)
 
-                print("content => sign => \(chunkBuffer.readableBytes - header)")
+                print("sign: \(dataToSign.count) signature: \(signature.count) => chunkBuffer: \(chunkBuffer.readableBytes)")
             }
 
             /* Encryption */
@@ -107,7 +101,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                     chunkNioBuffer.writeBytes(dataEncrypted)
                 }
                 
-                print("content => encrypt => \(chunkNioBuffer.readableBytes)")
+                print("encrypt => \(chunkNioBuffer.readableBytes) => chunkBuffer: \(chunkNioBuffer.readableBytes + header)")
 
                 out.writeBytes(chunkBuffer.getBytes(at: 0, length: header)!)
                 out.writeBuffer(&chunkNioBuffer)
