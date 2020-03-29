@@ -81,10 +81,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
                 }
             case .createSessionResponse:
-                OPCUAHandler.isAcknowledgeSecure = false
-                ZenOPCUA.reconnect = false
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
+                    OPCUAHandler.isAcknowledgeSecure = false
+                    ZenOPCUA.reconnect = false
                     promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
                 } else {
                     activateSession(context: context, response: response)
@@ -132,10 +132,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
     
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
-        context.close(promise: nil)
-
         guard let errorCaught = errorCaught else { return }
         errorCaught(error)
+        
+//        context.flush()
+//        context.close(mode: .all)
     }
 
 //    fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
@@ -166,6 +167,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         
         if securityMode != .none {
             if OPCUAHandler.endpoint.serverCertificate.count > 0 {
+                OPCUAHandler.isAcknowledgeSecure = false
                 userTokenType = .renew
             } else {
                 securityMode = .none
@@ -224,7 +226,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             return false
         }
         OPCUAHandler.endpoint = endpoint
-
+        OPCUAHandler.securityPolicy.loadServerCertificate()
+        
         let requestId = nextMessageID()
         let frame: OPCUAFrame
 
@@ -261,38 +264,36 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
 
     fileprivate func activateSession(context: ChannelHandlerContext, response: CreateSessionResponse) {
         sessionActive = response
-        guard let session = sessionActive else { return }
         
-        print("Found \(session.serverEndpoints.count) endpoints")
+        print("Found \(response.serverEndpoints.count) endpoints")
         
-        if let item = session.serverEndpoints.first(where: {
+        if let item = response.serverEndpoints.first(where: {
             $0.messageSecurityMode == OPCUAHandler.messageSecurityMode && $0.endpointUrl.hasPrefix("opc.tcp")
         }) {
             print("Found \(item.userIdentityTokens.count) policies")
             print("Selected Endpoint \(item.endpointUrl)")
             print("SecurityMode \(item.messageSecurityMode)")
             var userIdentityInfo: UserIdentityInfo
-            let serverEndpoint = session.serverEndpoints.first!
+            let endpoint = response.serverEndpoints.first!
             if OPCUAHandler.securityPolicy.clientCertificate.count > 0 {
-                let policy = serverEndpoint.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
+                let policy = endpoint.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
                 userIdentityInfo = UserIdentityInfoX509(
                     policyId: policy.policyId,
                     certificate: OPCUAHandler.securityPolicy.clientCertificate,
-                    serverCertificate: session.serverCertificate,
-                    serverNonce: session.serverNonce
+                    serverCertificate: OPCUAHandler.endpoint.serverCertificate,
+                    serverNonce: response.serverNonce
                 )
             } else if let username = username, let password = password {
-                let policy = serverEndpoint.userIdentityTokens.first(where: { $0.tokenType == .userName })!
+                let policy = endpoint.userIdentityTokens.first(where: { $0.tokenType == .userName })!
                 userIdentityInfo = UserIdentityInfoUserName(
                     policyId: policy.policyId,
                     username: username,
                     password: password,
-                    serverCertificate: session.serverCertificate,
-                    serverNonce: session.serverNonce,
+                    serverNonce: response.serverNonce,
                     securityPolicyUri: policy.securityPolicyUri
                 )
             } else {
-                let policyId = serverEndpoint.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
+                let policyId = endpoint.userIdentityTokens.first(where: { $0.tokenType == .anonymous })!.policyId
                 userIdentityInfo = UserIdentityInfoAnonymous(policyId: policyId)
             }
             print("PolicyId \(userIdentityInfo.policyId)")
@@ -302,7 +303,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             let body = ActivateSessionRequest(
                 sequenceNumber: requestId,
                 requestId: requestId,
-                session: session,
+                session: response,
                 userIdentityInfo: userIdentityInfo
             )
             let frame = OPCUAFrame(head: head, body: body.bytes)

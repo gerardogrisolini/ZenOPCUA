@@ -126,6 +126,10 @@ class SecurityPolicy {
     var clientNonce: Data = Data()
     var clientCertificate: Data = Data()
     var clientPrivateKey: SecKey? = nil
+    var clientPublicKey: SecKey? = nil
+    var serverPublicKey: SecKey? = nil
+    var remoteCertificateThumbprint: Data = Data()
+    var localCertificateThumbprint: Data = Data()
 
     let securityPolicyUri: String
     let symmetricSignatureAlgorithm: SecurityAlgorithm
@@ -199,22 +203,6 @@ class SecurityPolicy {
         }
     }
 
-    lazy var serverPublicKey: SecKey? = {
-        return publicKeyFromData(certificate: Data(OPCUAHandler.endpoint.serverCertificate))
-    }()
-
-    lazy var clientPublicKey: SecKey? = {
-        return publicKeyFromData(certificate: Data(clientCertificate))
-    }()
-    
-    lazy var remoteCertificateThumbprint: Data = {
-        return Insecure.SHA1.hash(data: OPCUAHandler.endpoint.serverCertificate).data
-    }()
-    
-    lazy var localCertificateThumbprint: Data = {
-        return Insecure.SHA1.hash(data: clientCertificate).data
-    }()
-
     private static func generateNonce(_ lenght: Int) throws -> Data {
         let nonce = NSMutableData(length: lenght)
         let result = SecRandomCopyBytes(kSecRandomDefault, nonce!.length, nonce!.mutableBytes)
@@ -225,7 +213,7 @@ class SecurityPolicy {
         }
     }
 
-    func makeCertificate(certificate: String? = nil, privateKey: String? = nil) {
+    func loadClientCertificate(certificate: String? = nil, privateKey: String? = nil) {
         self.clientNonce = securityPolicyUri.securityPolicy != .none
             ? try! SecurityPolicy.generateNonce(32)
             : Data()
@@ -239,6 +227,14 @@ class SecurityPolicy {
                 self.clientPrivateKey = privateKeyFromData(data: privateKeyData)
             }
         }
+    }
+
+    func loadServerCertificate() {
+        serverPublicKey = publicKeyFromData(certificate: Data(OPCUAHandler.endpoint.serverCertificate))
+        remoteCertificateThumbprint = Insecure.SHA1.hash(data: OPCUAHandler.endpoint.serverCertificate).data
+
+        clientPublicKey = publicKeyFromData(certificate: clientCertificate)
+        localCertificateThumbprint = Insecure.SHA1.hash(data: clientCertificate).data
     }
     
     func dataFromPEM(data: Data) -> Data {
@@ -289,7 +285,7 @@ class SecurityPolicy {
         var publicKey: SecKey?
         var trust: SecTrust?
 
-        let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData)!
+        guard let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData) else { return nil }
 
         let policy = SecPolicyCreateBasicX509()
         let status = SecTrustCreateWithCertificates(cert, policy, &trust)
@@ -344,7 +340,7 @@ class SecurityPolicy {
         return signature
     }
 
-    func crypt(dataToEncrypt: [UInt8], serverCertificate: Data) throws -> [UInt8] {
+    func crypt(dataToEncrypt: [UInt8]) throws -> [UInt8] {
         let algorithm: SecKeyAlgorithm
         switch asymmetricEncryptionAlgorithm {
         case .rsaOaepSha1:
@@ -376,30 +372,57 @@ class SecurityPolicy {
         return [UInt8](cipherText)
     }
     
+    
+    func getSecurityHeaderSize() -> Int {
+        return SECURE_MESSAGE_HEADER_SIZE +
+            securityPolicyUri.count +
+            clientCertificate.count +
+            remoteCertificateThumbprint.count
+    }
+    
+    func isAsymmetricSigningEnabled() -> Bool {
+        return OPCUAHandler.messageSecurityMode != .none
+            && !OPCUAHandler.isAcknowledgeSecure
+            && clientCertificate.count > 0
+    }
+    
+    func isAsymmetricEncryptionEnabled() -> Bool {
+        return OPCUAHandler.messageSecurityMode != .none
+            && !OPCUAHandler.isAcknowledgeSecure
+            && clientCertificate.count > 0
+            && OPCUAHandler.endpoint.serverCertificate.count > 0
+    }
+    
     func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
         return SecKeyGetBlockSize(publicKey) * 8
     }
 
-    func getAsymmetricSignatureSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
+    func getAsymmetricSignatureSize() -> Int {
+        guard let clientPublicKey = clientPublicKey else { return 0 }
+        
         switch asymmetricSignatureAlgorithm {
         case .rsaSha1, .rsaSha256, .rsaSha256Pss:
-            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8
+            return (getAsymmetricKeyLength(publicKey: clientPublicKey) + 7) / 8
         default:
             return 0
         }
     }
 
-    func getAsymmetricCipherTextBlockSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
-        switch (algorithm) {
+    func getAsymmetricCipherTextBlockSize() -> Int {
+        guard let serverPublicKey = serverPublicKey else { return 1 }
+
+        switch (asymmetricEncryptionAlgorithm) {
         case .rsa15, .rsaOaepSha1, .rsaOaepSha256:
-            return (getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8
+            return (getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8
         default:
             return 1
         }
     }
     
-    func getAsymmetricPlainTextBlockSize(publicKey: SecKey, algorithm: SecurityAlgorithm) -> Int {
-        switch (algorithm) {
+    func getAsymmetricPlainTextBlockSize() -> Int {
+        guard let serverPublicKey = serverPublicKey else { return 1 }
+
+        switch (asymmetricEncryptionAlgorithm) {
 //        case .rsa15:
 //            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 11
 //        case .rsaOaepSha1:
@@ -407,7 +430,7 @@ class SecurityPolicy {
 //        case .rsaOaepSha256:
 //            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 66
         case .rsa15, .rsaOaepSha1, .rsaOaepSha256:
-            return ((getAsymmetricKeyLength(publicKey: publicKey) + 7) / 8) - 136 //42
+            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 136 //42
         default:
             return 1
         }

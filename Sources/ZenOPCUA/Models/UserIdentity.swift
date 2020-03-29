@@ -67,7 +67,6 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
         policyId: String,
         username: String,
         password: String,
-        serverCertificate: [UInt8],
         serverNonce: [UInt8],
         securityPolicyUri: String? = nil
     ) {
@@ -80,7 +79,7 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
             self.encryptionAlgorithm = securityPolicy.asymmetricEncryptionAlgorithm.rawValue.split(separator: ",").first?.description
             do {
                 let dataToEncrypt = password.utf8.map { $0 } + serverNonce
-                self.password = try securityPolicy.crypt(dataToEncrypt: dataToEncrypt, serverCertificate: Data(serverCertificate))
+                self.password = try securityPolicy.crypt(dataToEncrypt: dataToEncrypt)
             } catch {
                 print(error)
             }

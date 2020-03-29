@@ -42,7 +42,7 @@ public class ZenOPCUA {
         OPCUAHandler.endpoint.endpointUrl = endpoint
         OPCUAHandler.messageSecurityMode = messageSecurityMode
         let security = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
-        security.makeCertificate(certificate: certificate, privateKey: privateKey)
+        security.loadClientCertificate(certificate: certificate, privateKey: privateKey)
         OPCUAHandler.securityPolicy = security
     }
     
@@ -117,7 +117,7 @@ public class ZenOPCUA {
             if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
                     self.start().whenComplete { _ in
-                        OPCUAHandler.isAcknowledgeSecure = false
+                        //OPCUAHandler.isAcknowledgeSecure = false
                     }
                 }
             }
