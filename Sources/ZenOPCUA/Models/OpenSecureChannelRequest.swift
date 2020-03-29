@@ -42,6 +42,8 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         requestedLifetime: UInt32,
         requestId: UInt32
     ) {
+        print("Opened SecureChannel with SecurityPolicy \(securityPolicy.securityPolicyUri)")
+
         self.requestHeader = RequestHeader(requestHandle: 0)
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime

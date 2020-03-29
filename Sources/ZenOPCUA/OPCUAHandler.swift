@@ -63,7 +63,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            print("Opened SecureChannel with SecurityPolicy \(response.securityPolicyUri)")
             getEndpoints(context: context, response: response)
         case .error:
             var error = UInt32(bytes: frame.body[0...3]).description

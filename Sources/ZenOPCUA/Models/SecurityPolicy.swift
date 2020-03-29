@@ -328,7 +328,7 @@ class SecurityPolicy {
                                                     &error) as Data? else {
                                                         throw error!.takeRetainedValue() as Error
         }
-        
+
         guard SecKeyIsAlgorithmSupported(clientPublicKey!, .verify, algorithm) else {
             throw OPCUAError.generic("unsupported verify algorithm")
         }
@@ -340,7 +340,7 @@ class SecurityPolicy {
                                     &error) else {
                                         throw error!.takeRetainedValue() as Error
         }
-        
+
         return signature
     }
 
