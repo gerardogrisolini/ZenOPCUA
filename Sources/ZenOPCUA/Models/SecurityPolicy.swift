@@ -232,7 +232,7 @@ class SecurityPolicy {
         
         if let certificateFile = certificate, let privateKeyFile = privateKey {
             if let certificateDate = try? Data(contentsOf: URL(fileURLWithPath: certificateFile)) {
-                self.setCertificateFromPem(data: certificateDate)
+                self.loadCertificateFromPem(data: certificateDate)
             }
                 
             if let privateKeyData = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
@@ -241,44 +241,37 @@ class SecurityPolicy {
         }
     }
     
-    func setCertificateFromPem(data: Data) {
-        let startIndex = "-----BEGIN CERTIFICATE-----".data(using: .utf8)!
-        let lastIndex = "-----END CERTIFICATE-----".data(using: .utf8)!
+    func dataFromPEM(data: Data) -> Data {
+//        let beginText = isCertificate ? "-----BEGIN CERTIFICATE-----" : "-----BEGIN RSA PRIVATE KEY-----"
+//        let endText = isCertificate ? "-----END CERTIFICATE-----" : "-----END RSA PRIVATE KEY-----"
+//        let begin = beginText.data(using: .utf8)!
+//        let end = endText.data(using: .utf8)!
+//
+//        var index = 0
+//        for i in 0..<data.count {
+//            index = i + begin.count
+//            if data[i..<index] == begin {
+//                index += 1
+//                break
+//            }
+//        }
+//
+//        let pemWithoutHeaderFooterNewlines = data[index..<(data.count - end.count - 2)]
+//        return Data(base64Encoded: pemWithoutHeaderFooterNewlines, options: .ignoreUnknownCharacters)!
         
-        var index = 0
-        for i in 0..<data.count {
-            index = i + startIndex.count
-            if data[i..<index] == startIndex {
-                index += 1
-                break
-            }
-        }
-        
-        // remove header, footer and newlines from pem string
-        let pemWithoutHeaderFooterNewlines = data[index..<(data.count - lastIndex.count - 2)]
-        //print(String(data: pemWithoutHeaderFooterNewlines, encoding: .utf8)!)
-
-        let certData = Data(base64Encoded: pemWithoutHeaderFooterNewlines, options: Data.Base64DecodingOptions.ignoreUnknownCharacters)!
-        
+        let rows = String(data: data, encoding: .utf8)!.split(separator: "\n")
+        let joined = rows[1...(rows.count - 2)].joined().data(using: .utf8)!
+        return Data(base64Encoded: joined, options: .ignoreUnknownCharacters)!
+    }
+    
+    func loadCertificateFromPem(data: Data) {
+        let certData = dataFromPEM(data: data)
         let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, certData as CFData)!
         clientCertificate = SecCertificateCopyData(certificate) as Data
     }
 
     func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
-        let begin = "-----BEGIN RSA PRIVATE KEY-----".data(using: .utf8)!
-        let end = "-----END RSA PRIVATE KEY-----".data(using: .utf8)!
-
-        var index = 0
-        for i in 0..<data.count {
-            index = i + begin.count
-            if data[i..<index] == begin {
-                index += 1
-                break
-            }
-        }
-
-        let priKeyECStriped = data[index..<(data.count - end.count - 2)]
-        let priKeyECData = Data(base64Encoded: priKeyECStriped, options: .ignoreUnknownCharacters)!
+        let priKeyECData = dataFromPEM(data: data)
 
         let keyDict: [CFString: Any] = [
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
