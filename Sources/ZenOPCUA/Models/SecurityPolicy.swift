@@ -134,7 +134,8 @@ class SecurityPolicy {
     var serverPublicKey: SecKey? = nil
     var remoteCertificateThumbprint: Data = Data()
     var localCertificateThumbprint: Data = Data()
-
+    //var privateKey: CryptorRSA.PrivateKey!
+    
     let securityPolicyUri: String
     let symmetricSignatureAlgorithm: SecurityAlgorithm
     let symmetricEncryptionAlgorithm: SecurityAlgorithm
@@ -208,10 +209,10 @@ class SecurityPolicy {
     }
 
     private static func generateNonce(_ lenght: Int) throws -> Data {
-        let nonce = NSMutableData(length: lenght)
-        let result = SecRandomCopyBytes(kSecRandomDefault, nonce!.length, nonce!.mutableBytes)
+        let nonce = NSMutableData(length: lenght)!
+        let result = SecRandomCopyBytes(kSecRandomDefault, nonce.length, nonce.mutableBytes)
         if result == errSecSuccess {
-            return nonce! as Data
+            return nonce as Data
         } else {
             throw OPCUAError.generic("unsupported")
         }
@@ -229,6 +230,7 @@ class SecurityPolicy {
                 
             if let privateKeyData = try? Data(contentsOf: URL(fileURLWithPath: privateKeyFile)) {
                 self.clientPrivateKey = privateKeyFromData(data: privateKeyData)
+                //self.privateKey = try CryptorRSA.createPrivateKey(with: privateKeyData)
             }
         }
     }
@@ -259,15 +261,17 @@ class SecurityPolicy {
 //        let pemWithoutHeaderFooterNewlines = data[index..<(data.count - end.count - 2)]
 //        return Data(base64Encoded: pemWithoutHeaderFooterNewlines, options: .ignoreUnknownCharacters)!
         
-        let rows = String(data: data, encoding: .utf8)!.split(separator: "\n")
-        let joined = rows[1...(rows.count - 2)].joined().data(using: .utf8)!
+        let rows = String(data: data, encoding: .ascii)!.split(separator: "\n")
+        let joined = rows[1...(rows.count - 2)].joined().data(using: .ascii)!
         return Data(base64Encoded: joined, options: .ignoreUnknownCharacters)!
     }
     
     func loadCertificateFromPem(data: Data) {
         let certData = dataFromPEM(data: data)
-        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, certData as CFData)!
-        clientCertificate = SecCertificateCopyData(certificate) as Data
+        print(certData.count)
+//        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, certData as CFData)!
+//        clientCertificate = SecCertificateCopyData(certificate) as Data
+        clientCertificate = certData
     }
 
     func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
@@ -301,11 +305,10 @@ class SecurityPolicy {
         return publicKey
 //        var error: Unmanaged<CFError>?
 //        let data = SecKeyCopyExternalRepresentation(publicKey!, &error)! as Data
-//
 //        return data
     }
     
-    func sign(dataToSign: [UInt8]) throws -> Data {
+    func sign(dataToSign: Data) throws -> Data {
         let algorithm: SecKeyAlgorithm
         switch asymmetricSignatureAlgorithm {
         case .rsaSha1:
@@ -319,12 +322,11 @@ class SecurityPolicy {
         guard SecKeyIsAlgorithmSupported(clientPrivateKey!, .sign, algorithm) else {
             throw OPCUAError.generic("unsupported sign algorithm")
         }
-        
-        let data = Data(dataToSign)
+
         var error: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(clientPrivateKey!,
                                                     algorithm,
-                                                    data as CFData,
+                                                    dataToSign as CFData,
                                                     &error) as Data? else {
                                                         throw error!.takeRetainedValue() as Error
         }
@@ -335,13 +337,17 @@ class SecurityPolicy {
 
         guard SecKeyVerifySignature(clientPublicKey!,
                                     algorithm,
-                                    data as CFData,
+                                    dataToSign as CFData,
                                     signature as CFData,
                                     &error) else {
                                         throw error!.takeRetainedValue() as Error
         }
 
         return signature
+
+//        let myPlaintext = CryptorRSA.createPlaintext(with: dataToSign)
+//        let signedData = try myPlaintext.signed(with: privateKey, algorithm: .sha256, usePSS: true)
+//        return signedData!.data
     }
 
     func crypt(dataToEncrypt: [UInt8]) throws -> [UInt8] {

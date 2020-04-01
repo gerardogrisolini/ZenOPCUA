@@ -112,7 +112,7 @@ struct UserIdentityInfoX509: UserIdentityInfo {
             self.certificateData = [UInt8](certificate)
 
             if OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm != .none {
-                let dataToSign = serverCertificate + serverNonce
+                let dataToSign = Data(serverCertificate + serverNonce)
                 let signature = try OPCUAHandler.securityPolicy.sign(dataToSign: dataToSign)
                 userTokenSignature = SignatureData(
                     algorithm: OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,

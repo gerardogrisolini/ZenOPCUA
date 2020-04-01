@@ -40,7 +40,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         assert (maxPlainTextSize + securityHeaderSize + SECURE_MESSAGE_HEADER_SIZE <= maxChunkSize)
 
         let header = encrypted ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize : 0
-        var readedBytes = header + 8
+        var readedBytes = header + SEQUENCE_HEADER_SIZE
         while readedBytes < messageBuffer.readableBytes {
             let bodySize = min(messageBuffer.readableBytes - readedBytes, maxBodySize)
 
@@ -61,7 +61,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             let chunkSize = encrypted
                 ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize +
                 (plainTextContentSize / plainTextBlockSize) * cipherTextBlockSize
-                : header + SEQUENCE_HEADER_SIZE + bodySize
+                : SEQUENCE_HEADER_SIZE + bodySize
 
             assert (chunkSize <= maxChunkSize)
 
@@ -78,7 +78,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             }
 
             if isAsymmetricSigningEnabled {
-                let dataToSign = chunkBuffer.getBytes(at: 0, length: chunkBuffer.readableBytes)!
+                let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.readableBytes)!)
                 let signature = try OPCUAHandler.securityPolicy.sign(dataToSign: dataToSign)
                 chunkBuffer.writeBytes(signature)
 

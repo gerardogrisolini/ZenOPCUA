@@ -14,9 +14,14 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
         .package(url: "https://github.com/apple/swift-crypto.git", .branch("master"))
+//        .package(url: "https://github.com/IBM-Swift/BlueRSA.git", .branch("master"))
     ],
     targets: [
-        .target(name: "ZenOPCUA", dependencies: ["NIO", "Crypto"]),
+        .target(name: "ZenOPCUA", dependencies: [
+            "NIO",
+//            "CryptorRSA",
+            "Crypto"
+        ]),
         .testTarget(name: "ZenOPCUATests", dependencies: ["ZenOPCUA"]),
     ],
     swiftLanguageVersions: [.v5]
