@@ -246,8 +246,8 @@ class SecurityPolicy {
     func dataFromPEM(data: Data) -> Data {
 //        let beginText = isCertificate ? "-----BEGIN CERTIFICATE-----" : "-----BEGIN RSA PRIVATE KEY-----"
 //        let endText = isCertificate ? "-----END CERTIFICATE-----" : "-----END RSA PRIVATE KEY-----"
-//        let begin = beginText.data(using: .utf8)!
-//        let end = endText.data(using: .utf8)!
+//        let begin = beginText.data(using: .ascii)!
+//        let end = endText.data(using: .ascii)!
 //
 //        var index = 0
 //        for i in 0..<data.count {
@@ -268,7 +268,6 @@ class SecurityPolicy {
     
     func loadCertificateFromPem(data: Data) {
         let certData = dataFromPEM(data: data)
-        print(certData.count)
 //        let certificate = SecCertificateCreateWithData(kCFAllocatorDefault, certData as CFData)!
 //        clientCertificate = SecCertificateCopyData(certificate) as Data
         clientCertificate = certData
@@ -280,7 +279,7 @@ class SecurityPolicy {
         let keyDict: [CFString: Any] = [
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-            kSecAttrKeySizeInBits: priKeyECData.count * 8,
+            kSecAttrKeySizeInBits: 2048,
             kSecImportExportPassphrase as CFString: password,
             kSecReturnPersistentRef: false
         ]
