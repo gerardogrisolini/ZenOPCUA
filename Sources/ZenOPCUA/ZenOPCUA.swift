@@ -87,9 +87,6 @@ public class ZenOPCUA {
             .map { channel -> Void in
                 self.channel = channel
             }
-            .flatMapError { error -> EventLoopFuture<Void> in
-                self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
-            }
     }
     
     private func stop() -> EventLoopFuture<Void> {
@@ -133,7 +130,10 @@ public class ZenOPCUA {
             return self.handler.promises[0]!.futureResult.map { item -> Void in
                 ()
             }
+        }.flatMapError { error -> EventLoopFuture<Void> in
+            self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
+
     }
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
