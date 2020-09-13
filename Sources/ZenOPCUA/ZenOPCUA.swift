@@ -87,6 +87,9 @@ public class ZenOPCUA {
             .map { channel -> Void in
                 self.channel = channel
             }
+            .flatMapError { error -> EventLoopFuture<Void> in
+                self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+            }
     }
     
     private func stop() -> EventLoopFuture<Void> {
