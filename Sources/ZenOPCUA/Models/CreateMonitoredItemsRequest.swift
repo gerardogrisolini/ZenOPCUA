@@ -62,7 +62,7 @@ public struct MonitoredItemCreateRequest: OPCUAEncodable {
     public let monitorigMode: MonitorigMode
     public let requestedParameters: MonitoringParameters
 
-    init(itemToMonitor: ReadValue, requestedParameters: MonitoringParameters, monitorigMode: MonitorigMode = .reporting) {
+    public init(itemToMonitor: ReadValue, requestedParameters: MonitoringParameters, monitorigMode: MonitorigMode = .reporting) {
         self.itemToMonitor = itemToMonitor
         self.monitorigMode = monitorigMode
         self.requestedParameters = requestedParameters
@@ -84,12 +84,17 @@ public struct MonitoredItemCreateRequest: OPCUAEncodable {
  */
 
 public struct MonitoringParameters: OPCUAEncodable {
-    public var clientHandle: UInt32
-    public var samplingInterval: Double = 250
+    public let clientHandle: UInt32
+    public let samplingInterval: Double
     public var filter: Filter = Filter()
     public var queueSize: UInt32 = 1
     public var discardOldest: Bool = true
 
+    public init(clientHandle: UInt32, samplingInterval: Double = 250) {
+        self.clientHandle = clientHandle
+        self.samplingInterval = samplingInterval
+    }
+    
     internal var bytes: [UInt8] {
         return clientHandle.bytes +
             samplingInterval.bytes +
