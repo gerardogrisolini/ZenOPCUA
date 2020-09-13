@@ -77,7 +77,7 @@ public class DataValue: Promisable, OPCUAEncodable {
         }
     }
     
-    init(variant: Variant) {
+    public init(variant: Variant) {
         encodingMask = 0x01
         self.variant = variant
     }
