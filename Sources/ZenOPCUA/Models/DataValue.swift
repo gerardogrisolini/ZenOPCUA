@@ -34,7 +34,7 @@ public class DataValue: Promisable, OPCUAEncodable {
     public var sourceTimestamp: Date = Date()
     public var serverTimestamp: Date = Date()
 
-    init(bytes: [UInt8], index: inout Int) {
+    public init(bytes: [UInt8], index: inout Int) {
         encodingMask = bytes[index]
         variant = Variant(type: bytes[index+1])
         index += 2
@@ -91,56 +91,56 @@ public struct Variant {
     public let type: UInt8
     internal var bytes: [UInt8] = []
     
-    init(type: UInt8) {
+    public init(type: UInt8) {
         self.type = type
     }
 
-    init(value: Bool) {
+    public init(value: Bool) {
         type = DataType.bool.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
-    init(value: UInt16) {
+    public init(value: UInt16) {
         type = DataType.uint16.rawValue
         bytes.append(contentsOf: value.bytes)
     }
     
-    init(value: Int16) {
+    public init(value: Int16) {
         type = DataType.int16.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
-    init(value: UInt32) {
+    public init(value: UInt32) {
         type = DataType.uint32.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
-    init(value: Int32) {
+    public init(value: Int32) {
         type = DataType.int32.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
-    init(value: UInt64) {
+    public init(value: UInt64) {
         type = DataType.uint64.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
-    init(value: Int64) {
+    public init(value: Int64) {
         type = DataType.int64.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
-    init(value: Double) {
+    public init(value: Double) {
         type = DataType.double.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
-    init(value: String) {
+    public init(value: String) {
         type = DataType.string.rawValue
         bytes.append(contentsOf: value.bytes)
     }
 
-    init(value: Date) {
+    public init(value: Date) {
         type = DataType.datetime.rawValue
         bytes.append(contentsOf: value.bytes)
     }

@@ -78,13 +78,13 @@ public class NodeIdNumeric: Node {
     public var nameSpace: UInt8 = 0
     public var identifier: UInt16
 
-    init(nameSpace: UInt8, identifier: UInt16) {
+    public init(nameSpace: UInt8, identifier: UInt16) {
         self.nameSpace = nameSpace
         self.identifier = identifier
         super.init(.numeric)
     }
 
-    init(method: Methods) {
+    public init(method: Methods) {
         self.identifier = method.rawValue
         super.init(.numeric)
     }
@@ -98,7 +98,7 @@ public class NodeIdString: Node {
     public var nameSpace: UInt16 = 1
     public var identifier: String
 
-    init(nameSpace: UInt16, identifier: String) {
+    public init(nameSpace: UInt16, identifier: String) {
         self.nameSpace = nameSpace
         self.identifier = identifier
         super.init(.string)
@@ -113,7 +113,7 @@ public class NodeIdGuid: Node {
     public var nameSpace: UInt16 = 1
     public var identifier: [UInt8]
 
-    init(nameSpace: UInt16, identifier: [UInt8]) {
+    public init(nameSpace: UInt16, identifier: [UInt8]) {
         self.nameSpace = nameSpace
         self.identifier = identifier
         super.init(.guid)
@@ -128,7 +128,7 @@ public class NodeIdByteString: Node {
     public var nameSpace: UInt16 = 1
     public var identifier: [UInt8]
 
-    init(nameSpace: UInt16, identifier: [UInt8]) {
+    public init(nameSpace: UInt16, identifier: [UInt8]) {
         self.nameSpace = nameSpace
         self.identifier = identifier
         super.init(.byteString)
@@ -144,7 +144,7 @@ public class NodeIdExt: Node {
     public let identifier: UInt8
     public let serverIndex: UInt32
 
-    init(identifier: UInt8, serverIndex: UInt32) {
+    public init(identifier: UInt8, serverIndex: UInt32) {
         self.identifier = identifier
         self.serverIndex = serverIndex
         super.init(.baseExt)
@@ -160,7 +160,7 @@ public class NodeIdNumericExt: Node {
     public let identifier: UInt16
     public let serverIndex: UInt32
 
-    init(nameSpace: UInt8, identifier: UInt16, serverIndex: UInt32) {
+    public init(nameSpace: UInt8, identifier: UInt16, serverIndex: UInt32) {
         self.nameSpace = nameSpace
         self.identifier = identifier
         self.serverIndex = serverIndex
@@ -177,7 +177,7 @@ public class NodeIdStringExt: Node {
     public let identifier: String
     public let serverIndex: UInt32
 
-    init(nameSpace: UInt16, identifier: String, serverIndex: UInt32) {
+    public init(nameSpace: UInt16, identifier: String, serverIndex: UInt32) {
         self.nameSpace = nameSpace
         self.identifier = identifier
         self.serverIndex = serverIndex
