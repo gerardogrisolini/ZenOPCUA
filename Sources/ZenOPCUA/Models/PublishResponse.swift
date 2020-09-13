@@ -112,23 +112,23 @@ class PublishResponse: MessageBase, OPCUADecodable {
 }
 
 public struct NotificationMessage {
-    var sequenceNumber: UInt32
-    var publishTime: Date = Date()
-    var notificationData: [DataChange] = []
+    public var sequenceNumber: UInt32
+    public var publishTime: Date = Date()
+    public var notificationData: [DataChange] = []
 }
 
 public struct DataChange {
-    var typeId: Node = NodeId()
-    var encodingMask: UInt8 = 0x00
-    var dataChangeNotification: DataChangeNotification = DataChangeNotification()
+    public var typeId: Node = NodeId()
+    public var encodingMask: UInt8 = 0x00
+    public var dataChangeNotification: DataChangeNotification = DataChangeNotification()
 }
 
 public struct DataChangeNotification {
-    var monitoredItems: [MonitoredItemNotification] = []
-    var diagnosticInfos: [DiagnosticInfo] = []
+    public var monitoredItems: [MonitoredItemNotification] = []
+    public var diagnosticInfos: [DiagnosticInfo] = []
 }
 
 public struct MonitoredItemNotification {
-    var monitoredId: UInt32
-    var value: DataValue
+    public var monitoredId: UInt32
+    public var value: DataValue
 }

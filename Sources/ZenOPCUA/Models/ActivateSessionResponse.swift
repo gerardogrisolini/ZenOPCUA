@@ -5,8 +5,8 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
-struct DiagnosticInfo {
-    var info: String
+public struct DiagnosticInfo {
+    public var info: String
 }
 
 class ActivateSessionResponse: MessageBase, OPCUADecodable {

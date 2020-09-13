@@ -45,7 +45,7 @@ public struct WriteValue: OPCUAEncodable {
     public var indexRange: String? = nil
     private let value: DataValue
     
-    init(
+    public init(
         nodeId: Node,
         attributeId: UInt32 = 0x0000000d,
         value: DataValue

@@ -56,7 +56,7 @@ public struct ReadValue: OPCUAEncodable {
     var indexRange: String? = nil
     let dataEncoding: QualifiedName
     
-    init(
+    public init(
         nodeId: Node,
         attributeId: UInt32 = 0x0000000d,
         dataEncoding: QualifiedName = QualifiedName()
