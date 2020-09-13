@@ -13,6 +13,8 @@ public struct Subscription: OPCUAEncodable {
     public var publishingEnabled: Bool = true
     public var priority: UInt8 = 10
 
+    public init() { }
+    
     internal var bytes: [UInt8] {
         return requestedPubliscingInterval.bytes +
             requestedLifetimeCount.bytes +
