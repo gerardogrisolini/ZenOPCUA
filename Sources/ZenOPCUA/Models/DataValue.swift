@@ -39,7 +39,12 @@ public class DataValue: Promisable, OPCUAEncodable {
         variant = Variant(type: bytes[index+1])
         index += 2
 
-        switch DataType(rawValue: variant.type)! {
+        guard let dataType = DataType(rawValue: variant.type) else {
+            print("Error: Invalid variant \(variant.type) for DataType")
+            return
+        }
+        
+        switch dataType {
         case .null:
             break
         case .bool, .byte:
