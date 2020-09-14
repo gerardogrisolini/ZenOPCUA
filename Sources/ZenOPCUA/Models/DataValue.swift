@@ -26,6 +26,10 @@ enum DataType: UInt8 {
     case guid = 14
     case byteString = 15
     //case xmlElement = 16
+    
+    case nodeId = 0x11
+    case qualifiedName = 0x14
+    case localizedText = 0x15
 }
 
 public class DataValue: Promisable, OPCUAEncodable {
@@ -69,6 +73,28 @@ public class DataValue: Promisable, OPCUAEncodable {
         case .guid:
             variant.bytes = bytes[index..<(index+16)].map { $0 }
             index += 16
+
+        case .nodeId:
+            let len = bytes[index] == 0x0 ? 2 : 4
+            variant.bytes = bytes[index..<(index+len)].map { $0 }
+            index += len
+        case .qualifiedName:
+            variant.bytes = bytes[index...index+1].map { $0 }
+            index += 2
+            let len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+            index += 4
+            if len < UInt32.max {
+                variant.bytes += bytes[index..<(index+len)].map { $0 }
+                index += len
+            }
+        case .localizedText:
+            variant.bytes = [bytes[index]]
+            let len = Int(UInt32(bytes: bytes[index+1..<(index+5)]))
+            index += 5
+            if len < UInt32.max {
+                variant.bytes += bytes[index..<(index+len)].map { $0 }
+                index += len
+            }
         }
         
         if encodingMask == 0x0d || encodingMask == 0x05 {

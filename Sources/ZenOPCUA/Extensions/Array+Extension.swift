@@ -12,9 +12,3 @@ extension Array where Element: OPCUAEncodable {
         return self.map { $0.bytes }.reduce([], +)
     }
 }
-
-extension ArraySlice {
-  func load<T>(as type: T.Type) -> T {
-    return self.withUnsafeBytes{ $0.load(as: T.self) }
-  }
-}
