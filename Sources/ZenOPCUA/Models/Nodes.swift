@@ -39,6 +39,7 @@ public enum Methods: UInt16 {
 public enum Nodes: UInt8 {
     case base = 0x00
     case numeric = 0x01
+    case number = 0x02
     case string = 0x03
     case guid = 0x04
     case byteString = 0x05

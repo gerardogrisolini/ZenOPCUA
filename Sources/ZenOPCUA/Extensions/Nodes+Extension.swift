@@ -9,7 +9,7 @@ extension Nodes {
     
     static func node(index: inout Int, bytes: [UInt8]) -> Node {
         switch Nodes(rawValue: bytes[index])! {
-        case .numeric:
+        case .number, .numeric:
             let nodeId = NodeIdNumeric(
                 nameSpace: bytes[index+1],
                 identifier: UInt16(bytes: bytes[(index+2)..<(index+4)])
