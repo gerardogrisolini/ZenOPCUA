@@ -84,12 +84,12 @@ public class ZenOPCUA {
                 channel.pipeline.addHandlers(handlers)
             }
             .connect(host: server.host, port: server.port)
-            .map { c -> Void in
-                self.channel = c
+            .map { channel -> Void in
+                self.channel = channel
             }
-            .flatMapError { error -> EventLoopFuture<Void> in
-                self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
-            }
+//            .flatMapError { error -> EventLoopFuture<Void> in
+//                self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+//            }
     }
     
     private func stop() -> EventLoopFuture<Void> {
@@ -134,7 +134,9 @@ public class ZenOPCUA {
                 ()
             }
         }.flatMapError { error -> EventLoopFuture<Void> in
-            self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+            OPCUAHandler.isAcknowledge = false
+            OPCUAHandler.isAcknowledgeSecure = false
+            return self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
     }
     
