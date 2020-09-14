@@ -13,7 +13,7 @@ struct RequestHeader: OPCUAEncodable {
     let requestHandle: UInt32
     let returnDiagnostics: UInt32 = 0 //0x00000000
     let auditEntryId: String? = nil //ff ff ff ff
-    let timeoutHint: UInt32 = 60000
+    let timeoutHint: UInt32 = 600000
     let additionalHeader: AdditionalHeader = AdditionalHeader()
 
     init(requestHandle: UInt32, authenticationToken: OPCUAEncodable = NodeId()) {

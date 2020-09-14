@@ -267,14 +267,14 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         
         print("Found \(response.serverEndpoints.count) endpoints")
         
-        if let item = response.serverEndpoints.first(where: {
+        if let endpoint = response.serverEndpoints.first(where: {
             $0.messageSecurityMode == OPCUAHandler.messageSecurityMode && $0.endpointUrl.hasPrefix("opc.tcp")
         }) {
-            print("Found \(item.userIdentityTokens.count) policies")
-            print("Selected Endpoint \(item.endpointUrl)")
-            print("SecurityMode \(item.messageSecurityMode)")
+            print("Found \(endpoint.userIdentityTokens.count) policies")
+            print("Selected Endpoint \(endpoint.endpointUrl)")
+            print("SecurityMode \(endpoint.messageSecurityMode)")
             var userIdentityInfo: UserIdentityInfo
-            let endpoint = response.serverEndpoints.first!
+            //let endpoint = response.serverEndpoints.first!
             if OPCUAHandler.securityPolicy.clientCertificate.count > 0 {
                 let policy = endpoint.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
                 userIdentityInfo = UserIdentityInfoX509(

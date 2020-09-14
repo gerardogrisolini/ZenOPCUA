@@ -6,6 +6,7 @@
 //
 
 public enum Methods: UInt16 {
+    case serviceFault = 397
     case anonymousIdentityToken = 321
     case userNameIdentityToken = 324
     case certificateIdentityToken = 327
@@ -39,7 +40,7 @@ public enum Methods: UInt16 {
 public enum Nodes: UInt8 {
     case base = 0x00
     case numeric = 0x01
-    case number = 0x02
+    case long = 0x02
     case string = 0x03
     case guid = 0x04
     case byteString = 0x05
@@ -92,6 +93,26 @@ public class NodeIdNumeric: Node {
     
     override var bytes: [UInt8] {
         return [encodingMask.rawValue, nameSpace] + identifier.bytes
+    }
+}
+
+public class NodeIdLong: Node {
+    public var nameSpace: UInt16 = 0
+    public var identifier: UInt32
+
+    public init(nameSpace: UInt16, identifier: UInt32) {
+        self.nameSpace = nameSpace
+        self.identifier = identifier
+        super.init(.long)
+    }
+
+    public init(method: Methods) {
+        self.identifier = UInt32(method.rawValue)
+        super.init(.long)
+    }
+    
+    override var bytes: [UInt8] {
+        return [encodingMask.rawValue] + nameSpace.bytes + identifier.bytes
     }
 }
 

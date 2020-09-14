@@ -15,8 +15,12 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     let userIdentityToken: UserIdentityToken
 
     internal var bytes: [UInt8] {
-        let certificates = UInt32(clientSoftwareCertificates.count).bytes + clientSoftwareCertificates.map { $0 }.reduce([], +)
-        let ids = UInt32(localeIds.count).bytes + localeIds.map { $0.bytes }.reduce([], +)
+        let certificates = clientSoftwareCertificates.count == 0
+            ? UInt32.max.bytes
+            : UInt32(clientSoftwareCertificates.count).bytes + clientSoftwareCertificates.map { $0 }.reduce([], +)
+        let ids = localeIds.count == 0
+            ? UInt32.max.bytes
+            : UInt32(localeIds.count).bytes + localeIds.map { $0.bytes }.reduce([], +)
         return secureChannelId.bytes +
             tokenId.bytes +
             sequenceNumber.bytes +
