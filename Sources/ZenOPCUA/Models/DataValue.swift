@@ -8,7 +8,7 @@
 import Foundation
 
 
-enum DataType: UInt8 {
+public enum DataType: UInt8 {
     case null = 0
     case bool = 1
     //case sbyte = 2

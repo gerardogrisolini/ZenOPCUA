@@ -77,12 +77,12 @@ final class ZenOPCUATests: XCTestCase {
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253)),
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2256))
 //            ]
-            let items = try opcua.browse().wait()
-            for item in items {
-                item.references.forEach { ref in
-                    print("\(ref.displayName.text): \(ref.nodeId)")
-                }
-            }
+//            let items = try opcua.browse().wait()
+//            for item in items {
+//                item.references.forEach { ref in
+//                    print("\(ref.displayName.text): \(ref.nodeId)")
+//                }
+//            }
             
 //            let subscription = Subscription(
 //                requestedPubliscingInterval: 1000,
@@ -109,14 +109,14 @@ final class ZenOPCUATests: XCTestCase {
 //            let readed = try opcua.read(nodes: reads).wait()
 //            print(readed.first?.variant.value ?? "nil")
 
-//            let writes: [WriteValue] = [
-//                WriteValue(
-//                    nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel"),
-//                    value: DataValue(variant: Variant(value: Double(21.0)))
-//                )
-//            ]
-//            let writed = try opcua.write(nodes: writes).wait()
-//            print(writed.first!)
+            let writes: [WriteValue] = [
+                WriteValue(
+                    nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
+                    value: DataValue(variant: Variant(value: Int32(1)))
+                )
+            ]
+            let writed = try opcua.write(nodes: writes).wait()
+            print(writed.first!)
 
             try opcua.disconnect().wait()
         } catch {
