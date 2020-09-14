@@ -50,7 +50,7 @@ class PublishResponse: MessageBase, OPCUADecodable {
                 var dataChange = DataChange()
                 dataChange.typeId = Nodes.node(index: &index, bytes: bytes)
                 dataChange.encodingMask = bytes[index]
-                index += 5
+                index += 1
                 
                 var subCount = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
