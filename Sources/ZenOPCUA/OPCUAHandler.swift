@@ -77,7 +77,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .serviceFault:
                 let part = frame.body[20...43].map { $0 }
                 let responseHeader = ResponseHeader(bytes: part)
-                print(responseHeader.requestHandle)
                 promises[responseHeader.requestHandle]?.fail(OPCUAError.generic("serviceFault"))
             case .getEndpointsResponse:
                 if !createSession(context: context, response: GetEndpointsResponse(bytes: frame.body)) {
@@ -105,24 +104,25 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 closeSecureChannel(context: context, response: CloseSessionResponse(bytes: frame.body))
             case .browseResponse:
                 let response = BrowseResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(response.results)
+                promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .readResponse:
                 let response = ReadResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(response.results)
+                promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .writeResponse:
                 let response = WriteResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(response.results)
+                promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .createSubscriptionResponse:
                 let response = CreateSubscriptionResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(response.subscriptionId)
+                promises[response.responseHeader.requestHandle]?.succeed(response.subscriptionId)
             case .createMonitoredItemsResponse:
                 let response = CreateMonitoredItemsResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(response.results)
+                promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .deleteSubscriptionsResponse:
                 let response = DeleteSubscriptionsResponse(bytes: frame.body)
-                promises[response.requestId]?.succeed(response.results)
+                promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .publishResponse:
                 let response = PublishResponse(bytes: frame.body)
+                promises[response.responseHeader.requestHandle]?.succeed(response.subscriptionId)
                 guard let dataChanged = dataChanged else { return }
                 dataChanged(response.notificationMessage.notificationData)
             default:

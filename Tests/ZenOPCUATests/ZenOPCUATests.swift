@@ -114,33 +114,31 @@ final class ZenOPCUATests: XCTestCase {
 //            let readed = try opcua.read(nodes: reads).wait()
 //            print(readed.first?.variant.value ?? "nil")
 
-            DispatchQueue.global().async {
-                sleep(2)
-                opcua.write(nodes: [
-                    WriteValue(
-                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
-                        value: DataValue(variant: Variant(value: Int32(1)))
-                    )
-                ]).whenSuccess { writed in
-                    print("writed: 1")
-                }
-                sleep(4)
-                opcua.write(nodes: [
-                    WriteValue(
-                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
-                        value: DataValue(variant: Variant(value: Int32(2)))
-                    )
-                ]).whenSuccess { writed in
-                    print("writed: 2")
-                }
-            }
+//            DispatchQueue.global().async {
+//                sleep(2)
+//                opcua.write(nodes: [
+//                    WriteValue(
+//                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
+//                        value: DataValue(variant: Variant(value: Int32(1)))
+//                    )
+//                ]).whenSuccess { writed in
+//                    print("writed: 1")
+//                }
+//                sleep(4)
+//                opcua.write(nodes: [
+//                    WriteValue(
+//                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
+//                        value: DataValue(variant: Variant(value: Int32(2)))
+//                    )
+//                ]).whenSuccess { writed in
+//                    print("writed: 2")
+//                }
+//            }
 
             sleep(10)
             
             opcua.stopPublish()
-            sleep(1)
             _ = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
-            sleep(1)
             try opcua.disconnect(deleteSubscriptions: false).wait()
         } catch {
             XCTFail("\(error)")

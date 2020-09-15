@@ -345,6 +345,8 @@ public class ZenOPCUA {
         }
 
         let requestId = self.handler.nextMessageID()
+        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = PublishRequest(
             secureChannelId: session.secureChannelId,
@@ -357,7 +359,11 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
 
-        return channel.writeAndFlush(frame)
+        channel.writeAndFlush(frame, promise: nil)
+
+        return handler.promises[requestId]!.futureResult.map { promise -> Void in
+            ()
+        }
     }
     
     private var publisher: RepeatedTask? = nil
