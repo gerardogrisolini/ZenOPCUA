@@ -64,8 +64,10 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     }
     
     public func parse(buffer: ByteBuffer) -> OPCUAFrame? {
+        guard let type = MessageTypes(rawValue: buffer.getString(at: 0, length: 3)!) else { return nil }
+        
         var head = OPCUAFrameHead()
-        head.messageType = MessageTypes(rawValue: buffer.getString(at: 0, length: 3)!)!
+        head.messageType = type
         head.chunkType = ChunkTypes(rawValue: buffer.getString(at: 3, length: 1)!)!
         head.messageSize = UInt32(bytes: buffer.getBytes(at: 4, length: 4)!)
         let bytes = buffer.getBytes(at: 8, length: buffer.readableBytes - 8) ?? [UInt8]()

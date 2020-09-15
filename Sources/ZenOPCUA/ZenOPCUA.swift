@@ -310,7 +310,7 @@ public class ZenOPCUA {
         }
     }
     
-    public func deleteSubscriptions(subscriptionIds: [UInt32], stopPubliscing: Bool = false) -> EventLoopFuture<[StatusCodes]> {
+    public func deleteSubscriptions(subscriptionIds: [UInt32], stopPubliscing: Bool = true) -> EventLoopFuture<[StatusCodes]> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -373,7 +373,7 @@ public class ZenOPCUA {
         })
     }
     
-    private func stopPublish() {
+    public func stopPublish() {
         if let pub = publisher {
             pub.cancel()
             publisher = nil

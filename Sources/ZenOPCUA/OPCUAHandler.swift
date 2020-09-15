@@ -74,6 +74,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
             //print(method)
             switch method {
+            case .serviceFault:
+                let part = frame.body[20...43].map { $0 }
+                let responseHeader = ResponseHeader(bytes: part)
+                print(responseHeader.requestHandle)
+                promises[responseHeader.requestHandle]?.fail(OPCUAError.generic("serviceFault"))
             case .getEndpointsResponse:
                 if !createSession(context: context, response: GetEndpointsResponse(bytes: frame.body)) {
                     OPCUAHandler.isAcknowledgeSecure = false
