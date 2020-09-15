@@ -113,7 +113,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .createSubscriptionResponse:
                 let response = CreateSubscriptionResponse(bytes: frame.body)
-                promises[response.responseHeader.requestHandle]?.succeed(response.subscriptionId)
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    promises[response.responseHeader.requestHandle]?.succeed(response.subscriptionId)
+                } else {
+                    promises[response.responseHeader.requestHandle]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
+                }
             case .createMonitoredItemsResponse:
                 let response = CreateMonitoredItemsResponse(bytes: frame.body)
                 promises[response.responseHeader.requestHandle]?.succeed(response.results)

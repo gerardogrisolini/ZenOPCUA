@@ -21,47 +21,6 @@ final class ZenOPCUATests: XCTestCase {
             messageSecurityMode: .none,
             securityPolicy: .none
         )
-
-//        let expectation = XCTestExpectation(description: "OPCUA")
-//        var count = 0
-//        let nodes: [MonitoredItemCreateRequest] = [
-//            MonitoredItemCreateRequest(
-//                itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258)),
-//                requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 300, queueSize: 1)
-//            ),
-//            MonitoredItemCreateRequest(
-//                itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
-//                requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 300, queueSize: 1)
-//            ),
-//            MonitoredItemCreateRequest(
-//                itemToMonitor:  ReadValue(nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel")),
-//                requestedParameters: MonitoringParameters(clientHandle: 3, samplingInterval: 300, queueSize: 1)
-//            )
-//        ]
-//        opcua.onDataChanged = { data in
-//            data.forEach { dataChange in
-//                print("\(dataChange.typeId)")
-//                dataChange.dataChangeNotification.monitoredItems.forEach { item in
-//                    if let node = nodes.first(where: { $0.requestedParameters.clientHandle == item.monitoredId }) {
-//                        print("\(node.itemToMonitor.nodeId): \(item.value.variant.value)")
-//                    }
-//                }
-//            }
-//
-//            if count > 5 {
-//                XCTAssertTrue(count > 0)
-//                expectation.fulfill()
-//            }
-//            count += 1
-//        }
-
-        opcua.onDataChanged = { data in
-            data.forEach { dataChange in
-                dataChange.dataChangeNotification.monitoredItems.forEach { item in
-                    print("read: \(item.value.variant.value)")
-                }
-            }
-        }
         
         opcua.onHandlerRemoved = {
             print("OPCUA Client disconnected")
@@ -70,8 +29,15 @@ final class ZenOPCUATests: XCTestCase {
             print(error)
         }
         
+        opcua.onDataChanged = { data in
+            data.forEach { dataChange in
+                dataChange.dataChangeNotification.monitoredItems.forEach { item in
+                    print("read: \(item.value.variant.value)")
+                }
+            }
+        }
+
         do {
-            //try opcua.connect(username: "admin", password: "admin", reconnect: false).wait()
             try opcua.connect(reconnect: false).wait()
             
 //            let nodes: [BrowseDescription] = [
@@ -85,8 +51,18 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
             
+//            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
+//            deleted.forEach { result in
+//                print("deleteSubscription: \(result)")
+//            }
+
+//            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"))]
+//            let readed = try opcua.read(nodes: reads).wait()
+//            print(readed.first?.variant.value ?? "nil")
+
+
             let subscription = Subscription(
-                requestedPubliscingInterval: 1000,
+                requestedPubliscingInterval: 250,
                 publishingEnabled: true
             )
             let subId = try opcua.createSubscription(subscription: subscription).wait()
@@ -100,46 +76,31 @@ final class ZenOPCUATests: XCTestCase {
             results.forEach { result in
                 print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
             }
-
-            opcua.startPublish(subscriptionIds: [], milliseconds: 1000)
             
-//            wait(for: [expectation], timeout: 10.0)
-//
-//            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
-//            deleted.forEach { result in
-//                print("deleteSubscription: \(result)")
-//            }
-
-//            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"))]
-//            let readed = try opcua.read(nodes: reads).wait()
-//            print(readed.first?.variant.value ?? "nil")
-
-//            DispatchQueue.global().async {
-//                sleep(2)
-//                opcua.write(nodes: [
-//                    WriteValue(
-//                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
-//                        value: DataValue(variant: Variant(value: Int32(1)))
-//                    )
-//                ]).whenSuccess { writed in
-//                    print("writed: 1")
-//                }
-//                sleep(4)
-//                opcua.write(nodes: [
-//                    WriteValue(
-//                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
-//                        value: DataValue(variant: Variant(value: Int32(2)))
-//                    )
-//                ]).whenSuccess { writed in
-//                    print("writed: 2")
-//                }
-//            }
+            DispatchQueue.global().async {
+                sleep(2)
+                opcua.write(nodes: [
+                    WriteValue(
+                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
+                        value: DataValue(variant: Variant(value: Int32(1)))
+                    )
+                ]).whenSuccess { writed in
+                    print("writed: 1")
+                }
+                sleep(4)
+                opcua.write(nodes: [
+                    WriteValue(
+                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
+                        value: DataValue(variant: Variant(value: Int32(2)))
+                    )
+                ]).whenSuccess { writed in
+                    print("writed: 2")
+                }
+            }
 
             sleep(10)
             
-            opcua.stopPublish()
-            _ = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
-            try opcua.disconnect(deleteSubscriptions: false).wait()
+            try opcua.disconnect(deleteSubscriptions: true).wait()
         } catch {
             XCTFail("\(error)")
         }
