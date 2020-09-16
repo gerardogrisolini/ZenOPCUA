@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .library(name: "ZenOPCUA", targets: ["ZenOPCUA"]),
+        .executable(name: "OpcUa", targets: ["OpcUa"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
@@ -22,6 +23,7 @@ let package = Package(
 //            "CryptorRSA",
 //            "Crypto"
         ]),
+        .target(name: "OpcUa", dependencies: ["ZenOPCUA"]),
         .testTarget(name: "ZenOPCUATests", dependencies: ["ZenOPCUA"]),
     ],
     swiftLanguageVersions: [.v5]

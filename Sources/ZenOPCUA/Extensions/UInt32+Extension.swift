@@ -6,3 +6,7 @@
 //
 
 extension UInt32: Promisable { }
+
+extension UInt32 {
+    var int: Int { return Int(self) }
+}
