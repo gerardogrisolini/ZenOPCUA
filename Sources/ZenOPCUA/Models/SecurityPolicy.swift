@@ -14,7 +14,7 @@ import CryptoKit
 #endif
 
 
-public typealias KeyPair = (privateKey: SecKey, publicKey: SecKey)
+//public typealias KeyPair = (privateKey: SecKey, publicKey: SecKey)
 
 public enum SecurityPolicies: String {
     case invalid = "invalid"
@@ -408,9 +408,9 @@ class SecurityPolicy {
             && OPCUAHandler.endpoint.serverCertificate.count > 0
     }
     
-    func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
-        return SecKeyGetBlockSize(publicKey) * 8
-    }
+//    func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
+//        return SecKeyGetBlockSize(publicKey) * 8
+//    }
 
     func getAsymmetricSignatureSize() -> Int {
 //        guard let clientPublicKey = clientPublicKey else { return 0 }
@@ -499,7 +499,7 @@ class SecurityPolicy {
         }
     }
     
-    func generateKeyPair(ofSize bits: UInt) throws -> KeyPair? {
+//    func generateKeyPair(ofSize bits: UInt) throws -> KeyPair? {
 //        let pubKeyAttrs = [ kSecAttrIsPermanent as String: true ]
 //        let privKeyAttrs = [ kSecAttrIsPermanent as String: true ]
 //        let params: NSDictionary = [ kSecAttrKeyType as String : kSecAttrKeyTypeRSA as String,
@@ -515,9 +515,7 @@ class SecurityPolicy {
 //        default:
 //            return nil
 //        }
-        
-        return nil
-    }
+//    }
 
     func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
         let signatureKeySize = getSymmetricSignatureKeySize()
