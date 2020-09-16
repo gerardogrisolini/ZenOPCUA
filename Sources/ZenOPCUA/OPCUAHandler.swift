@@ -79,9 +79,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 let responseHeader = ResponseHeader(bytes: part)
                 promises[responseHeader.requestHandle]?.fail(OPCUAError.generic("serviceFault"))
             case .getEndpointsResponse:
-                print("getEndpointsResponse:")
-                print(frame.body)
-                
                 if !createSession(context: context, response: GetEndpointsResponse(bytes: frame.body)) {
                     OPCUAHandler.isAcknowledgeSecure = false
                     ZenOPCUA.reconnect = false
@@ -239,7 +236,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         }
         OPCUAHandler.endpoint = endpoint
         OPCUAHandler.securityPolicy.loadServerCertificate()
-        
+
+        print("endpoint:")
+        print(endpoint)
+
         let requestId = nextMessageID()
         let frame: OPCUAFrame
 
