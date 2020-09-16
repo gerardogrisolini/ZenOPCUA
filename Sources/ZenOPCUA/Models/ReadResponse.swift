@@ -18,14 +18,14 @@ class ReadResponse: MessageBase, OPCUADecodable {
         super.init(bytes: bytes[0...15].map { $0 })
 
         var index = 44
-        var len = 0
+        var len = UInt32(0)
         
         var count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         for _ in 0..<count {
             if bytes[index] == 0x02 {
                 index += 1
-                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+                len = UInt32(bytes: bytes[index..<(index+4)])
                 print("Error: \(len) - BadNodeIdUnknow")
                 index += 4
             } else {
@@ -38,13 +38,13 @@ class ReadResponse: MessageBase, OPCUADecodable {
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+                len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
-                if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
+                if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
-                index += len
+                index += len.int
             }
         }
     }

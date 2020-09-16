@@ -24,11 +24,11 @@ class ActivateSessionResponse: MessageBase, OPCUADecodable {
 
         var index = 44
 
-        var len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+        var len = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if len < UInt32.max {
-            serverNonce = bytes[index..<(index+len)].map { $0 }
-            index += len
+            serverNonce = bytes[index..<(index+len.int)].map { $0 }
+            index += len.int
         }
 
         var count = UInt32(bytes: bytes[index..<(index+4)])
@@ -46,13 +46,13 @@ class ActivateSessionResponse: MessageBase, OPCUADecodable {
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+                len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
-                if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
+                if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
-                index += len
+                index += len.int
             }
         }
     }

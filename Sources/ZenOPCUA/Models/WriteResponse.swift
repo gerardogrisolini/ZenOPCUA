@@ -32,13 +32,13 @@ class WriteResponse: MessageBase, OPCUADecodable {
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                let len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+                let len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
-                if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
+                if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
-                index += len
+                index += len.int
             }
         }
     }

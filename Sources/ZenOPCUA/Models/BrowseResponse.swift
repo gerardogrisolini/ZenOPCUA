@@ -20,7 +20,7 @@ class BrowseResponse: MessageBase {
         super.init(bytes: bytes[0...15].map { $0 })
 
         var index = 44
-        var len = 0
+        var len = UInt32(0)
         
         var count = UInt32(bytes: bytes[index..<(index+4)])
         if count == UInt32.max { count = 0 }
@@ -30,14 +30,14 @@ class BrowseResponse: MessageBase {
             var result = BrowseResult(statusCode: statusCode)
             index += 4
 
-            len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+            len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if len < UInt32.max {
-                result.continuationPoint = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
-                index += len
+                result.continuationPoint = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                index += len.int
             }
             
-            let innerCount = Int(UInt32(bytes: bytes[index..<(index+4)]))
+            let innerCount = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if innerCount < UInt32.max {
             for _ in 0..<innerCount {
@@ -52,26 +52,26 @@ class BrowseResponse: MessageBase {
                 reference.nodeId = Nodes.node(index: &index, bytes: bytes)
                 reference.browseName.id = UInt16(bytes: bytes[index..<(index+2)])
                 index += 2
-                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+                len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
                 if len < UInt32.max {
-                    reference.browseName.name = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
-                    index += len
+                    reference.browseName.name = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                    index += len.int
                 }
                 
                 reference.displayName.encodingMask = bytes[index]
                 index += 1
-                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+                len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
                 if reference.displayName.encodingMask == 0x03 && len < UInt32.max {
-                    reference.displayName.locale = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
-                    index += len
-                    len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+                    reference.displayName.locale = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                    index += len.int
+                    len = UInt32(bytes: bytes[index..<(index+4)])
                     index += 4
                 }
                 if len < UInt32.max {
-                    reference.displayName.text = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
-                    index += len
+                    reference.displayName.text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                    index += len.int
                 }
                 
                 reference.nodeClass = UInt32(bytes: bytes[index..<(index+4)])
@@ -90,13 +90,13 @@ class BrowseResponse: MessageBase {
         index += 4
         if count < UInt32.max {
             for _ in 0..<count {
-                len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+                len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
-                if let text = String(bytes: bytes[index..<(index+len)], encoding: .utf8) {
+                if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
-                index += len
+                index += len.int
             }
         }
     }
