@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb", // 1
+      "request": "launch",
+      "name": "Debug",
+      "program": "${workspaceFolder}/.build/armv6-unknown-linux-gnueabihf/debug/OpcUa", // 2
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "swift-build" // 3
+    }
+  ]
+}
+
