@@ -209,13 +209,15 @@ class SecurityPolicy {
     }
 
     private static func generateNonce(_ lenght: Int) throws -> Data {
-        let nonce = NSMutableData(length: lenght)!
-        let result = SecRandomCopyBytes(kSecRandomDefault, nonce.length, nonce.mutableBytes)
-        if result == errSecSuccess {
-            return nonce as Data
-        } else {
-            throw OPCUAError.generic("unsupported")
-        }
+//        let nonce = NSMutableData(length: lenght)!
+//        let result = SecRandomCopyBytes(kSecRandomDefault, nonce.length, nonce.mutableBytes)
+//        if result == errSecSuccess {
+//            return nonce as Data
+//        } else {
+//            throw OPCUAError.generic("unsupported")
+//        }
+        
+        return Data()
     }
 
     func loadClientCertificate(certificate: String? = nil, privateKey: String? = nil) {
@@ -273,39 +275,39 @@ class SecurityPolicy {
         clientCertificate = certData
     }
 
-    func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
-        let priKeyECData = dataFromPEM(data: data)
-
-        let keyDict: [CFString: Any] = [
-            kSecAttrKeyType: kSecAttrKeyTypeRSA,
-            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-            kSecAttrKeySizeInBits: 2048,
-            kSecImportExportPassphrase as CFString: password,
-            kSecReturnPersistentRef: false
-        ]
-        var error: Unmanaged<CFError>?
-        let secKey = SecKeyCreateWithData(priKeyECData as CFData, keyDict as CFDictionary, &error)
-        return secKey
-    }
-
-    func publicKeyFromData(certificate: Data) -> SecKey? {
-        var publicKey: SecKey?
-        var trust: SecTrust?
-
-        guard let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData) else { return nil }
-
-        let policy = SecPolicyCreateBasicX509()
-        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
-
-        if status == errSecSuccess, let trust = trust {
-            publicKey = SecTrustCopyPublicKey(trust)!
-        }
-
-        return publicKey
+//    func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
+//        let priKeyECData = dataFromPEM(data: data)
+//
+//        let keyDict: [CFString: Any] = [
+//            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+//            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
+//            kSecAttrKeySizeInBits: 2048,
+//            kSecImportExportPassphrase as CFString: password,
+//            kSecReturnPersistentRef: false
+//        ]
 //        var error: Unmanaged<CFError>?
-//        let data = SecKeyCopyExternalRepresentation(publicKey!, &error)! as Data
-//        return data
-    }
+//        let secKey = SecKeyCreateWithData(priKeyECData as CFData, keyDict as CFDictionary, &error)
+//        return secKey
+//    }
+//
+//    func publicKeyFromData(certificate: Data) -> SecKey? {
+//        var publicKey: SecKey?
+//        var trust: SecTrust?
+//
+//        guard let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData) else { return nil }
+//
+//        let policy = SecPolicyCreateBasicX509()
+//        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
+//
+//        if status == errSecSuccess, let trust = trust {
+//            publicKey = SecTrustCopyPublicKey(trust)!
+//        }
+//
+//        return publicKey
+////        var error: Unmanaged<CFError>?
+////        let data = SecKeyCopyExternalRepresentation(publicKey!, &error)! as Data
+////        return data
+//    }
     
     func sign(dataToSign: Data) throws -> Data {
 //        let algorithm: SecKeyAlgorithm
@@ -498,21 +500,23 @@ class SecurityPolicy {
     }
     
     func generateKeyPair(ofSize bits: UInt) throws -> KeyPair? {
-        let pubKeyAttrs = [ kSecAttrIsPermanent as String: true ]
-        let privKeyAttrs = [ kSecAttrIsPermanent as String: true ]
-        let params: NSDictionary = [ kSecAttrKeyType as String : kSecAttrKeyTypeRSA as String,
-                       kSecAttrKeySizeInBits as String : bits,
-                       kSecPublicKeyAttrs as String : pubKeyAttrs,
-                       kSecPrivateKeyAttrs as String : privKeyAttrs ]
-        var pubKey: SecKey?
-        var privKey: SecKey?
-        let status = SecKeyGeneratePair(params, &pubKey, &privKey)
-        switch status {
-        case noErr:
-            return (privKey!, pubKey!)
-        default:
-            return nil
-        }
+//        let pubKeyAttrs = [ kSecAttrIsPermanent as String: true ]
+//        let privKeyAttrs = [ kSecAttrIsPermanent as String: true ]
+//        let params: NSDictionary = [ kSecAttrKeyType as String : kSecAttrKeyTypeRSA as String,
+//                       kSecAttrKeySizeInBits as String : bits,
+//                       kSecPublicKeyAttrs as String : pubKeyAttrs,
+//                       kSecPrivateKeyAttrs as String : privKeyAttrs ]
+//        var pubKey: SecKey?
+//        var privKey: SecKey?
+//        let status = SecKeyGeneratePair(params, &pubKey, &privKey)
+//        switch status {
+//        case noErr:
+//            return (privKey!, pubKey!)
+//        default:
+//            return nil
+//        }
+        
+        return nil
     }
 
     func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
