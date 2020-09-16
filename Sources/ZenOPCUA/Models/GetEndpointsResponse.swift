@@ -20,7 +20,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
         let count = UInt32(bytes: bytes[44...47])
         guard count < UInt32.max else { return }
         
-        print("1")
+        print("1: \(count)")
         
         var index = 48
         for _ in 0..<count {
@@ -42,7 +42,8 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             index += 4
             item.server.productUri = String(bytes: bytes[index..<(index+len)], encoding: .utf8)!
 
-            
+            print("2")
+
             index += len
             item.server.applicationName.encodingMask = bytes[index]
             index += 1
@@ -77,8 +78,6 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                 index += len
             }
 
-            print("2")
-            
             var innerCount = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if innerCount < UInt32.max {
