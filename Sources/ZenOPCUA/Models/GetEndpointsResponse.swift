@@ -77,6 +77,8 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                 index += len
             }
 
+            print("2")
+            
             var innerCount = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if innerCount < UInt32.max {
@@ -108,7 +110,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                 index += len
             }
 
-            print("2")
+            print("3")
 
             innerCount = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
@@ -161,7 +163,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             item.securityLevel = bytes[index]
             index += 1
             
-            print("3")
+            print("4")
             endpoints.append(item)
         }
     }
