@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import CryptoKit
 import NIO
 
 let SEQUENCE_HEADER_SIZE: Int = 8

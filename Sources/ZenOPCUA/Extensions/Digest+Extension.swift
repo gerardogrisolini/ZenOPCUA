@@ -6,7 +6,11 @@
 //
 
 import Foundation
+#if os(Linux)
+import Crypto
+#else
 import CryptoKit
+#endif
 
 extension Digest {
     var bytes: [UInt8] { Array(makeIterator()) }

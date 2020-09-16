@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import CryptoKit
 
 class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
