@@ -7,11 +7,11 @@
 
 import Foundation
 import NIO
-#if os(Linux)
-import Crypto
-#else
-import CryptoKit
-#endif
+//#if os(Linux)
+//import Crypto
+//#else
+//import CryptoKit
+//#endif
 
 
 //public typealias KeyPair = (privateKey: SecKey, publicKey: SecKey)
@@ -517,71 +517,71 @@ class SecurityPolicy {
 //        }
 //    }
 
-    func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
-        let signatureKeySize = getSymmetricSignatureKeySize()
-        let encryptionKeySize = getSymmetricEncryptionKeySize()
-        let cipherTextBlockSize = getSymmetricBlockSize()
-
-        assert(clientNonce.count > 0)
-        assert(serverNonce.count > 0)
-
-        let clientSignatureKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, 0, signatureKeySize)
-            : createPSha256Key(serverNonce, clientNonce, 0, signatureKeySize)
+//    func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
+//        let signatureKeySize = getSymmetricSignatureKeySize()
+//        let encryptionKeySize = getSymmetricEncryptionKeySize()
+//        let cipherTextBlockSize = getSymmetricBlockSize()
+//
+//        assert(clientNonce.count > 0)
+//        assert(serverNonce.count > 0)
+//
+//        let clientSignatureKey = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(serverNonce, clientNonce, 0, signatureKeySize)
+//            : createPSha256Key(serverNonce, clientNonce, 0, signatureKeySize)
+//    
+//        let clientEncryptionKey = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
+//            : createPSha256Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
+//
+//        let clientInitializationVector = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+//            : createPSha256Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+//
+//        let serverSignatureKey = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(clientNonce, serverNonce, 0, signatureKeySize)
+//            : createPSha256Key(clientNonce, serverNonce, 0, signatureKeySize)
+//
+//        let serverEncryptionKey = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
+//            : createPSha256Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
+//
+//        let serverInitializationVector = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+//            : createPSha256Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+//
+//        return SecurityKeys(
+//            clientKeys: SecretKeys(
+//                signatureKey: clientSignatureKey,
+//                encryptionKey: clientEncryptionKey,
+//                initializationVector: clientInitializationVector
+//            ),
+//            serverKeys: SecretKeys(
+//                signatureKey: serverSignatureKey,
+//                encryptionKey: serverEncryptionKey,
+//                initializationVector: serverInitializationVector
+//            )
+//        )
+//    }
     
-        let clientEncryptionKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
-            : createPSha256Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
-
-        let clientInitializationVector = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
-            : createPSha256Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
-
-        let serverSignatureKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, 0, signatureKeySize)
-            : createPSha256Key(clientNonce, serverNonce, 0, signatureKeySize)
-
-        let serverEncryptionKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
-            : createPSha256Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
-
-        let serverInitializationVector = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
-            : createPSha256Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
-
-        return SecurityKeys(
-            clientKeys: SecretKeys(
-                signatureKey: clientSignatureKey,
-                encryptionKey: clientEncryptionKey,
-                initializationVector: clientInitializationVector
-            ),
-            serverKeys: SecretKeys(
-                signatureKey: serverSignatureKey,
-                encryptionKey: serverEncryptionKey,
-                initializationVector: serverInitializationVector
-            )
-        )
-    }
-    
-    private func createPSha1Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
-        let key = SymmetricKey(data: clientNonce)
-        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: serverNonce, using: key)
-        let data = Data(hash)
-        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
-            print("Validated ✅")
-        }
-        return data[start..<end].map { $0 }
-    }
-
-    private func createPSha256Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
-        let key = SymmetricKey(data: clientNonce)
-        let hash = HMAC<SHA256>.authenticationCode(for: serverNonce, using: key)
-        let data = Data(hash)
-        if HMAC<SHA256>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
-            print("Validated ✅")
-        }
-        return data[start..<end].map { $0 }
-    }
+//    private func createPSha1Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
+//        let key = SymmetricKey(data: clientNonce)
+//        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: serverNonce, using: key)
+//        let data = Data(hash)
+//        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
+//            print("Validated ✅")
+//        }
+//        return data[start..<end].map { $0 }
+//    }
+//
+//    private func createPSha256Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
+//        let key = SymmetricKey(data: clientNonce)
+//        let hash = HMAC<SHA256>.authenticationCode(for: serverNonce, using: key)
+//        let data = Data(hash)
+//        if HMAC<SHA256>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
+//            print("Validated ✅")
+//        }
+//        return data[start..<end].map { $0 }
+//    }
 }
 
 struct SecurityKeys {
