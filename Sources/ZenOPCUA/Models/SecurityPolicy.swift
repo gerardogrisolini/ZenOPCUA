@@ -528,7 +528,7 @@ class SecurityPolicy {
 //        let clientSignatureKey = keyDerivationAlgorithm == .pSha1
 //            ? createPSha1Key(serverNonce, clientNonce, 0, signatureKeySize)
 //            : createPSha256Key(serverNonce, clientNonce, 0, signatureKeySize)
-//    
+//
 //        let clientEncryptionKey = keyDerivationAlgorithm == .pSha1
 //            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
 //            : createPSha256Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)

@@ -85,6 +85,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
                 }
             case .createSessionResponse:
+                print("createSessionResponse:")
+                print(frame.body)
+                
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
                     OPCUAHandler.isAcknowledgeSecure = false
