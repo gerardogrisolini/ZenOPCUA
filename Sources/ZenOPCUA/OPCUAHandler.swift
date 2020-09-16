@@ -237,12 +237,14 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) -> Bool {
+        print("CreateSessionRequest start")
         guard let endpoint = response.endpoints.first(where: { $0.messageSecurityMode == OPCUAHandler.messageSecurityMode }) else {
             return false
         }
         OPCUAHandler.endpoint = endpoint
         OPCUAHandler.securityPolicy.loadServerCertificate()
 
+        print("CreateSessionRequest end")
         print("endpoint:")
         print(endpoint)
 
