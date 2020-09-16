@@ -79,13 +79,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 let responseHeader = ResponseHeader(bytes: part)
                 promises[responseHeader.requestHandle]?.fail(OPCUAError.generic("serviceFault"))
             case .getEndpointsResponse:
-                print("getEndpointsResponse start")
                 if !createSession(context: context, response: GetEndpointsResponse(bytes: frame.body)) {
                     OPCUAHandler.isAcknowledgeSecure = false
                     ZenOPCUA.reconnect = false
                     promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
                 }
-                print("getEndpointsResponse end")
             case .createSessionResponse:
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
