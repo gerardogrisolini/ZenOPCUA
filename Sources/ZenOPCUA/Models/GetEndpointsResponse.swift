@@ -20,6 +20,8 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
         let count = UInt32(bytes: bytes[44...47])
         guard count < UInt32.max else { return }
         
+        print("1")
+        
         var index = 48
         for _ in 0..<count {
             let item = EndpointDescription()
@@ -106,6 +108,8 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                 index += len
             }
 
+            print("2")
+
             innerCount = Int(UInt32(bytes: bytes[index..<(index+4)]))
             index += 4
             if innerCount < UInt32.max {
@@ -157,6 +161,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             item.securityLevel = bytes[index]
             index += 1
             
+            print("3")
             endpoints.append(item)
         }
     }
