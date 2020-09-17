@@ -293,7 +293,7 @@ public class ZenOPCUA {
         return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
             let sub = promise as! CreateSubscriptionResponse
             if self.onDataChanged != nil {
-                self.startPublish(milliseconds: Int64(sub.revisedPubliscingInterval) * 10)
+                self.startPublish(milliseconds: Int64(sub.revisedPubliscingInterval))
             }
             return sub.subscriptionId
         }
@@ -356,13 +356,13 @@ public class ZenOPCUA {
         }
     }
     
-    public func publish(subscriptionIds: [UInt32] = []) -> EventLoopFuture<Void> {
+    public func publish(subscriptionIds: [UInt32] = []) {
         guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+            return
         }
 
         let requestId = self.handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+//        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = PublishRequest(
@@ -378,11 +378,11 @@ public class ZenOPCUA {
 
         channel.writeAndFlush(frame, promise: nil)
 
-        return handler.promises[requestId]!.futureResult
-            .map { promise -> Void in
-                print("publish end: \(self.counter) -> \(Date())")
-                ()
-            }
+//        return handler.promises[requestId]!.futureResult
+//            .map { promise -> Void in
+//                print("publish end: \(self.counter) -> \(Date())")
+//                ()
+//            }
     }
     private var counter: Int = 0
     private var publisher: RepeatedTask? = nil
@@ -393,10 +393,10 @@ public class ZenOPCUA {
         guard let channel = channel else { return }
 
         let time = TimeAmount.milliseconds(milliseconds)
-        publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
+        publisher = channel.eventLoop.scheduleRepeatedTask(initialDelay: time, delay: time, { task -> () in
             self.counter += 1
-            print("publish start: \(self.counter) -> \(Date())")
-            return self.publish()
+            print("publish: \(self.counter) -> \(Date())")
+            self.publish()
         })
     }
     

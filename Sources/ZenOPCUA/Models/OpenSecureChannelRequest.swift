@@ -21,8 +21,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
             securityPolicyUri.bytes +
             senderCertificate +
             receiverCertificateThumbprint +
-            sequenseNumber.bytes +
-            requestId.bytes
+            sequenseNumber.bytes
         //print("header: \(header.count)")
         let body = typeId.bytes +
             requestHeader.bytes +
@@ -30,7 +29,11 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
             securityTokenRequestType.rawValue.bytes +
             messageSecurityMode.rawValue.bytes
         //print("body: \(body.count + clientNonce.count + requestedLifetime.bytes.count)")
-        return header + body + clientNonce + requestedLifetime.bytes
+        return header +
+            requestId.bytes +
+            body +
+            clientNonce +
+            requestedLifetime.bytes
     }
     
     init(
