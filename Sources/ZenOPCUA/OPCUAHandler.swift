@@ -124,9 +124,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .createSubscriptionResponse:
                 let response = CreateSubscriptionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
-                    print("revisedLifetimeCount: \(response.revisedLifetimeCount)")
-                    print("revisedMaxKeepAliveCount: \(response.revisedMaxKeepAliveCount)")
-                    print("revisedPubliscingInterval: \(response.revisedPubliscingInterval)")
+//                    print("revisedLifetimeCount: \(response.revisedLifetimeCount)")
+//                    print("revisedMaxKeepAliveCount: \(response.revisedMaxKeepAliveCount)")
+//                    print("revisedPubliscingInterval: \(response.revisedPubliscingInterval)")
                     promises[response.responseHeader.requestHandle]?.succeed(response)
                 } else {
                     let error = OPCUAError.code(response.responseHeader.serviceResult)
