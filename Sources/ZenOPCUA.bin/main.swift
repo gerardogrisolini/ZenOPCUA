@@ -6,13 +6,16 @@ let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCou
 
 let opcua = ZenOPCUA(
     eventLoopGroup: eventLoopGroup,
-    endpoint: "opc.tcp://10.10.57.63:4842",
+    endpointUrl: "opc.tcp://10.10.57.63:4842",
     messageSecurityMode: .none,
     securityPolicy: .none
 )
 
+opcua.onHandlerActivated = {
+    print("OPCUA Client Activated")
+}
 opcua.onHandlerRemoved = {
-    print("OPCUA Client disconnected")
+    print("OPCUA Client Removed")
 }
 opcua.onErrorCaught = { error in
     print(error)

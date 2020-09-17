@@ -90,7 +90,7 @@ public struct MonitoringParameters: OPCUAEncodable {
     public var queueSize: UInt32 = 1
     public var discardOldest: Bool = true
 
-    public init(clientHandle: UInt32, samplingInterval: Double = 250) {
+    public init(clientHandle: UInt32 = 1, samplingInterval: Double = 250) {
         self.clientHandle = clientHandle
         self.samplingInterval = samplingInterval
     }

@@ -22,15 +22,15 @@ public class ZenOPCUA {
     private var channel: Channel? = nil
 
     public var onDataChanged: OPCUADataChanged? = nil
-    public var onHandlerRemoved: OPCUAHandlerRemoved? = nil
+    public var onHandlerActivated: OPCUAHandlerChange? = nil
+    public var onHandlerRemoved: OPCUAHandlerChange? = nil
     public var onErrorCaught: OPCUAErrorCaught? = nil
     
     static var reconnect: Bool = false
-
     
     public init(
         eventLoopGroup: EventLoopGroup,
-        endpoint: String,
+        endpointUrl: String,
         applicationName: String = "ZenOPCUA",
         messageSecurityMode: MessageSecurityMode = .none,
         securityPolicy: SecurityPolicies = .none,
@@ -38,8 +38,8 @@ public class ZenOPCUA {
         privateKey: String? = nil
     ) {
         self.eventLoopGroup = eventLoopGroup
+        handler.endpointUrl = endpointUrl
         handler.applicationName = applicationName
-        OPCUAHandler.endpoint.endpointUrl = endpoint
         OPCUAHandler.messageSecurityMode = messageSecurityMode
         let security = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
         security.loadClientCertificate(certificate: certificate, privateKey: privateKey)
@@ -47,7 +47,7 @@ public class ZenOPCUA {
     }
     
     private func getHostFromEndpoint() -> (host: String, port: Int) {
-        let url = OPCUAHandler.endpoint.endpointUrl
+        let url = handler.endpointUrl
         if let index = url.lastIndex(of: ":") {
             let host = url[url.startIndex..<index]
                 .replacingOccurrences(of: "opc.tcp://", with: "")
@@ -87,9 +87,9 @@ public class ZenOPCUA {
             .map { channel -> Void in
                 self.channel = channel
             }
-//            .flatMapError { error -> EventLoopFuture<Void> in
-//                self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
-//            }
+            .flatMapError { error -> EventLoopFuture<Void> in
+                self.eventLoopGroup.next().makeFailedFuture(error)
+            }
     }
     
     private func stop() -> EventLoopFuture<Void> {
@@ -110,13 +110,20 @@ public class ZenOPCUA {
         
         handler.username = username
         handler.password = password
+        
         handler.dataChanged = onDataChanged
         handler.errorCaught = onErrorCaught
+        handler.handlerActivated = onHandlerActivated
         handler.handlerRemoved = {
             if let onHandlerRemoved = self.onHandlerRemoved {
                 onHandlerRemoved()
             }
-                        
+              
+            //TODO: .renew error
+            self.handler.resetMessageID()
+            self.handler.sessionActive = nil
+            OPCUAHandler.endpoint = EndpointDescription()
+            
             if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
                     self.start().whenComplete { _ in
@@ -136,12 +143,15 @@ public class ZenOPCUA {
         }.flatMapError { error -> EventLoopFuture<Void> in
             OPCUAHandler.isAcknowledge = false
             OPCUAHandler.isAcknowledgeSecure = false
-            return self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+            return self.eventLoopGroup.next().makeFailedFuture(error)
         }
     }
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
         ZenOPCUA.reconnect = false
+//        handler.sessionActive = nil
+//        OPCUAHandler.endpoint = EndpointDescription()
+        
         return closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { (_) -> EventLoopFuture<Void> in
             return self.stop()
         }
@@ -278,11 +288,11 @@ public class ZenOPCUA {
         channel.writeAndFlush(frame, promise: nil)
         
         return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
-            let subId = promise as! UInt32
-            if self.handler.dataChanged != nil {
-                self.startPublish(milliseconds: Int64(subscription.requestedPubliscingInterval))
+            let sub = promise as! CreateSubscriptionResponse
+            if self.onDataChanged != nil {
+                self.startPublish(milliseconds: Int64(sub.revisedPubliscingInterval) * 10)
             }
-            return subId
+            return sub.subscriptionId
         }
     }
     
@@ -365,11 +375,13 @@ public class ZenOPCUA {
 
         channel.writeAndFlush(frame, promise: nil)
 
-        return handler.promises[requestId]!.futureResult.map { promise -> Void in
-            ()
-        }
+        return handler.promises[requestId]!.futureResult
+            .map { promise -> Void in
+                //print("publish end: \(self.counter) -> \(Date())")
+                ()
+            }
     }
-    
+//    private var counter: Int = 0
     private var publisher: RepeatedTask? = nil
 
     private func startPublish(milliseconds: Int64 = 250) {
@@ -379,7 +391,9 @@ public class ZenOPCUA {
 
         let time = TimeAmount.milliseconds(milliseconds)
         publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
-            self.publish()
+//            self.counter += 1
+//            print("publish start: \(self.counter) -> \(Date())")
+            return self.publish()
         })
     }
     

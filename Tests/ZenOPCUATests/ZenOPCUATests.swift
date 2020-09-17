@@ -17,16 +17,19 @@ final class ZenOPCUATests: XCTestCase {
 
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
-            endpoint: "opc.tcp://concentratoreviet.ddns.net:4842",
+            endpointUrl: "opc.tcp://127.0.0.1:4842",
             messageSecurityMode: .none,
             securityPolicy: .none
         )
         
+        opcua.onHandlerActivated = {
+            print("OPCUA Client activated")
+        }
         opcua.onHandlerRemoved = {
             print("OPCUA Client disconnected")
         }
         opcua.onErrorCaught = { error in
-            print(error)
+            print("Error: \(error)")
         }
         
         opcua.onDataChanged = { data in
@@ -38,7 +41,7 @@ final class ZenOPCUATests: XCTestCase {
         }
 
         do {
-            try opcua.connect(reconnect: false).wait()
+            try opcua.connect(reconnect: true).wait()
             
 //            let nodes: [BrowseDescription] = [
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253)),
@@ -56,49 +59,49 @@ final class ZenOPCUATests: XCTestCase {
 //                print("deleteSubscription: \(result)")
 //            }
 
-            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20045))]
-            let readed = try opcua.read(nodes: reads).wait()
-            print(readed.first?.variant.value ?? "nil")
+//            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20045))]
+//            let readed = try opcua.read(nodes: reads).wait()
+//            print(readed.first?.variant.value ?? "nil")
 
-//
-//            let subscription = Subscription(
-//                requestedPubliscingInterval: 1000,
-//                publishingEnabled: true
-//            )
-//            let subId = try opcua.createSubscription(subscription: subscription).wait()
-////            let itemsToCreate: [MonitoredItemCreateRequest] = [
-////                MonitoredItemCreateRequest(
-////                    itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20045)),
-////                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
-////                )
-////            ]
-//            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
-//            results.forEach { result in
-//                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
-//            }
-//            
-//            DispatchQueue.global().async {
-//                sleep(2)
-//                opcua.write(nodes: [
-//                    WriteValue(
-//                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
-//                        value: DataValue(variant: Variant(value: Int32(1)))
-//                    )
-//                ]).whenSuccess { writed in
-//                    print("writed: 1")
-//                }
-//                sleep(4)
-//                opcua.write(nodes: [
-//                    WriteValue(
-//                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
-//                        value: DataValue(variant: Variant(value: Int32(2)))
-//                    )
-//                ]).whenSuccess { writed in
-//                    print("writed: 2")
-//                }
-//            }
 
-            sleep(10)
+            let subscription = Subscription(
+                requestedPubliscingInterval: 100,
+                publishingEnabled: true
+            )
+            let subId = try opcua.createSubscription(subscription: subscription).wait()
+            let itemsToCreate: [MonitoredItemCreateRequest] = [
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485)),
+                    requestedParameters: MonitoringParameters()
+                )
+            ]
+            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
+            results.forEach { result in
+                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+            }
+            
+            DispatchQueue.global().async {
+                sleep(20)
+                opcua.write(nodes: [
+                    WriteValue(
+                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
+                        value: DataValue(variant: Variant(value: Int32(1)))
+                    )
+                ]).whenSuccess { writed in
+                    print("writed: 1")
+                }
+                sleep(20)
+                opcua.write(nodes: [
+                    WriteValue(
+                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
+                        value: DataValue(variant: Variant(value: Int32(2)))
+                    )
+                ]).whenSuccess { writed in
+                    print("writed: 2")
+                }
+            }
+
+            sleep(60 * 15)
             
             try opcua.disconnect(deleteSubscriptions: true).wait()
         } catch {

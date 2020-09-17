@@ -9,7 +9,7 @@ import Foundation
 import NIO
 
 public typealias OPCUADataChanged = ([DataChange]) -> ()
-public typealias OPCUAHandlerRemoved = () -> ()
+public typealias OPCUAHandlerChange = () -> ()
 public typealias OPCUAErrorCaught = (Error) -> ()
 
 public protocol Promisable { }
@@ -21,7 +21,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public typealias OutboundOut = OPCUAFrame
 
     public var dataChanged: OPCUADataChanged? = nil
-    public var handlerRemoved: OPCUAHandlerRemoved? = nil
+    public var handlerActivated: OPCUAHandlerChange? = nil
+    public var handlerRemoved: OPCUAHandlerChange? = nil
     public var errorCaught: OPCUAErrorCaught? = nil
 
     public var sessionActive: CreateSessionResponse? = nil
@@ -34,12 +35,14 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     static var isAcknowledge: Bool = false
     static var isAcknowledgeSecure: Bool = false
     
+    var endpointUrl: String = ""
     var applicationName: String = ""
     var username: String? = nil
     var password: String? = nil
     var requestedLifetime: UInt32 = 600000
 
     public init() {
+        sessionActive = nil
     }
 
     public func channelActive(context: ChannelHandlerContext) {
@@ -49,7 +52,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     fileprivate func sendHello(context: ChannelHandlerContext) {
         let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
-        let body = Hello(endpointUrl: OPCUAHandler.endpoint.endpointUrl)
+        let body = Hello(endpointUrl: endpointUrl)
         let frame = OPCUAFrame(head: head, body: body.bytes)
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
@@ -63,42 +66,49 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
+            //response.securityToken.revisedLifetime
             getEndpoints(context: context, response: response)
         case .error:
             var error = UInt32(bytes: frame.body[0...3]).description
             if frame.body.count > 8, let reason = String(bytes: frame.body[8...], encoding: .utf8) {
                 error = reason
             }
-            errorCaught(context: context, error: OPCUAError.generic(error))
+            onErrorCaught(context: context, error: OPCUAError.generic(error))
         default:
             guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
             //print(method)
             switch method {
-            case .serviceFault:
-                let part = frame.body[20...43].map { $0 }
-                let responseHeader = ResponseHeader(bytes: part)
-                promises[responseHeader.requestHandle]?.fail(OPCUAError.generic("serviceFault"))
             case .getEndpointsResponse:
                 if !createSession(context: context, response: GetEndpointsResponse(bytes: frame.body)) {
                     OPCUAHandler.isAcknowledgeSecure = false
                     ZenOPCUA.reconnect = false
-                    promises[0]!.fail(OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints"))
+                    
+                    let error = OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints")
+                    promises[0]!.fail(error)
+                    onErrorCaught(context: context, error: error)
                 }
             case .createSessionResponse:
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
                     OPCUAHandler.isAcknowledgeSecure = false
                     ZenOPCUA.reconnect = false
-                    promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
+                    
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    promises[0]!.fail(error)
+                    onErrorCaught(context: context, error: error)
                 } else {
                     activateSession(context: context, response: response)
                 }
             case .activateSessionResponse:
+                OPCUAHandler.isAcknowledge = false
                 let response = ActivateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
                     promises[0]!.succeed(Empty())
+                    onHandlerActivated()
                 } else {
-                    promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    promises[0]!.fail(error)
+                    onErrorCaught(context: context, error: error)
                 }
             case .closeSessionResponse:
                 closeSecureChannel(context: context, response: CloseSessionResponse(bytes: frame.body))
@@ -114,9 +124,14 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .createSubscriptionResponse:
                 let response = CreateSubscriptionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
-                    promises[response.responseHeader.requestHandle]?.succeed(response.subscriptionId)
+                    print("revisedLifetimeCount: \(response.revisedLifetimeCount)")
+                    print("revisedMaxKeepAliveCount: \(response.revisedMaxKeepAliveCount)")
+                    print("revisedPubliscingInterval: \(response.revisedPubliscingInterval)")
+                    promises[response.responseHeader.requestHandle]?.succeed(response)
                 } else {
-                    promises[response.responseHeader.requestHandle]!.fail(OPCUAError.code(response.responseHeader.serviceResult))
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    promises[response.responseHeader.requestHandle]!.fail(error)
+                    onErrorCaught(context: context, error: error)
                 }
             case .createMonitoredItemsResponse:
                 let response = CreateMonitoredItemsResponse(bytes: frame.body)
@@ -129,18 +144,29 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 promises[response.responseHeader.requestHandle]?.succeed(response.subscriptionId)
                 guard let dataChanged = dataChanged else { return }
                 dataChanged(response.notificationMessage.notificationData)
+            case .serviceFault:
+                let part = frame.body[20...43].map { $0 }
+                let responseHeader = ResponseHeader(bytes: part)
+                let error = OPCUAError.generic("serviceFault")
+                promises[responseHeader.requestHandle]?.fail(error)
+                onErrorCaught(context: context, error: error)
             default:
                 break
             }
         }
     }
     
+    public func onHandlerActivated() {
+        guard let handlerActivated = handlerActivated else { return }
+        handlerActivated()
+    }
+
     public func handlerRemoved(context: ChannelHandlerContext) {
         guard let handlerRemoved = handlerRemoved else { return }
         handlerRemoved()
     }
     
-    public func errorCaught(context: ChannelHandlerContext, error: Error) {
+    public func onErrorCaught(context: ChannelHandlerContext, error: Error) {
         guard let errorCaught = errorCaught else { return }
         errorCaught(error)
         
@@ -224,7 +250,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: response.requestId,
-            endpointUrl: OPCUAHandler.endpoint.endpointUrl
+            endpointUrl: endpointUrl
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
@@ -234,6 +260,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         guard let endpoint = response.endpoints.first(where: { $0.messageSecurityMode == OPCUAHandler.messageSecurityMode }) else {
             return false
         }
+        
         OPCUAHandler.endpoint = endpoint
         OPCUAHandler.securityPolicy.loadServerCertificate()
 
@@ -259,7 +286,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 requestId: requestId,
                 requestHandle: response.requestId,
                 serverUri: OPCUAHandler.endpoint.server.applicationUri,
-                endpointUrl: OPCUAHandler.endpoint.endpointUrl,
+                endpointUrl: endpointUrl,
                 applicationName: applicationName,
                 securityPolicy: OPCUAHandler.securityPolicy
             )
@@ -282,8 +309,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             print("Found \(endpoint.userIdentityTokens.count) policies")
             print("Selected Endpoint \(endpoint.endpointUrl)")
             print("SecurityMode \(endpoint.messageSecurityMode)")
+
             var userIdentityInfo: UserIdentityInfo
-            //let endpoint = response.serverEndpoints.first!
             if OPCUAHandler.securityPolicy.clientCertificate.count > 0 {
                 let policy = endpoint.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
                 userIdentityInfo = UserIdentityInfoX509(
@@ -322,6 +349,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     private var messageID = UInt32(1)
     
+    public func resetMessageID() {
+        messageID = 0
+    }
+
     public func nextMessageID() -> UInt32 {
         messageID += 1
         return messageID
