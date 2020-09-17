@@ -103,14 +103,15 @@ public class ZenOPCUA {
         }
     }
 
-    public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true) -> EventLoopFuture<Void> {
+    public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true, requestedLifetime: UInt32 = 36000) -> EventLoopFuture<Void> {
         ZenOPCUA.reconnect = reconnect
         OPCUAHandler.isAcknowledge = true
         OPCUAHandler.isAcknowledgeSecure = OPCUAHandler.messageSecurityMode != .none
         
         handler.username = username
         handler.password = password
-        
+        handler.requestedLifetime = requestedLifetime * 1000
+
         handler.dataChanged = onDataChanged
         handler.errorCaught = onErrorCaught
         handler.handlerActivated = onHandlerActivated

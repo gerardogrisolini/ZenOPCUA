@@ -39,7 +39,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var applicationName: String = ""
     var username: String? = nil
     var password: String? = nil
-    var requestedLifetime: UInt32 = 600000
+    var requestedLifetime: UInt32 = 0
 
     public init() {
         sessionActive = nil
