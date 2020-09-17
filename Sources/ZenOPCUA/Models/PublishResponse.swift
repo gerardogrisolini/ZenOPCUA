@@ -56,10 +56,10 @@ class PublishResponse: MessageBase, OPCUADecodable {
                 index += 4
                 if subCount < UInt32.max {
                     for _ in 0..<subCount {
-                        let monitoredId = UInt32(bytes: bytes[index..<(index+4)])
+                        let clientHandle = UInt32(bytes: bytes[index..<(index+4)])
                         index += 4
                         let item = MonitoredItemNotification(
-                            monitoredId: monitoredId,
+                            clientHandle: clientHandle,
                             value: DataValue(bytes: bytes, index: &index)
                         )
                         dataChange.dataChangeNotification.monitoredItems.append(item)
@@ -129,6 +129,6 @@ public struct DataChangeNotification {
 }
 
 public struct MonitoredItemNotification {
-    public var monitoredId: UInt32
+    public var clientHandle: UInt32
     public var value: DataValue
 }

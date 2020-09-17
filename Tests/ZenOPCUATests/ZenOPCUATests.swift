@@ -72,8 +72,12 @@ final class ZenOPCUATests: XCTestCase {
             let itemsToCreate: [MonitoredItemCreateRequest] = [
                 MonitoredItemCreateRequest(
                     itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485)),
-                    requestedParameters: MonitoringParameters()
-                )
+                    requestedParameters: MonitoringParameters(clientHandle: 100, samplingInterval: 250)
+                ),
+//                MonitoredItemCreateRequest(
+//                    itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20482)),
+//                    requestedParameters: MonitoringParameters()
+//                )
             ]
             let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
             results.forEach { result in
@@ -81,7 +85,7 @@ final class ZenOPCUATests: XCTestCase {
             }
             
             DispatchQueue.global().async {
-                sleep(20)
+                sleep(5)
                 opcua.write(nodes: [
                     WriteValue(
                         nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
@@ -90,7 +94,7 @@ final class ZenOPCUATests: XCTestCase {
                 ]).whenSuccess { writed in
                     print("writed: 1")
                 }
-                sleep(20)
+                sleep(7)
                 opcua.write(nodes: [
                     WriteValue(
                         nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20485),
@@ -101,7 +105,7 @@ final class ZenOPCUATests: XCTestCase {
                 }
             }
 
-            sleep(60 * 15)
+            sleep(20)
             
             try opcua.disconnect(deleteSubscriptions: true).wait()
         } catch {
