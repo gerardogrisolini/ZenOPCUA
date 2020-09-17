@@ -115,6 +115,8 @@ public class ZenOPCUA {
         handler.errorCaught = onErrorCaught
         handler.handlerActivated = onHandlerActivated
         handler.handlerRemoved = {
+            stopPublish()
+            
             if let onHandlerRemoved = self.onHandlerRemoved {
                 onHandlerRemoved()
             }

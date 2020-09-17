@@ -39,7 +39,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var applicationName: String = ""
     var username: String? = nil
     var password: String? = nil
-    var requestedLifetime: UInt32 = 600000
+    var requestedLifetime: UInt32 = 30000
 
     public init() {
         sessionActive = nil
@@ -97,7 +97,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     promises[0]!.fail(error)
                     onErrorCaught(context: context, error: error)
                 } else {
-                    activateSession(context: context, response: response)
+                        activateSession(context: context, response: response)
                 }
             case .activateSessionResponse:
                 OPCUAHandler.isAcknowledge = false
