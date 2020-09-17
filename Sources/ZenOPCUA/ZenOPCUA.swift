@@ -380,11 +380,11 @@ public class ZenOPCUA {
 
         return handler.promises[requestId]!.futureResult
             .map { promise -> Void in
-                //print("publish end: \(self.counter) -> \(Date())")
+                print("publish end: \(self.counter) -> \(Date())")
                 ()
             }
     }
-//    private var counter: Int = 0
+    private var counter: Int = 0
     private var publisher: RepeatedTask? = nil
 
     private func startPublish(milliseconds: Int64 = 250) {
@@ -394,8 +394,8 @@ public class ZenOPCUA {
 
         let time = TimeAmount.milliseconds(milliseconds)
         publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
-//            self.counter += 1
-//            print("publish start: \(self.counter) -> \(Date())")
+            self.counter += 1
+            print("publish start: \(self.counter) -> \(Date())")
             return self.publish()
         })
     }
