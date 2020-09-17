@@ -362,7 +362,6 @@ public class ZenOPCUA {
         }
 
         let requestId = self.handler.nextMessageID()
-//        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = PublishRequest(
@@ -377,14 +376,8 @@ public class ZenOPCUA {
         let frame = OPCUAFrame(head: head, body: body.bytes)
 
         channel.writeAndFlush(frame, promise: nil)
-
-//        return handler.promises[requestId]!.futureResult
-//            .map { promise -> Void in
-//                print("publish end: \(self.counter) -> \(Date())")
-//                ()
-//            }
     }
-    private var counter: Int = 0
+    
     private var publisher: RepeatedTask? = nil
 
     private func startPublish(milliseconds: Int64 = 250) {
@@ -394,8 +387,6 @@ public class ZenOPCUA {
 
         let time = TimeAmount.milliseconds(milliseconds)
         publisher = channel.eventLoop.scheduleRepeatedTask(initialDelay: time, delay: time, { task -> () in
-            self.counter += 1
-            print("publish: \(self.counter) -> \(Date())")
             self.publish()
         })
     }
