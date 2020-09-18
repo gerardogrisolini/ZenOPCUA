@@ -264,7 +264,7 @@ public class ZenOPCUA {
         channel.writeAndFlush(frame, promise: nil)
         
         return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
-            promise as! [StatusCodes]
+            promise as? [StatusCodes] ?? []
         }
     }
 
