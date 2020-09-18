@@ -40,10 +40,10 @@ class WriteRequest: MessageBase, OPCUAEncodable {
 }
 
 public struct WriteValue: OPCUAEncodable {
-    private let nodeId: Node
-    private let attributeId: UInt32
+    public let nodeId: Node
+    public let attributeId: UInt32
     public var indexRange: String? = nil
-    private let value: DataValue
+    public let value: DataValue
     
     public init(
         nodeId: Node,
