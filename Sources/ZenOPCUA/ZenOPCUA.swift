@@ -380,7 +380,7 @@ public class ZenOPCUA {
     
     private var publisher: RepeatedTask? = nil
 
-    private func startPublish(milliseconds: Int64 = 250) {
+    public func startPublish(milliseconds: Int64 = 250) {
         stopPublish()
 
         guard let channel = channel else { return }
@@ -391,7 +391,7 @@ public class ZenOPCUA {
         })
     }
     
-    private func stopPublish() {
+    public func stopPublish() {
         if let pub = publisher {
             pub.cancel()
             publisher = nil
