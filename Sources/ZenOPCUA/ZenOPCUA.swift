@@ -121,7 +121,7 @@ public class ZenOPCUA {
             
             if "\(error)".contains("\(StatusCodes.UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS)") {
                 let interval = self.milliseconds + 250
-                print("🔄 ZenOPCUA: Changed publication interval from \(self.milliseconds) to \(interval) milliseconds")
+                print("🔄 ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
                 self.startPublishing(milliseconds: interval)
             }
         }
@@ -414,7 +414,7 @@ public class ZenOPCUA {
 
         let time = TimeAmount.milliseconds(milliseconds)
         publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
-            if trace { print("🔄 ZenOPCUA: Publish \(self.dateFormatter.string(from: Date()))") }
+            if trace { print("🔄 ZenOPCUA: publishing \(self.dateFormatter.string(from: Date()))") }
             return self.publish()
         })
     }
