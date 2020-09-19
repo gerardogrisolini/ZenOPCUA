@@ -423,6 +423,8 @@ public class ZenOPCUA {
         let promise = eventLoopGroup.next().makePromise(of: Void.self)
         if let pub = publisher {
             pub.cancel(promise: promise)
+        } else {
+            promise.succeed(())
         }
         return promise.futureResult.map { () -> () in
             self.publisher = nil
