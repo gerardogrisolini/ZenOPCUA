@@ -10,6 +10,7 @@ import NIO
 
 public enum OPCUAError : Error {
     case connectionError
+    case sessionError
     case code(_ status: StatusCodes)
     case generic(_ text: String)
 }
@@ -367,9 +368,9 @@ public class ZenOPCUA {
         }
     }
     
-    public func publish(subscriptionIds: [UInt32] = []) {
+    public func publish(subscriptionIds: [UInt32] = []) -> EventLoopFuture<Void> {
         guard let channel = channel, let session = handler.sessionActive else {
-            return
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
         let requestId = self.handler.nextMessageID()
@@ -386,7 +387,7 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
 
-        channel.writeAndFlush(frame, promise: nil)
+        return channel.writeAndFlush(frame)
     }
     
     private var publisher: RepeatedTask? = nil
@@ -404,7 +405,7 @@ public class ZenOPCUA {
         guard let channel = channel else { return }
 
         let time = TimeAmount.milliseconds(milliseconds)
-        publisher = channel.eventLoop.scheduleRepeatedTask(initialDelay: time, delay: time, { task -> () in
+        publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
             self.publish()
         })
     }

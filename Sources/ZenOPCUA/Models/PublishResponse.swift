@@ -86,13 +86,15 @@ class PublishResponse: MessageBase, OPCUADecodable {
         
         count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
-        for _ in 0..<count {
-            if let status = StatusCodes(rawValue: UInt32(bytes: bytes[index..<(index+4)])) {
-                results.append(status)
+        if count < UInt32.max {
+            for _ in 0..<count {
+                if let status = StatusCodes(rawValue: UInt32(bytes: bytes[index..<(index+4)])) {
+                    results.append(status)
+                }
+                index += 4
             }
-            index += 4
         }
-
+        
         count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
