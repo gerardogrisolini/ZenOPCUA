@@ -395,7 +395,7 @@ public class ZenOPCUA {
     private var trace: Bool = false
     let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
         formatter.timeZone = TimeZone.current
         return formatter
     }()
