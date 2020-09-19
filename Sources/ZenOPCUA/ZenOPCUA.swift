@@ -8,7 +8,7 @@
 import Foundation
 import NIO
 
-enum OPCUAError : Error {
+public enum OPCUAError : Error {
     case connectionError
     case code(_ status: StatusCodes)
     case generic(_ text: String)
@@ -103,17 +103,27 @@ public class ZenOPCUA {
         }
     }
 
-    public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true, requestedLifetime: UInt32 = 36000) -> EventLoopFuture<Void> {
+    public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true, sessionLifetime: UInt32 = 36000) -> EventLoopFuture<Void> {
         ZenOPCUA.reconnect = reconnect
         OPCUAHandler.isAcknowledge = true
         OPCUAHandler.isAcknowledgeSecure = OPCUAHandler.messageSecurityMode != .none
         
         handler.username = username
         handler.password = password
-        handler.requestedLifetime = requestedLifetime * 1000
+        handler.requestedLifetime = sessionLifetime * 1000
 
         handler.dataChanged = onDataChanged
-        handler.errorCaught = onErrorCaught
+        handler.errorCaught = { error in
+            if let onErrorCaught = self.onErrorCaught {
+                onErrorCaught(error)
+            }
+            
+            if "\(error)".contains("\(StatusCodes.UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS)") {
+                let interval = self.milliseconds + 250
+                print("🔄 ZenOPCUA: Changed publication interval from \(self.milliseconds) to \(interval) milliseconds")
+                self.startPublish(milliseconds: interval)
+            }
+        }
         handler.handlerActivated = onHandlerActivated
         handler.handlerRemoved = {
             self.stopPublish()
@@ -122,10 +132,11 @@ public class ZenOPCUA {
                 onHandlerRemoved()
             }
               
-            //TODO: .renew error
+            //TODO: fixed .renew error resetting session
             self.handler.resetMessageID()
             self.handler.sessionActive = nil
             OPCUAHandler.endpoint = EndpointDescription()
+            // end fix
             
             if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
@@ -379,8 +390,15 @@ public class ZenOPCUA {
     }
     
     private var publisher: RepeatedTask? = nil
+    private var milliseconds: Int64 = 0
 
-    public func startPublish(milliseconds: Int64 = 250) {
+    public func startPublish() {
+        self.startPublish(milliseconds: milliseconds)
+    }
+     
+    public func startPublish(milliseconds: Int64) {
+        self.milliseconds = milliseconds
+        
         stopPublish()
 
         guard let channel = channel else { return }
@@ -390,7 +408,7 @@ public class ZenOPCUA {
             self.publish()
         })
     }
-    
+
     public func stopPublish() {
         if let pub = publisher {
             pub.cancel()

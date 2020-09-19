@@ -147,7 +147,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .serviceFault:
                 let part = frame.body[20...43].map { $0 }
                 let responseHeader = ResponseHeader(bytes: part)
-                let error = OPCUAError.generic("\(responseHeader.serviceResult)")
+                let error = OPCUAError.code(responseHeader.serviceResult)
                 promises[responseHeader.requestHandle]?.fail(error)
                 onErrorCaught(context: context, error: error)
             default:
