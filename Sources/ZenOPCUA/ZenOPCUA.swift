@@ -122,12 +122,12 @@ public class ZenOPCUA {
             if "\(error)".contains("\(StatusCodes.UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS)") {
                 let interval = self.milliseconds + 250
                 print("🔄 ZenOPCUA: Changed publication interval from \(self.milliseconds) to \(interval) milliseconds")
-                self.startPublish(milliseconds: interval)
+                self.startPublishing(milliseconds: interval)
             }
         }
         handler.handlerActivated = onHandlerActivated
         handler.handlerRemoved = {
-            self.stopPublish()
+            self.stopPublishing()
             
             if let onHandlerRemoved = self.onHandlerRemoved {
                 onHandlerRemoved()
@@ -177,7 +177,7 @@ public class ZenOPCUA {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
-        if deleteSubscriptions { stopPublish() }
+        if deleteSubscriptions { stopPublishing() }
         
         let requestId = handler.nextMessageID()
         handler.promises[requestId] = channel.eventLoop.makePromise()
@@ -280,7 +280,7 @@ public class ZenOPCUA {
         }
     }
 
-    public func createSubscription(subscription: Subscription) -> EventLoopFuture<UInt32> {
+    public func createSubscription(subscription: Subscription, startPublishing: Bool = true, tracePublishing: Bool = false) -> EventLoopFuture<UInt32> {
         guard let channel = channel, let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
@@ -304,8 +304,8 @@ public class ZenOPCUA {
         
         return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
             let sub = promise as! CreateSubscriptionResponse
-            if self.onDataChanged != nil {
-                self.startPublish(milliseconds: Int64(sub.revisedPubliscingInterval))
+            if startPublishing {
+                self.startPublishing(milliseconds: Int64(sub.revisedPubliscingInterval), trace: tracePublishing)
             }
             return sub.subscriptionId
         }
@@ -344,7 +344,7 @@ public class ZenOPCUA {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
-        if stopPubliscing { stopPublish() }
+        if stopPubliscing { stopPublishing() }
 
         let requestId = handler.nextMessageID()
         handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
@@ -392,25 +392,34 @@ public class ZenOPCUA {
     
     private var publisher: RepeatedTask? = nil
     private var milliseconds: Int64 = 0
-
-    public func startPublish() {
-        self.startPublish(milliseconds: milliseconds)
+    private var trace: Bool = false
+    let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.timeZone = TimeZone.current
+        return formatter
+    }()
+    
+    public func startPublishing() {
+        self.startPublishing(milliseconds: milliseconds)
     }
      
-    public func startPublish(milliseconds: Int64) {
+    public func startPublishing(milliseconds: Int64, trace: Bool = false) {
         self.milliseconds = milliseconds
+        self.trace = trace
         
-        stopPublish()
+        stopPublishing()
 
         guard let channel = channel else { return }
 
         let time = TimeAmount.milliseconds(milliseconds)
         publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
-            self.publish()
+            if trace { print("🔄 ZenOPCUA: Publish \(self.dateFormatter.string(from: Date()))") }
+            return self.publish()
         })
     }
 
-    public func stopPublish() {
+    public func stopPublishing() {
         if let pub = publisher {
             pub.cancel()
             publisher = nil

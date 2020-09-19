@@ -13,7 +13,8 @@ extension Int64: OPCUAEncodable{
             month: 1,
             day: 1)
         let start = Calendar.current.date(from: dstComponents)!
-        return Date(timeInterval: TimeInterval(self / 1000), since: start)
+        let timezone = Int64(3000 + TimeZone.current.secondsFromGMT())
+        return Date(timeInterval: TimeInterval(self / 10000000 + timezone), since: start)
     }
 
     var dateUtc: Date {
@@ -21,6 +22,6 @@ extension Int64: OPCUAEncodable{
             month: 1,
             day: 1)
         let start = Calendar.current.date(from: dstComponents)!
-        return Date(timeInterval: TimeInterval(self / 10000000), since: start)
+        return Date(timeInterval: TimeInterval(self / 10000000) + 3000, since: start)
     }
 }

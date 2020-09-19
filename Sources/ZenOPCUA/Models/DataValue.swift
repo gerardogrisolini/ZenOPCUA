@@ -98,12 +98,12 @@ public class DataValue: Promisable, OPCUAEncodable {
         }
         
         if encodingMask == 0x0d || encodingMask == 0x05 {
-            sourceTimestamp = Int64(bytes: bytes[index..<(index+8)]).date
+            sourceTimestamp = Int64(bytes: bytes[index..<(index+8)]).dateUtc
             index += 8
         }
         
         if encodingMask == 0x0d || encodingMask == 0x09 {
-            serverTimestamp = Int64(bytes: bytes[index..<(index+8)]).date
+            serverTimestamp = Int64(bytes: bytes[index..<(index+8)]).dateUtc
             index += 8
         }
     }

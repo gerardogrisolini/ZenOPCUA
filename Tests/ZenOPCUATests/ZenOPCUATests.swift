@@ -34,8 +34,9 @@ final class ZenOPCUATests: XCTestCase {
         
         opcua.onDataChanged = { data in
             data.forEach { dataChange in
+                print("")
                 dataChange.dataChangeNotification.monitoredItems.forEach { item in
-                    print("read: \(item.value.variant.value)")
+                    print("\(item.value.variant.value) - \(item.value.serverTimestamp)")
                 }
             }
         }
@@ -63,10 +64,10 @@ final class ZenOPCUATests: XCTestCase {
 //            print(readed.first?.variant.value ?? "nil")
 
             let subscription = Subscription(
-                requestedPubliscingInterval: 100,
+                requestedPubliscingInterval: 1000,
                 publishingEnabled: true
             )
-            let subId = try opcua.createSubscription(subscription: subscription).wait()
+            let subId = try opcua.createSubscription(subscription: subscription, startPublishing: true, tracePublishing: true).wait()
             let itemsToCreate: [MonitoredItemCreateRequest] = [
                 MonitoredItemCreateRequest(
                     itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
@@ -127,7 +128,7 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
              
-            sleep(60 * 10)
+            sleep(60 * 1)
             
             try opcua.disconnect(deleteSubscriptions: true).wait()
             
