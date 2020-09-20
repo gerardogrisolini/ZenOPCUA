@@ -104,10 +104,6 @@ public class ZenOPCUA {
             self.channel = nil
         }
     }
-
-    private func restartPublishing(error: Error) {
-
-    }
     
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true, sessionLifetime: UInt32 = 36000) -> EventLoopFuture<Void> {
         ZenOPCUA.reconnect = reconnect
