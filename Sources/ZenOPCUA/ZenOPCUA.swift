@@ -81,6 +81,7 @@ public class ZenOPCUA {
             // Enable SO_REUSEADDR.
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_KEEPALIVE), value: 1)
+            .channelOption(ChannelOptions.connectTimeout, value: TimeAmount.seconds(10))
             .channelInitializer { channel in
                 channel.pipeline.addHandlers(handlers)
             }

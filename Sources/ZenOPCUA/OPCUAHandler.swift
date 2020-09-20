@@ -46,7 +46,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     public func channelActive(context: ChannelHandlerContext) {
+        #if DEBUG
         print("OPCUA Client connected to \(context.remoteAddress!)")
+        #endif
         sendHello(context: context)        
     }
     
