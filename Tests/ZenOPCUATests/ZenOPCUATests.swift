@@ -68,7 +68,7 @@ final class ZenOPCUATests: XCTestCase {
                 requestedPubliscingInterval: 500,
                 publishingEnabled: true
             )
-            let subId = try opcua.createSubscription(subscription: subscription, startPublishing: true, tracePublishing: true).wait()
+            let subId = try opcua.createSubscription(subscription: subscription, startPublishing: true).wait()
             let itemsToCreate: [MonitoredItemCreateRequest] = [
 //                MonitoredItemCreateRequest(
 //                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
