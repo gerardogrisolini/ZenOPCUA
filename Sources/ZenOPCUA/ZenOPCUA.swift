@@ -125,7 +125,7 @@ public class ZenOPCUA {
             }
             if "\(error)".contains("\(StatusCodes.UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS)") {
                 let interval = self.milliseconds + 100
-                let info = OPCUAError.generic("🔄 ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
+                let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
                 self.onErrorCaught?(info)
                 self.startPublishing(milliseconds: interval).whenComplete { _ in }
             }
