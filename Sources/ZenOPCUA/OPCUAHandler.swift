@@ -119,7 +119,13 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .readResponse:
                 let response = ReadResponse(bytes: frame.body)
-                promises[response.responseHeader.requestHandle]?.succeed(response.results)
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    promises[response.responseHeader.requestHandle]?.succeed(response.results)
+                } else {
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    promises[response.responseHeader.requestHandle]!.fail(error)
+                    onErrorCaught(context: context, error: error)
+                }
             case .writeResponse:
                 let response = WriteResponse(bytes: frame.body)
                 promises[response.responseHeader.requestHandle]?.succeed(response.results)
