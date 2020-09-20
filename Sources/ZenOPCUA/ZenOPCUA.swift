@@ -417,7 +417,7 @@ public class ZenOPCUA {
             guard let channel = self.channel else { return }
 
             let time = TimeAmount.milliseconds(milliseconds)
-            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
+            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: TimeAmount.seconds(5), delay: time, { task -> EventLoopFuture<Void> in
                 //print("🔄 ZenOPCUA: publishing \(self.dateFormatter.string(from: Date()))")
                 return self.publish()
             })
