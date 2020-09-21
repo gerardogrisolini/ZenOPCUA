@@ -60,10 +60,23 @@ final class ZenOPCUATests: XCTestCase {
 //                print("deleteSubscription: \(result)")
 //            }
 
-//            let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20045))]
-//            let readed = try opcua.read(nodes: reads).wait()
-//            print(readed.first?.variant.value ?? "nil")
-
+            let reads = [
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20390)),
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20391)),
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20392)),
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20393)),
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20394)),
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20395)),
+                ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20396))
+            ]
+            
+            for i in 0...100 {
+                let readed = try opcua.read(nodes: reads).wait()
+                readed.forEach { dataValue in
+                    print("dataValue(\(i): \(dataValue.variant.value)")
+                }
+            }
+            
 //            let subscription = Subscription(
 //                requestedPubliscingInterval: 500,
 //                publishingEnabled: true
@@ -108,16 +121,16 @@ final class ZenOPCUATests: XCTestCase {
 //                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
 //            }
             
-            DispatchQueue.global().async {
-                sleep(5)
-                opcua.write(nodes: [
-                    WriteValue(
-                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20222),
-                        value: DataValue(variant: Variant(value: Int32(1)))
-                    )
-                ]).whenSuccess { writed in
-                    print("writed: 1")
-                }
+//            DispatchQueue.global().async {
+//                sleep(5)
+//                opcua.write(nodes: [
+//                    WriteValue(
+//                        nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20222),
+//                        value: DataValue(variant: Variant(value: Int32(1)))
+//                    )
+//                ]).whenSuccess { writed in
+//                    print("writed: 1")
+//                }
 //                sleep(7)
 //                opcua.write(nodes: [
 //                    WriteValue(
@@ -127,9 +140,9 @@ final class ZenOPCUATests: XCTestCase {
 //                ]).whenSuccess { writed in
 //                    print("writed: 2")
 //                }
-            }
+//            }
              
-            sleep(30 * 1)
+//            sleep(30 * 1)
             
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
             

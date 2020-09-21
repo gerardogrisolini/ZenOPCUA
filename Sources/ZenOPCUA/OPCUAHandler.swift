@@ -71,7 +71,12 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             //response.securityToken.revisedLifetime
             getEndpoints(context: context, response: response)
         case .error:
-            var error = UInt32(bytes: frame.body[0...3]).description
+            let code = UInt32(bytes: frame.body[0...3])
+            if let status = StatusCodes(rawValue: code) {
+                onErrorCaught(context: context, error: OPCUAError.code(status))
+                return
+            }
+            var error = code.description
             if frame.body.count > 8, let reason = String(bytes: frame.body[8...], encoding: .utf8) {
                 error = reason
             }
@@ -119,13 +124,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .readResponse:
                 let response = ReadResponse(bytes: frame.body)
-                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
-                    promises[response.responseHeader.requestHandle]?.succeed(response.results)
-                } else {
-                    let error = OPCUAError.code(response.responseHeader.serviceResult)
-                    promises[response.responseHeader.requestHandle]!.fail(error)
-                    onErrorCaught(context: context, error: error)
-                }
+                promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .writeResponse:
                 let response = WriteResponse(bytes: frame.body)
                 promises[response.responseHeader.requestHandle]?.succeed(response.results)
