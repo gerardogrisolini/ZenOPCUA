@@ -7,6 +7,7 @@
 
 import Foundation
 import NIO
+import NIOConcurrencyHelpers
 
 public enum OPCUAError : Error {
     case connectionError
@@ -21,7 +22,8 @@ public class ZenOPCUA {
     private let eventLoopGroup: EventLoopGroup
     private let handler = OPCUAHandler()
     private var channel: Channel? = nil
-
+    private var dispatchQueue = DispatchQueue(label: "writer",attributes:.concurrent)
+    
     public var onDataChanged: OPCUADataChanged? = nil
     public var onHandlerActivated: OPCUAHandlerChange? = nil
     public var onHandlerRemoved: OPCUAHandlerChange? = nil
@@ -76,12 +78,14 @@ public class ZenOPCUA {
             ByteToMessageHandler(OPCUAFrameDecoder()),
             handler
         ]
-        
+
         return ClientBootstrap(group: eventLoopGroup)
             // Enable SO_REUSEADDR.
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_KEEPALIVE), value: 1)
             .channelOption(ChannelOptions.connectTimeout, value: TimeAmount.seconds(5))
+            //.channelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+            //.channelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
             .channelInitializer { channel in
                 channel.pipeline.addHandlers(handlers)
             }
@@ -178,12 +182,12 @@ public class ZenOPCUA {
     }
 
     private func closeSession(deleteSubscriptions: Bool) -> EventLoopFuture<Promisable> {
-        guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        guard let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
         
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise()
+        handler.promises[requestId] = eventLoopGroup.next().makePromise()
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = CloseSessionRequest(
@@ -197,18 +201,18 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        channel.writeAndFlush(frame, promise: nil)
+        writeSyncronized(frame)
         
         return handler.promises[requestId]!.futureResult
     }
 
     public func browse(nodes: [BrowseDescription] = [BrowseDescription()]) -> EventLoopFuture<[BrowseResult]> {
-        guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        guard let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+        handler.promises[requestId] = eventLoopGroup.next().makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = BrowseRequest(
@@ -222,7 +226,7 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        channel.writeAndFlush(frame, promise: nil)
+        writeSyncronized(frame)
         
         return handler.promises[requestId]!.futureResult.map { promise -> [BrowseResult] in
             promise as! [BrowseResult]
@@ -230,12 +234,12 @@ public class ZenOPCUA {
     }
 
     public func read(nodes: [ReadValue]) -> EventLoopFuture<[DataValue]> {
-        guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        guard let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+        handler.promises[requestId] = eventLoopGroup.next().makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = ReadRequest(
@@ -248,21 +252,24 @@ public class ZenOPCUA {
             nodesToRead: nodes
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
-        
-        channel.writeAndFlush(frame, promise: nil)
-        
-        return handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
-            promise as! [DataValue]
+
+        let promise = eventLoopGroup.next().makePromise(of: Void.self)
+        writeSyncronized(frame, promise: promise)
+
+        return promise.futureResult.flatMap { () -> EventLoopFuture<[DataValue]> in
+            return self.handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
+                promise as! [DataValue]
+            }
         }
     }
 
     public func write(nodes: [WriteValue]) -> EventLoopFuture<[StatusCodes]> {
-        guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        guard let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+        handler.promises[requestId] = eventLoopGroup.next().makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = WriteRequest(
@@ -276,7 +283,7 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        channel.writeAndFlush(frame, promise: nil)
+        writeSyncronized(frame)
         
         return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
             promise as? [StatusCodes] ?? []
@@ -284,12 +291,12 @@ public class ZenOPCUA {
     }
 
     public func createSubscription(subscription: Subscription, startPublishing: Bool = true) -> EventLoopFuture<UInt32> {
-        guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        guard let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+        handler.promises[requestId] = eventLoopGroup.next().makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = CreateSubscriptionRequest(
@@ -303,7 +310,7 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        channel.writeAndFlush(frame, promise: nil)
+        writeSyncronized(frame)
         
         return handler.promises[requestId]!.futureResult.map { promise -> UInt32 in
             let sub = promise as! CreateSubscriptionResponse
@@ -315,12 +322,12 @@ public class ZenOPCUA {
     }
     
     public func createMonitoredItems(subscriptionId: UInt32, itemsToCreate: [MonitoredItemCreateRequest]) -> EventLoopFuture<[MonitoredItemCreateResult]> {
-        guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        guard let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+        handler.promises[requestId] = eventLoopGroup.next().makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = CreateMonitoredItemsRequest(
@@ -335,7 +342,7 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        channel.writeAndFlush(frame, promise: nil)
+        writeSyncronized(frame)
         
         return handler.promises[requestId]!.futureResult.map { promise -> [MonitoredItemCreateResult] in
             promise as! [MonitoredItemCreateResult]
@@ -343,14 +350,14 @@ public class ZenOPCUA {
     }
     
     public func deleteSubscriptions(subscriptionIds: [UInt32], stopPubliscing: Bool = true) -> EventLoopFuture<[StatusCodes]> {
-        guard let channel = channel, let session = handler.sessionActive else {
-            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        guard let session = handler.sessionActive else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
         if stopPubliscing { stopPublishing().whenComplete { _ in } }
 
         let requestId = handler.nextMessageID()
-        handler.promises[requestId] = channel.eventLoop.makePromise(of: Promisable.self)
+        handler.promises[requestId] = eventLoopGroup.next().makePromise(of: Promisable.self)
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = DeleteSubscriptionsRequest(
@@ -364,7 +371,7 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
         
-        channel.writeAndFlush(frame, promise: nil)
+        writeSyncronized(frame)
         
         return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
             promise as! [StatusCodes]
@@ -372,27 +379,53 @@ public class ZenOPCUA {
     }
     
     public func publish(subscriptionIds: [UInt32] = []) -> EventLoopFuture<Void> {
-        guard let channel = channel, let session = handler.sessionActive else {
+        guard let session = handler.sessionActive else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
-        let requestId = self.handler.nextMessageID()
+        let promise = eventLoopGroup.next().makePromise(of: Void.self)
 
-        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-        let body = PublishRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
-            sequenceNumber: requestId,
-            requestId: requestId,
-            requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
-            subscriptionAcknowledgements: subscriptionIds
-        )
-        let frame = OPCUAFrame(head: head, body: body.bytes)
+        if !isBusy {
+            let requestId = self.handler.nextMessageID()
 
-        return channel.writeAndFlush(frame)
+            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+            let body = PublishRequest(
+                secureChannelId: session.secureChannelId,
+                tokenId: session.tokenId,
+                sequenceNumber: requestId,
+                requestId: requestId,
+                requestHandle: requestId,
+                authenticationToken: session.authenticationToken,
+                subscriptionAcknowledgements: subscriptionIds
+            )
+            let frame = OPCUAFrame(head: head, body: body.bytes)
+
+            writeSyncronized(frame, promise: promise)
+        } else {
+            promise.succeed(())
+        }
+        
+        return promise.futureResult
     }
     
+    private func writeSyncronized(_ frame: OPCUAFrame, promise: EventLoopPromise<Void>? = nil) {
+        guard let channel = channel else { return }
+        lock.withLockVoid {
+            dispatchQueue.sync(flags: .barrier) {
+                let w = channel.writeAndFlush(frame)
+                w.whenSuccess { () in
+                    promise?.succeed(())
+                }
+                w.whenFailure { error in
+                    promise?.fail(error)
+                }
+                //Thread.sleep(forTimeInterval: 0.050)
+            }
+        }
+    }
+    
+    private let lock = Lock()
+    public var isBusy: Bool = false
     private var publisher: RepeatedTask? = nil
     private var milliseconds: Int64 = 0
     let dateFormatter: DateFormatter = {
@@ -413,9 +446,13 @@ public class ZenOPCUA {
             guard let channel = self.channel else { return }
 
             let time = TimeAmount.milliseconds(milliseconds)
-            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: TimeAmount.seconds(3), delay: time, { task -> EventLoopFuture<Void> in
-                //print("🔄 ZenOPCUA: publishing \(self.dateFormatter.string(from: Date()))")
-                return self.publish()
+            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
+                if self.handler.sessionActive != nil {
+                    print("🔄 ZenOPCUA: publishing \(self.dateFormatter.string(from: Date()))")
+                    return self.publish()
+                }
+                
+                return self.stopPublishing()
             })
         }
     }
