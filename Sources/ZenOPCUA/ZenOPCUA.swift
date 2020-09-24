@@ -22,7 +22,7 @@ public class ZenOPCUA {
     private let eventLoopGroup: EventLoopGroup
     private let handler = OPCUAHandler()
     private var channel: Channel? = nil
-    private var dispatchQueue = DispatchQueue(label: "writer",attributes:.concurrent)
+    private var dispatchQueue = DispatchQueue(label: "writer", attributes: .concurrent)
     
     public var onDataChanged: OPCUADataChanged? = nil
     public var onHandlerActivated: OPCUAHandlerChange? = nil
@@ -410,21 +410,20 @@ public class ZenOPCUA {
     
     private func writeSyncronized(_ frame: OPCUAFrame, promise: EventLoopPromise<Void>? = nil) {
         guard let channel = channel else { return }
-        lock.withLockVoid {
-            dispatchQueue.sync(flags: .barrier) {
-                let w = channel.writeAndFlush(frame)
-                w.whenSuccess { () in
+//        lock.withLockVoid {
+            dispatchQueue.async(flags: .barrier) {
+                do {
+                    try channel.writeAndFlush(frame).wait()
                     promise?.succeed(())
-                }
-                w.whenFailure { error in
+                    //Thread.sleep(forTimeInterval: 0.050)
+                } catch {
                     promise?.fail(error)
                 }
-                //Thread.sleep(forTimeInterval: 0.050)
             }
-        }
+//        }
     }
     
-    private let lock = Lock()
+//    private let lock = Lock()
     public var isBusy: Bool = false
     private var publisher: RepeatedTask? = nil
     private var milliseconds: Int64 = 0

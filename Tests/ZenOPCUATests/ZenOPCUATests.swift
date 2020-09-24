@@ -113,14 +113,14 @@ final class ZenOPCUATests: XCTestCase {
             ]
             
             DispatchQueue.global().async {
-                opcua.isBusy = true
-                for i in 0...1000 {
+                //opcua.isBusy = true
+                for i in 0...10000 {
                     let readed = try! opcua.read(nodes: reads).wait()
                     readed.forEach { dataValue in
                         print("dataValue(\(i): \(dataValue.variant.value)")
                     }
                 }
-                opcua.isBusy = false
+                //opcua.isBusy = false
             }
             
 //            DispatchQueue.global().async {
@@ -144,7 +144,7 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
              
-            sleep(10)
+            sleep(100)
             
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
             
