@@ -22,7 +22,7 @@ public class ZenOPCUA {
     private let eventLoopGroup: EventLoopGroup
     private let handler = OPCUAHandler()
     private var channel: Channel? = nil
-    private var dispatchQueue = DispatchQueue(label: "writer", attributes: .concurrent)
+    private let dispatchQueue = DispatchQueue(label: "writer", attributes: .concurrent)
     
     public var onDataChanged: OPCUADataChanged? = nil
     public var onHandlerActivated: OPCUAHandlerChange? = nil
@@ -253,13 +253,10 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
 
-        let promise = eventLoopGroup.next().makePromise(of: Void.self)
-        writeSyncronized(frame, promise: promise)
+        writeSyncronized(frame)
 
-        return promise.futureResult.flatMap { () -> EventLoopFuture<[DataValue]> in
-            return self.handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
-                promise as! [DataValue]
-            }
+        return handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
+            promise as! [DataValue]
         }
     }
 
