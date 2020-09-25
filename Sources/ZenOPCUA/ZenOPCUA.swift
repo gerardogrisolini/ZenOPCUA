@@ -283,7 +283,7 @@ public class ZenOPCUA {
         writeSyncronized(frame)
         
         return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
-            promise as? [StatusCodes] ?? []
+            promise as! [StatusCodes]
         }
     }
 
