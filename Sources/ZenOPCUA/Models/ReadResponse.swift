@@ -22,18 +22,20 @@ class ReadResponse: MessageBase, OPCUADecodable {
         
         var count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
-        for _ in 0..<count {
-            if bytes[index] == 0x02 {
-                index += 1
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                print("Error: \(len) - BadNodeIdUnknow")
-                index += 4
-            } else {
-                let data = DataValue(bytes: bytes, index: &index)
-                results.append(data)
+        if count < UInt32.max {
+            for _ in 0..<count {
+                if bytes[index] == 0x02 {
+                    index += 1
+                    len = UInt32(bytes: bytes[index..<(index+4)])
+                    print("Error: \(len) - BadNodeIdUnknow")
+                    index += 4
+                } else {
+                    let data = DataValue(bytes: bytes, index: &index)
+                    results.append(data)
+                }
             }
         }
-
+        
         count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {

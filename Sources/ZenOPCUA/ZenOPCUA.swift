@@ -74,8 +74,8 @@ public class ZenOPCUA {
         let server = getHostFromEndpoint()
 
         let handlers: [ChannelHandler] = [
-            MessageToByteHandler(OPCUAFrameEncoder()),
             ByteToMessageHandler(OPCUAFrameDecoder()),
+            MessageToByteHandler(OPCUAFrameEncoder()),
             handler
         ]
 
@@ -84,8 +84,8 @@ public class ZenOPCUA {
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_KEEPALIVE), value: 1)
             .channelOption(ChannelOptions.connectTimeout, value: TimeAmount.seconds(5))
-            //.channelOption(ChannelOptions.maxMessagesPerRead, value: 16)
-            //.channelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+//            .channelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+//            .channelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
             .channelInitializer { channel in
                 channel.pipeline.addHandlers(handlers)
             }
@@ -411,17 +411,16 @@ public class ZenOPCUA {
     
     private func writeSyncronized(_ frame: OPCUAFrame, promise: EventLoopPromise<Void>? = nil) {
         guard let channel = channel else { return }
-//        lock.withLockVoid {
+        //lock.withLockVoid {
             dispatchQueue.async(flags: .barrier) {
                 do {
                     try channel.writeAndFlush(frame).wait()
                     promise?.succeed(())
-                    //Thread.sleep(forTimeInterval: 0.050)
                 } catch {
                     promise?.fail(error)
                 }
             }
-//        }
+        //}
     }
     
 //    private let lock = Lock()
