@@ -255,8 +255,10 @@ public class ZenOPCUA {
 
         writeSyncronized(frame)
 
+        print("ZenOPCUA: in \(requestId)")
         return handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
-            promise as! [DataValue]
+            print("ZenOPCUA: out \(requestId)")
+            return promise as! [DataValue]
         }
     }
 
