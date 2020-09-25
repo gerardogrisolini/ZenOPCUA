@@ -255,9 +255,9 @@ public class ZenOPCUA {
 
         writeSyncronized(frame)
 
-        print("ZenOPCUA: in \(requestId)")
+        print("ZenOPCUA: read in \(requestId)")
         return handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
-            print("ZenOPCUA: out \(requestId)")
+            print("ZenOPCUA: read out \(requestId)")
             return promise as! [DataValue]
         }
     }
@@ -284,8 +284,10 @@ public class ZenOPCUA {
         
         writeSyncronized(frame)
         
+        print("ZenOPCUA: write in \(requestId)")
         return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
-            promise as! [StatusCodes]
+            print("ZenOPCUA: write out \(requestId)")
+            return promise as! [StatusCodes]
         }
     }
 
