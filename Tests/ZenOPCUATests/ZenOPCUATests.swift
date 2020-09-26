@@ -60,47 +60,45 @@ final class ZenOPCUATests: XCTestCase {
 //                print("deleteSubscription: \(result)")
 //            }
             
-//            let subscription = Subscription(
-//                requestedPubliscingInterval: 100,
-//                publishingEnabled: true
-//            )
-//            let subId = try opcua.createSubscription(subscription: subscription, startPublishing: true).wait()
-//            let itemsToCreate: [MonitoredItemCreateRequest] = [
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Expression")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Random")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 3, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sawtooth")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 4, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sinusoid")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 5, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Square")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 6, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 7, samplingInterval: 250)
-//                )
-//            ]
-//            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
-//            results.forEach { result in
-//                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
-//            }
-            
-//            sleep(5)
+            let subscription = Subscription(
+                requestedPubliscingInterval: 100,
+                publishingEnabled: true
+            )
+            let subId = try opcua.createSubscription(subscription: subscription, startPublishing: true).wait()
+            let itemsToCreate: [MonitoredItemCreateRequest] = [
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
+                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Expression")),
+                    requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Random")),
+                    requestedParameters: MonitoringParameters(clientHandle: 3, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sawtooth")),
+                    requestedParameters: MonitoringParameters(clientHandle: 4, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sinusoid")),
+                    requestedParameters: MonitoringParameters(clientHandle: 5, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Square")),
+                    requestedParameters: MonitoringParameters(clientHandle: 6, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle")),
+                    requestedParameters: MonitoringParameters(clientHandle: 7, samplingInterval: 250)
+                )
+            ]
+            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
+            results.forEach { result in
+                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+            }
             
             let reads = [
                 ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
@@ -123,7 +121,7 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 
                 var futures = [EventLoopFuture<[DataValue]>]()
-                for _ in 0...2000 {
+                for _ in 0...100 {
                     futures.append(opcua.read(nodes: reads))
                 }
                 let readeds: EventLoopFuture<[[DataValue]]> = EventLoopFuture.whenAllSucceed(futures, on: self.eventLoopGroup.next())

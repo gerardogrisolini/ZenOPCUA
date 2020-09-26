@@ -84,8 +84,8 @@ public class ZenOPCUA {
             .channelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_KEEPALIVE), value: 1)
             .channelOption(ChannelOptions.connectTimeout, value: TimeAmount.seconds(5))
-            .channelOption(ChannelOptions.maxMessagesPerRead, value: 16)
-            .channelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+//            .channelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+//            .channelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
             .channelInitializer { channel in
                 channel.pipeline.addHandlers(handlers)
             }
@@ -382,28 +382,23 @@ public class ZenOPCUA {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
+        let requestId = self.handler.nextMessageID()
+
+        let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+        let body = PublishRequest(
+            secureChannelId: session.secureChannelId,
+            tokenId: session.tokenId,
+            sequenceNumber: requestId,
+            requestId: requestId,
+            requestHandle: requestId,
+            authenticationToken: session.authenticationToken,
+            subscriptionAcknowledgements: subscriptionIds
+        )
+        let frame = OPCUAFrame(head: head, body: body.bytes)
+
         let promise = eventLoopGroup.next().makePromise(of: Void.self)
+        writeSyncronized(frame, promise: promise)
 
-        if !isBusy {
-            let requestId = self.handler.nextMessageID()
-
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = PublishRequest(
-                secureChannelId: session.secureChannelId,
-                tokenId: session.tokenId,
-                sequenceNumber: requestId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: session.authenticationToken,
-                subscriptionAcknowledgements: subscriptionIds
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-
-            writeSyncronized(frame, promise: promise)
-        } else {
-            promise.succeed(())
-        }
-        
         return promise.futureResult
     }
     
