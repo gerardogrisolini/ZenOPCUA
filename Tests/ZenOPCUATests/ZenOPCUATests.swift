@@ -100,7 +100,7 @@ final class ZenOPCUATests: XCTestCase {
 //                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
 //            }
             
-            sleep(5)
+//            sleep(5)
             
             let reads = [
                 ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
@@ -112,30 +112,35 @@ final class ZenOPCUATests: XCTestCase {
                 ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle"))
             ]
             
-//            DispatchQueue.global().async { [self] in
-                //opcua.isBusy = true
-                var futures = [EventLoopFuture<[DataValue]>]()
-                for _ in 0...5 {
+//            DispatchQueue.global().async {
+//                opcua.isBusy = true
+
+//                for i in 0...5 {
 //                    let readed = try! opcua.read(nodes: reads).wait()
 //                    readed.forEach { dataValue in
-//                        print("dataValue(\(i): \(dataValue.variant.value)")
+//                        print("dataValue sync(\(i): \(dataValue.variant.value)")
 //                    }
-                    
+//                }
+
+                var futures = [EventLoopFuture<[DataValue]>]()
+                for _ in 0...2000 {
                     futures.append(opcua.read(nodes: reads))
                 }
-                
-                let readeds: EventLoopFuture<[[DataValue]]> = EventLoopFuture.whenAllSucceed(futures, on: eventLoopGroup.next())
+                let readeds: EventLoopFuture<[[DataValue]]> = EventLoopFuture.whenAllSucceed(futures, on: self.eventLoopGroup.next())
                 readeds.whenSuccess { readeds in
+                    var n = 0
                     for readed in readeds {
+                        n += 1
                         readed.forEach { dataValue in
-                            print("dataValue = \(dataValue.variant.value)")
+                            print("dataValue async(\(n)): \(dataValue.variant.value)")
                         }
                     }
                 }
                 readeds.whenFailure { error in
                     print("dataValue error = \(error)")
                 }
-                //opcua.isBusy = false
+                
+//                opcua.isBusy = false
 //            }
             
 //            DispatchQueue.global().async {
@@ -159,7 +164,7 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
              
-            //sleep(5)
+            sleep(10)
             
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
             

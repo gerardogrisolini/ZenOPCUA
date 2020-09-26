@@ -16,13 +16,12 @@ public enum OPCUAError : Error {
     case generic(_ text: String)
 }
 
-
 public class ZenOPCUA {
 
+    private let dispatchQueue = DispatchQueue(label: "writer", attributes: .concurrent)
     private let eventLoopGroup: EventLoopGroup
     private let handler = OPCUAHandler()
     private var channel: Channel? = nil
-    private let dispatchQueue = DispatchQueue(label: "writer", attributes: .concurrent)
     
     public var onDataChanged: OPCUADataChanged? = nil
     public var onHandlerActivated: OPCUAHandlerChange? = nil
@@ -82,10 +81,11 @@ public class ZenOPCUA {
         return ClientBootstrap(group: eventLoopGroup)
             // Enable SO_REUSEADDR.
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .channelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_KEEPALIVE), value: 1)
             .channelOption(ChannelOptions.connectTimeout, value: TimeAmount.seconds(5))
-//            .channelOption(ChannelOptions.maxMessagesPerRead, value: 16)
-//            .channelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
+            .channelOption(ChannelOptions.maxMessagesPerRead, value: 16)
+            .channelOption(ChannelOptions.recvAllocator, value: AdaptiveRecvByteBufferAllocator())
             .channelInitializer { channel in
                 channel.pipeline.addHandlers(handlers)
             }
@@ -151,18 +151,20 @@ public class ZenOPCUA {
             }
         }
         
-        return start().flatMap { () -> EventLoopFuture<Void> in
-            if self.handler.promises.index(forKey: 0) == nil {
-                self.handler.promises[0] = self.channel!.eventLoop.makePromise()
+        return start()
+            .flatMap { () -> EventLoopFuture<Void> in
+                if self.handler.promises.index(forKey: 0) == nil {
+                    self.handler.promises[0] = self.channel!.eventLoop.makePromise()
+                }
+                return self.handler.promises[0]!.futureResult.map { item -> Void in
+                    ()
+                }
             }
-            return self.handler.promises[0]!.futureResult.map { item -> Void in
-                ()
+            .flatMapError { error -> EventLoopFuture<Void> in
+                OPCUAHandler.isAcknowledge = false
+                OPCUAHandler.isAcknowledgeSecure = false
+                return self.eventLoopGroup.next().makeFailedFuture(error)
             }
-        }.flatMapError { error -> EventLoopFuture<Void> in
-            OPCUAHandler.isAcknowledge = false
-            OPCUAHandler.isAcknowledgeSecure = false
-            return self.eventLoopGroup.next().makeFailedFuture(error)
-        }
     }
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
@@ -255,10 +257,8 @@ public class ZenOPCUA {
 
         writeSyncronized(frame)
 
-        print("ZenOPCUA: read in \(requestId)")
         return handler.promises[requestId]!.futureResult.map { promise -> [DataValue] in
-            print("ZenOPCUA: read out \(requestId)")
-            return promise as! [DataValue]
+            promise as! [DataValue]
         }
     }
 
@@ -284,9 +284,7 @@ public class ZenOPCUA {
         
         writeSyncronized(frame)
         
-        print("ZenOPCUA: write in \(requestId)")
         return handler.promises[requestId]!.futureResult.map { promise -> [StatusCodes] in
-            print("ZenOPCUA: write out \(requestId)")
             return promise as! [StatusCodes]
         }
     }
@@ -411,20 +409,17 @@ public class ZenOPCUA {
     
     private func writeSyncronized(_ frame: OPCUAFrame, promise: EventLoopPromise<Void>? = nil) {
         guard let channel = channel else { return }
-        //lock.withLockVoid {
-            dispatchQueue.async(flags: .barrier) {
-                do {
-                    try channel.writeAndFlush(frame).wait()
-                    promise?.succeed(())
-                } catch {
-                    promise?.fail(error)
-                }
+
+        dispatchQueue.async(flags: .barrier) {
+            do {
+                try channel.writeAndFlush(frame).wait()
+                promise?.succeed(())
+            } catch {
+                promise?.fail(error)
             }
-        //}
+        }
     }
     
-//    private let lock = Lock()
-    public var isBusy: Bool = false
     private var publisher: RepeatedTask? = nil
     private var milliseconds: Int64 = 0
     #if DEBUG
