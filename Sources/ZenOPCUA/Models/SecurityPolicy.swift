@@ -221,12 +221,17 @@ class SecurityPolicy {
         if let certificateFile = certificate, let privateKeyFile = privateKey {
             do {
                 let certificateDate = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
-                self.loadCertificateFromPem(data: certificateDate)
-                
+                let certData = dataFromPEM(data: certificateDate)
+                clientCertificate = certData
+            } catch {
+                print("clientCertificate: \(error)")
+            }
+
+            do {
                 let privateKeyData = try Data(contentsOf: URL(fileURLWithPath: privateKeyFile))
                 self.clientPrivateKey = try CryptorRSA.createPrivateKey(with: privateKeyData)
             } catch {
-                print("loadCertificateAndPrivateKey: \(error)")
+                print("clientPrivateKey: \(error)")
             }
         }
     }
@@ -235,12 +240,16 @@ class SecurityPolicy {
         do {
             clientPublicKey = try CryptorRSA.createPublicKey(extractingFrom: clientCertificate)
             localCertificateThumbprint = Data(Insecure.SHA1.hash(data: clientCertificate))
+        } catch {
+            print("clientPublicKey: \(error)")
+        }
 
+        do {
             let data = Data(OPCUAHandler.endpoint.serverCertificate)
             serverPublicKey = try CryptorRSA.createPublicKey(extractingFrom: data)
             remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
         } catch {
-            print("loadPublicKeys: \(error)")
+            print("serverPublicKey: \(error)")
         }
     }
     
@@ -248,11 +257,6 @@ class SecurityPolicy {
         let rows = String(data: data, encoding: .ascii)!.split(separator: "\n")
         let joined = rows[1...(rows.count - 2)].joined().data(using: .ascii)!
         return Data(base64Encoded: joined, options: .ignoreUnknownCharacters)!
-    }
-    
-    func loadCertificateFromPem(data: Data) {
-        let certData = dataFromPEM(data: data)
-        clientCertificate = certData
     }
     
     func sign(dataToSign: Data) throws -> Data {
@@ -313,7 +317,7 @@ class SecurityPolicy {
     }
     
     func getAsymmetricKeyLength(publicKey: CryptorRSA.PublicKey) -> Int {
-        return 256 //SecKeyGetBlockSize(publicKey) * 8
+        return 256 * 8 //SecKeyGetBlockSize(publicKey) * 8
     }
 
     func getAsymmetricSignatureSize() -> Int {
