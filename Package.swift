@@ -9,22 +9,20 @@ let package = Package(
         .macOS(.v10_15)
     ],
     products: [
-        .library(name: "ZenOPCUA", targets: ["ZenOPCUA"]),
-        .executable(name: "ZenOPCUA.bin", targets: ["ZenOPCUA.bin"])
+        .library(name: "ZenOPCUA", targets: ["ZenOPCUA"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
-//        .package(url: "https://github.com/apple/swift-crypto.git", .branch("master"))
+//        .package(url: "https://github.com/apple/swift-crypto.git", .branch("master")),
 //        .package(url: "https://github.com/IBM-Swift/BlueRSA.git", .branch("master"))
     ],
     targets: [
         .target(name: "ZenOPCUA", dependencies: [
             "NIO",
-//            "CryptorRSA",
-//            "Crypto"
+//            "Crypto",
+//            "CryptorRSA"
         ]),
-        .target(name: "ZenOPCUA.bin", dependencies: ["ZenOPCUA"]),
-        .testTarget(name: "ZenOPCUATests", dependencies: ["ZenOPCUA"]),
+        .testTarget(name: "ZenOPCUATests", dependencies: ["ZenOPCUA"])
     ],
     swiftLanguageVersions: [.v5]
 )
