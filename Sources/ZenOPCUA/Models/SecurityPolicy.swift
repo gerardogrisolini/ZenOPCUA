@@ -209,39 +209,39 @@ class SecurityPolicy {
         }
     }
 
-    private static func generateNonce(_ lenght: Int) throws -> Data {
-//        let nonce = NSMutableData(length: lenght)!
-//        let result = SecRandomCopyBytes(kSecRandomDefault, nonce.length, nonce.mutableBytes)
-//        if result == errSecSuccess {
-//            return nonce as Data
-//        } else {
-//            throw OPCUAError.generic("unsupported")
-//        }
-        
-        return Data()
+    private static func generateNonce(_ lenght: Int) -> Data {
+        return Data(repeating: UInt8.random(in: 0...255), count: lenght)
     }
 
-    func loadClientCertificate(certificate: String? = nil, privateKey: String? = nil) throws {
+    func loadCertificateAndPrivateKey(certificate: String? = nil, privateKey: String? = nil) {
         self.clientNonce = securityPolicyUri.securityPolicy != .none
-            ? try SecurityPolicy.generateNonce(32)
+            ? SecurityPolicy.generateNonce(32)
             : Data()
 
         if let certificateFile = certificate, let privateKeyFile = privateKey {
-            let certificateDate = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
-            self.loadCertificateFromPem(data: certificateDate)
-            
-            let privateKeyData = try Data(contentsOf: URL(fileURLWithPath: privateKeyFile))
-            self.clientPrivateKey = try CryptorRSA.createPrivateKey(with: privateKeyData)
+            do {
+                let certificateDate = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
+                self.loadCertificateFromPem(data: certificateDate)
+                
+                let privateKeyData = try Data(contentsOf: URL(fileURLWithPath: privateKeyFile))
+                self.clientPrivateKey = try CryptorRSA.createPrivateKey(with: privateKeyData)
+            } catch {
+                print("loadCertificateAndPrivateKey: \(error)")
+            }
         }
     }
 
-    func loadServerCertificate() throws {
-        let data = Data(OPCUAHandler.endpoint.serverCertificate)
-        serverPublicKey = try CryptorRSA.createPublicKey(extractingFrom: data)
-        remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
+    func loadPublicKeys() {
+        do {
+            clientPublicKey = try CryptorRSA.createPublicKey(extractingFrom: clientCertificate)
+            localCertificateThumbprint = Data(Insecure.SHA1.hash(data: clientCertificate))
 
-        clientPublicKey = try CryptorRSA.createPublicKey(extractingFrom: clientCertificate)
-        localCertificateThumbprint = Data(Insecure.SHA1.hash(data: clientCertificate))
+            let data = Data(OPCUAHandler.endpoint.serverCertificate)
+            serverPublicKey = try CryptorRSA.createPublicKey(extractingFrom: data)
+            remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
+        } catch {
+            print("loadPublicKeys: \(error)")
+        }
     }
     
     func dataFromPEM(data: Data) -> Data {
@@ -268,11 +268,11 @@ class SecurityPolicy {
 
         let myPlaintext = CryptorRSA.createPlaintext(with: dataToSign)
         let signedData = try myPlaintext.signed(with: clientPrivateKey!, algorithm: algorithm, usePSS: true)
-        if try myPlaintext.verify(with: clientPublicKey!, signature: signedData!, algorithm: algorithm) {
-            print("Signature verified")
-        } else {
-            print("Signature Verification Failed")
-        }
+//        if try myPlaintext.verify(with: clientPublicKey!, signature: signedData!, algorithm: algorithm) {
+//            print("Signature verified")
+//        } else {
+//            print("Signature Verification Failed")
+//        }
         return signedData!.data
     }
 

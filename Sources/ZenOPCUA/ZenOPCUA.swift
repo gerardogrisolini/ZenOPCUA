@@ -44,7 +44,7 @@ public class ZenOPCUA {
         handler.applicationName = applicationName
         OPCUAHandler.messageSecurityMode = messageSecurityMode
         let security = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
-        try? security.loadClientCertificate(certificate: certificate, privateKey: privateKey)
+        security.loadCertificateAndPrivateKey(certificate: certificate, privateKey: privateKey)
         OPCUAHandler.securityPolicy = security
     }
     

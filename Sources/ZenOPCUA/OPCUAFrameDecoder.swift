@@ -9,7 +9,7 @@ import NIO
 
 final class OPCUAFrameDecoder: ByteToMessageDecoder {
     public typealias InboundOut = OPCUAFrame
-    private var fragments: ByteBuffer? = nil
+    private var parts: ByteBuffer? = nil
     
     public func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState  {
         guard buffer.readableBytes >= 8 else { return .needMoreData }
@@ -18,34 +18,34 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         guard buffer.readableBytes >= lenght else { return .needMoreData }
 
         if let chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!), chunkType == .part {
-            if fragments == nil {
-                fragments = context.channel.allocator.buffer(capacity: lenght)
+            if parts == nil {
+                parts = context.channel.allocator.buffer(capacity: lenght)
             }
 
             let count = buffer.readableBytes / lenght
-            var index = 0
             for _ in 0..<count {
-                let b = buffer.getBytes(at: index, length: lenght)!
-                fragments!.writeBytes(b[24...])
-                index += lenght
+                let b = buffer.getBytes(at: buffer.readerIndex, length: lenght)!
+                parts!.writeBytes(b[24...])
+                buffer.moveReaderIndex(forwardBy: lenght)
             }
 
-            let bytes = buffer.getBytes(at: index, length: buffer.readableBytes - index)!
-            buffer.clear()
-            buffer.writeBytes(bytes)
-
-            guard bytes.count > 0, ChunkTypes(rawValue: String(bytes: [bytes[3]], encoding: .utf8)!)! == .frame else {
-                return .needMoreData
-            }
+            let chunkType = buffer.getString(at: buffer.readerIndex + 3, length: 1)!
+            
+            guard ChunkTypes(rawValue: chunkType)! == .frame else { return .needMoreData }
         }
 
-        if var f = fragments {
-            f.writeBytes(buffer.getBytes(at: 24, length: buffer.readableBytes - 24)!)
-            let bytes = buffer.getBytes(at: 0, length: 24)!
+        if var f = parts {
+            f.writeBytes(buffer.getBytes(at: buffer.readerIndex + 24, length: buffer.readableBytes - 24)!)
+            let head = buffer.getBytes(at: buffer.readerIndex, length: 4)!
+            let size = UInt32(f.readableBytes + 24).bytes
+            let header = buffer.getBytes(at: buffer.readerIndex + 8, length: 16)!
+            
             buffer.clear()
-            buffer.writeBytes(bytes)
+            buffer.writeBytes(head)
+            buffer.writeBytes(size)
+            buffer.writeBytes(header)
             buffer.writeBuffer(&f)
-            fragments = nil
+            parts = nil
         }
         
         if let frame = parse(buffer: &buffer) {

@@ -269,7 +269,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         }
         
         OPCUAHandler.endpoint = endpoint
-        try? OPCUAHandler.securityPolicy.loadServerCertificate()
+        OPCUAHandler.securityPolicy.loadPublicKeys()
 
         let requestId = nextMessageID()
         let frame: OPCUAFrame
