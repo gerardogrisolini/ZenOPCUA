@@ -17,41 +17,39 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         let lenght = UInt32(bytes: buffer.getBytes(at: buffer.readerIndex + 4, length: 4)!).int
         guard buffer.readableBytes >= lenght else { return .needMoreData }
 
-//        if let chunkType = ChunkTypes(rawValue: buffer.getString(at: 3, length: 1)!), chunkType == .part {
-//            if fragments == nil {
-//                fragments = context.channel.allocator.buffer(capacity: lenght)
-//            }
-//
-//            let count = buffer.readableBytes / lenght
-//            var index = 0
-//            for _ in 0..<count {
-//                let b = buffer.getBytes(at: index, length: lenght)!
-//                fragments!.writeBytes(b[24...])
-//                index += lenght
-//            }
-//
-//            let bytes = buffer.getBytes(at: index, length: buffer.readableBytes - index)!
-//            buffer.clear()
-//            buffer.writeBytes(bytes)
-//
-//            guard bytes.count > 0, ChunkTypes(rawValue: String(bytes: [bytes[3]], encoding: .utf8)!)! == .frame else {
-//                return .needMoreData
-//            }
-//        }
+        if let chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!), chunkType == .part {
+            if fragments == nil {
+                fragments = context.channel.allocator.buffer(capacity: lenght)
+            }
 
-//        if var f = fragments {
-//            f.writeBytes(buffer.getBytes(at: 24, length: buffer.readableBytes - 24)!)
-//            let bytes = buffer.getBytes(at: 0, length: 24)!
-//            buffer.clear()
-//            buffer.writeBytes(bytes)
-//            buffer.writeBuffer(&f)
-//            f.clear()
-//            fragments = nil
-//        }
+            let count = buffer.readableBytes / lenght
+            var index = 0
+            for _ in 0..<count {
+                let b = buffer.getBytes(at: index, length: lenght)!
+                fragments!.writeBytes(b[24...])
+                index += lenght
+            }
+
+            let bytes = buffer.getBytes(at: index, length: buffer.readableBytes - index)!
+            buffer.clear()
+            buffer.writeBytes(bytes)
+
+            guard bytes.count > 0, ChunkTypes(rawValue: String(bytes: [bytes[3]], encoding: .utf8)!)! == .frame else {
+                return .needMoreData
+            }
+        }
+
+        if var f = fragments {
+            f.writeBytes(buffer.getBytes(at: 24, length: buffer.readableBytes - 24)!)
+            let bytes = buffer.getBytes(at: 0, length: 24)!
+            buffer.clear()
+            buffer.writeBytes(bytes)
+            buffer.writeBuffer(&f)
+            fragments = nil
+        }
         
         if let frame = parse(buffer: &buffer) {
             context.fireChannelRead(self.wrapInboundOut(frame))
-            //buffer.clear()
             return .continue
         }
 
@@ -65,7 +63,8 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     }
     
     public func parse(buffer: inout ByteBuffer) -> OPCUAFrame? {
-        guard let type = MessageTypes(rawValue: buffer.getString(at: buffer.readerIndex, length: 3)!) else { return nil }
+        guard let messageType = buffer.getString(at: buffer.readerIndex, length: 3),
+              let type = MessageTypes(rawValue: messageType) else { return nil }
         
         var head = OPCUAFrameHead()
         head.messageType = type
