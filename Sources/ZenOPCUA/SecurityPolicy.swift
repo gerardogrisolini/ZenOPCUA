@@ -221,6 +221,7 @@ class SecurityPolicy {
         if let certificateFile = certificate, let privateKeyFile = privateKey {
             do {
                 let certificateDate = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
+                //clientCertificate = try CryptorRSA.stripX509CertificateHeader(for: certificateDate)
                 clientCertificate = dataFromPEM(data: certificateDate)
                 localCertificateThumbprint = Data(Insecure.SHA1.hash(data: clientCertificate))
                 clientPublicKey = try CryptorRSA.createPublicKey(extractingFrom: certificateDate)
@@ -236,15 +237,33 @@ class SecurityPolicy {
     func loadServerCertificate() {
         do {
             let data = Data(OPCUAHandler.endpoint.serverCertificate)
-            let pemString = CryptorRSA.convertDerToPem(from: data, type: .publicType)
-            let ascii = pemString.data(using: .ascii)!
-            serverPublicKey = try CryptorRSA.createPublicKey(extractingFrom: ascii)
-            remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
+             remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
+//            let pemString = CryptorRSA.convertDerToPem(from: data, type: .publicType)
+//            let pem = pemString.data(using: .utf8)!
+//            serverPublicKey = try CryptorRSA.createPublicKey(with: pem)
+            print("serverCertificate: \(data.count)")
+            serverPublicKey = try CryptorRSA.createPublicKey(extractingFrom: data.)
         } catch {
             print("loadServerCertificate: \(error)")
         }
     }
 
+    func publicKeyFromData(certificate: Data) -> SecKey? {
+        var publicKey: SecKey?
+        var trust: SecTrust?
+
+        guard let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData) else { return nil }
+
+        let policy = SecPolicyCreateBasicX509()
+        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
+
+        if status == errSecSuccess, let trust = trust {
+            publicKey = SecTrustCopyPublicKey(trust)!
+        }
+
+        return publicKey
+    }
+    
     fileprivate func dataFromPEM(data: Data) -> Data {
         let rows = String(data: data, encoding: .ascii)!.split(separator: "\n")
         let joined = rows[1...(rows.count - 2)].joined().data(using: .ascii)!
@@ -263,12 +282,11 @@ class SecurityPolicy {
         }
 
         let myPlaintext = CryptorRSA.createPlaintext(with: dataToSign)
-        let signedData = try myPlaintext.signed(with: clientPrivateKey!, algorithm: algorithm, usePSS: true)
-//        if try myPlaintext.verify(with: clientPublicKey!, signature: signedData!, algorithm: algorithm) {
-//            print("Signature verified")
-//        } else {
-//            print("Signature Verification Failed")
-//        }
+        let signedData = try myPlaintext.signed(with: clientPrivateKey!, algorithm: algorithm)
+        if !(try myPlaintext.verify(with: clientPublicKey!, signature: signedData!, algorithm: algorithm)) {
+            throw OPCUAError.generic("Signature Verification Failed")
+        }
+
         return signedData!.data
     }
 
@@ -276,13 +294,19 @@ class SecurityPolicy {
         let algorithm: Data.Algorithm
         switch asymmetricEncryptionAlgorithm {
         case .rsaOaepSha1:
-            algorithm = .sha1
+            algorithm = .sha256
         case .rsaOaepSha256:
             algorithm = .sha256
         default:
             algorithm = .gcm
         }
-
+        
+        #if os(macOS)
+        guard dataToEncrypt.count < 256-134 else {
+            throw OPCUAError.generic("data exceeds the allowed length")
+        }
+        #endif
+        
         let myPlaintext = CryptorRSA.createPlaintext(with: Data(dataToEncrypt))
         let encryptedData = try myPlaintext.encrypted(with: serverPublicKey!, algorithm: algorithm)
         return [UInt8](encryptedData!.data)
