@@ -44,7 +44,7 @@ public class ZenOPCUA {
         handler.applicationName = applicationName
         OPCUAHandler.messageSecurityMode = messageSecurityMode
         let security = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
-        security.loadCertificateAndPrivateKey(certificate: certificate, privateKey: privateKey)
+        security.loadClientCertificate(certificate: certificate, privateKey: privateKey)
         OPCUAHandler.securityPolicy = security
     }
     
@@ -102,6 +102,13 @@ public class ZenOPCUA {
         guard let channel = channel else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
+
+        self.handler.sessionActive = nil
+
+        if !OPCUAHandler.isAcknowledgeSecure {
+            self.handler.resetMessageID()
+            OPCUAHandler.endpoint = EndpointDescription()
+        }
         
         channel.flush()
         return channel.close(mode: .all).map { () -> () in
@@ -135,12 +142,6 @@ public class ZenOPCUA {
             if let onHandlerRemoved = self.onHandlerRemoved {
                 onHandlerRemoved()
             }
-              
-            //TODO: fixed .renew error resetting session
-            self.handler.resetMessageID()
-            self.handler.sessionActive = nil
-            OPCUAHandler.endpoint = EndpointDescription()
-            // end fix
             
             if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
@@ -169,7 +170,7 @@ public class ZenOPCUA {
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
         ZenOPCUA.reconnect = false
-        
+
         if deleteSubscriptions {
             return stopPublishing().flatMap { () -> EventLoopFuture<Void> in
                 return self.closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { (_) -> EventLoopFuture<Void> in

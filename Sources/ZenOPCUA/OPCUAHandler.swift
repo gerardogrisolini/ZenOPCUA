@@ -104,7 +104,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     promises[0]!.fail(error)
                     onErrorCaught(context: context, error: error)
                 } else {
-                        activateSession(context: context, response: response)
+                    activateSession(context: context, response: response)
                 }
             case .activateSessionResponse:
                 OPCUAHandler.isAcknowledge = false
@@ -264,12 +264,16 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) -> Bool {
-        guard let endpoint = response.endpoints.first(where: { $0.messageSecurityMode == OPCUAHandler.messageSecurityMode }) else {
-            return false
-        }
+        guard let endpoint = response
+                .endpoints
+                .first(where: {
+                    $0.messageSecurityMode == OPCUAHandler.messageSecurityMode
+                    && $0.securityPolicyUri == OPCUAHandler.securityPolicy.securityPolicyUri
+                })
+        else { return false }
         
         OPCUAHandler.endpoint = endpoint
-        OPCUAHandler.securityPolicy.loadPublicKeys()
+        OPCUAHandler.securityPolicy.loadServerCertificate()
 
         let requestId = nextMessageID()
         let frame: OPCUAFrame

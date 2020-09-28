@@ -213,7 +213,7 @@ class SecurityPolicy {
         return Data(repeating: UInt8.random(in: 0...255), count: lenght)
     }
 
-    func loadCertificateAndPrivateKey(certificate: String? = nil, privateKey: String? = nil) {
+    func loadClientCertificate(certificate: String? = nil, privateKey: String? = nil) {
         self.clientNonce = securityPolicyUri.securityPolicy != .none
             ? SecurityPolicy.generateNonce(32)
             : Data()
@@ -221,39 +221,31 @@ class SecurityPolicy {
         if let certificateFile = certificate, let privateKeyFile = privateKey {
             do {
                 let certificateDate = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
-                let certData = dataFromPEM(data: certificateDate)
-                clientCertificate = certData
-            } catch {
-                print("clientCertificate: \(error)")
-            }
+                clientCertificate = dataFromPEM(data: certificateDate)
+                localCertificateThumbprint = Data(Insecure.SHA1.hash(data: clientCertificate))
+                clientPublicKey = try CryptorRSA.createPublicKey(extractingFrom: certificateDate)
 
-            do {
                 let privateKeyData = try Data(contentsOf: URL(fileURLWithPath: privateKeyFile))
                 self.clientPrivateKey = try CryptorRSA.createPrivateKey(with: privateKeyData)
             } catch {
-                print("clientPrivateKey: \(error)")
+                print("loadClientCertificate: \(error)")
             }
         }
     }
 
-    func loadPublicKeys() {
-        do {
-            clientPublicKey = try CryptorRSA.createPublicKey(extractingFrom: clientCertificate)
-            localCertificateThumbprint = Data(Insecure.SHA1.hash(data: clientCertificate))
-        } catch {
-            print("clientPublicKey: \(error)")
-        }
-
+    func loadServerCertificate() {
         do {
             let data = Data(OPCUAHandler.endpoint.serverCertificate)
-            serverPublicKey = try CryptorRSA.createPublicKey(extractingFrom: data)
+            let pemString = CryptorRSA.convertDerToPem(from: data, type: .publicType)
+            let ascii = pemString.data(using: .ascii)!
+            serverPublicKey = try CryptorRSA.createPublicKey(extractingFrom: ascii)
             remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
         } catch {
-            print("serverPublicKey: \(error)")
+            print("loadServerCertificate: \(error)")
         }
     }
-    
-    func dataFromPEM(data: Data) -> Data {
+
+    fileprivate func dataFromPEM(data: Data) -> Data {
         let rows = String(data: data, encoding: .ascii)!.split(separator: "\n")
         let joined = rows[1...(rows.count - 2)].joined().data(using: .ascii)!
         return Data(base64Encoded: joined, options: .ignoreUnknownCharacters)!

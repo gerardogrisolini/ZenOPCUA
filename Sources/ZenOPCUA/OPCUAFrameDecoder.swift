@@ -20,6 +20,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         if let chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!), chunkType == .part {
             if parts == nil {
                 parts = context.channel.allocator.buffer(capacity: lenght)
+                parts!.writeBytes(buffer.getBytes(at: 0, length: 24)!)
             }
 
             let count = buffer.readableBytes / lenght
@@ -29,22 +30,20 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
                 buffer.moveReaderIndex(forwardBy: lenght)
             }
 
-            let chunkType = buffer.getString(at: buffer.readerIndex + 3, length: 1)!
-            
-            guard ChunkTypes(rawValue: chunkType)! == .frame else { return .needMoreData }
+            if let chunkType = buffer.getString(at: buffer.readerIndex + 3, length: 1) {
+                guard ChunkTypes(rawValue: chunkType)! == .frame else { return .needMoreData }
+            }
         }
 
         if var f = parts {
-            f.writeBytes(buffer.getBytes(at: buffer.readerIndex + 24, length: buffer.readableBytes - 24)!)
-            let head = buffer.getBytes(at: buffer.readerIndex, length: 4)!
-            let size = UInt32(f.readableBytes + 24).bytes
-            let header = buffer.getBytes(at: buffer.readerIndex + 8, length: 16)!
-            
+            if buffer.readerIndex < buffer.writerIndex {
+                f.writeBytes(buffer.getBytes(at: buffer.readerIndex + 24, length: buffer.readableBytes - 24)!)
+            }
+
             buffer.clear()
-            buffer.writeBytes(head)
-            buffer.writeBytes(size)
-            buffer.writeBytes(header)
-            buffer.writeBuffer(&f)
+            buffer.writeBytes(f.getBytes(at: 0, length: 4)!)
+            buffer.writeBytes(UInt32(f.writerIndex).bytes)
+            buffer.writeBytes(f.getBytes(at: 8, length: f.writerIndex - 8)!)
             parts = nil
         }
         
