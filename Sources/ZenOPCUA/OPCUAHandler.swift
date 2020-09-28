@@ -60,7 +60,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
-        print(frame.head)
         
         switch frame.head.messageType {
         case .acknowledge:
@@ -107,9 +106,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                     activateSession(context: context, response: response)
                 }
             case .activateSessionResponse:
-                OPCUAHandler.isAcknowledge = false
                 let response = ActivateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    OPCUAHandler.isAcknowledge = false
+                    OPCUAHandler.isAcknowledgeSecure = false
                     promises[0]!.succeed(Empty())
                     onHandlerActivated()
                 } else {
@@ -180,28 +180,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
 //        context.flush()
 //        context.close(mode: .all)
     }
-
-//    fileprivate func write(_ context: ChannelHandlerContext, _ frame: OPCUAFrame) {
-//        if frame.head.messageSize > OPCUAHandler.bufferSize {
-//            var index = 0
-//            while index < frame.head.messageSize {
-//                print("\(index) < \(frame.head.messageSize)")
-//                let part: OPCUAFrame
-//                if (index + OPCUAHandler.bufferSize - 8) >= frame.head.messageSize {
-//                    let body = frame.body[index...].map { $0 }
-//                    part = OPCUAFrame(head: frame.head, body: body)
-//                } else {
-//                    let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
-//                    let body = frame.body[index..<(index + OPCUAHandler.bufferSize - 8)].map { $0 }
-//                    part = OPCUAFrame(head: head, body: body)
-//                }
-//                context.writeAndFlush(self.wrapOutboundOut(part), promise: nil)
-//                index += OPCUAHandler.bufferSize - 8
-//            }
-//        } else {
-//            context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
-//        }
-//    }
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         var securityMode = OPCUAHandler.messageSecurityMode

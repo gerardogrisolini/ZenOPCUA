@@ -17,12 +17,13 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     let byteBufferAllocator = ByteBufferAllocator()
     
     public func encode(data value: OPCUAFrame, out: inout ByteBuffer) throws {
-        print(value.head)
-        var byteBuffer = byteBufferAllocator.buffer(capacity: value.body.count + 8)
-        byteBuffer.writeString("\(value.head.messageType.rawValue)\(value.head.chunkType.rawValue)")
-        byteBuffer.writeBytes(value.head.messageSize.bytes)
-        byteBuffer.writeBytes(value.body)
-        try signAndEncrypt(messageBuffer: byteBuffer, out: &out)
+        for frame in value.split() {
+            var byteBuffer = byteBufferAllocator.buffer(capacity: frame.body.count + 8)
+            byteBuffer.writeString("\(frame.head.messageType.rawValue)\(frame.head.chunkType.rawValue)")
+            byteBuffer.writeBytes(frame.head.messageSize.bytes)
+            byteBuffer.writeBytes(frame.body)
+            try signAndEncrypt(messageBuffer: byteBuffer, out: &out)
+        }
     }
     
     func signAndEncrypt(messageBuffer: ByteBuffer, out: inout ByteBuffer) throws {

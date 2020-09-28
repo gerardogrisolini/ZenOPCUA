@@ -144,9 +144,7 @@ public class ZenOPCUA {
             
             if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
-                    self.start().whenComplete { _ in
-                        OPCUAHandler.isAcknowledgeSecure = false
-                    }
+                    self.start().whenComplete { _ in }
                 }
             }
         }
@@ -403,10 +401,9 @@ public class ZenOPCUA {
     }
     
     private func writeSyncronized(_ frame: OPCUAFrame, promise: EventLoopPromise<Void>? = nil) {
-        guard let channel = channel else { return }
-
         dispatchQueue.async(flags: .barrier) {
             do {
+                guard let channel = self.channel else { throw OPCUAError.connectionError}
                 try channel.writeAndFlush(frame).wait()
                 promise?.succeed(())
             } catch {
