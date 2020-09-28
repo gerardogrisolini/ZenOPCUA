@@ -205,7 +205,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         var securityMode = OPCUAHandler.messageSecurityMode
-        var userTokenType: SecurityTokenRequestType = sessionActive == nil ? .issue : .renew
+        var userTokenType: SecurityTokenRequestType = .issue
         
         if securityMode != .none {
             if OPCUAHandler.endpoint.serverCertificate.count > 0 {

@@ -104,9 +104,8 @@ public class ZenOPCUA {
         }
 
         self.handler.sessionActive = nil
-
+        self.handler.resetMessageID()
         if !OPCUAHandler.isAcknowledgeSecure {
-            self.handler.resetMessageID()
             OPCUAHandler.endpoint = EndpointDescription()
         }
         
