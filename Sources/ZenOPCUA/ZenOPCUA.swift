@@ -71,7 +71,7 @@ public class ZenOPCUA {
     
     private func start() -> EventLoopFuture<Void> {
         let server = getHostFromEndpoint()
-
+        
         let handlers: [ChannelHandler] = [
             ByteToMessageHandler(OPCUAFrameDecoder()),
             MessageToByteHandler(OPCUAFrameEncoder()),

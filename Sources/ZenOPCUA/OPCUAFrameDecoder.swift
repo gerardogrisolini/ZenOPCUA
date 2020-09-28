@@ -16,7 +16,8 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
 
         let lenght = UInt32(bytes: buffer.getBytes(at: buffer.readerIndex + 4, length: 4)!).int
         guard buffer.readableBytes >= lenght else { return .needMoreData }
-
+        print("\(buffer.readableBytes) >= \(lenght)")
+        
         if let chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!), chunkType == .part {
             if parts == nil {
                 parts = context.channel.allocator.buffer(capacity: lenght)

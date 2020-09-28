@@ -17,7 +17,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     let byteBufferAllocator = ByteBufferAllocator()
     
     public func encode(data value: OPCUAFrame, out: inout ByteBuffer) throws {
-        //print(value.head)
+        print(value.head)
         var byteBuffer = byteBufferAllocator.buffer(capacity: value.body.count + 8)
         byteBuffer.writeString("\(value.head.messageType.rawValue)\(value.head.chunkType.rawValue)")
         byteBuffer.writeBytes(value.head.messageSize.bytes)

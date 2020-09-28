@@ -42,7 +42,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var requestedLifetime: UInt32 = 0
 
     public init() {
-        sessionActive = nil
     }
 
     public func channelActive(context: ChannelHandlerContext) {
@@ -61,6 +60,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
+        print(frame.head)
         
         switch frame.head.messageType {
         case .acknowledge:
