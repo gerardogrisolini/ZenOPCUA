@@ -48,7 +48,6 @@ public class DataValue: Promisable, OPCUAEncodable {
             return
         }
         
-        print("dataType: \(dataType)")
         switch dataType {
         case .null:
             break
