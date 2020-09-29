@@ -7,9 +7,9 @@
 
 import Foundation
 import NIO
-//import CryptorRSA
+import CryptorRSA
 //#if os(Linux)
-import Crypto
+//import Crypto
 //#else
 //import CryptoKit
 //#endif
@@ -130,9 +130,15 @@ enum SecurityAlgorithm: String {
 class SecurityPolicy {
     var clientNonce: Data = Data()
     var clientCertificate: Data = Data()
-    var clientPrivateKey: P256.Signing.PrivateKey!
-    var clientPublicKey: P256.Signing.PublicKey!
-    var serverPublicKey: P256.Signing.PublicKey!
+    var clientPrivateKey: CryptorRSA.PrivateKey!
+    var clientPublicKey: CryptorRSA.PublicKey!
+    var serverPublicKey: CryptorRSA.PublicKey!
+//    var clientPrivateKey: P256.Signing.PrivateKey!
+//    var clientPublicKey: P256.Signing.PublicKey!
+//    var serverPublicKey: P256.Signing.PublicKey!
+//    var clientPrivateKey: SecKey!
+//    var clientPublicKey: SecKey!
+//    var serverPublicKey: SecKey!
     
     var remoteCertificateThumbprint: Data = Data()
     var localCertificateThumbprint: Data = Data()
@@ -210,6 +216,13 @@ class SecurityPolicy {
     }
 
     private static func generateNonce(_ lenght: Int) -> Data {
+//        let nonce = NSMutableData(length: lenght)!
+//        let result = SecRandomCopyBytes(kSecRandomDefault, nonce.length, nonce.mutableBytes)
+//        if result == errSecSuccess {
+//            return nonce as Data
+//        } else {
+//            throw OPCUAError.generic("unsupported")
+//        }
         return Data(repeating: UInt8.random(in: 0...255), count: lenght)
     }
 
@@ -220,18 +233,23 @@ class SecurityPolicy {
 
         if let certificateFile = certificate, let privateKeyFile = privateKey {
             do {
-                let certificateDate = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
-                //clientCertificate = try CryptorRSA.stripX509CertificateHeader(for: certificateDate)
-                clientCertificate = dataFromPEM(data: certificateDate)
+                let certificateData = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
+                clientCertificate = dataFromPEM(data: certificateData)
                 localCertificateThumbprint = Data(Insecure.SHA1.hash(data: clientCertificate))
-                //clientPublicKey = try CryptorRSA.createPublicKey(extractingFrom: certificateDate)
-                clientPublicKey = try P256.Signing.PublicKey(rawRepresentation: certificateDate)//.suffix(65))
-
-                let privateKeyData = try Data(contentsOf: URL(fileURLWithPath: privateKeyFile))
-                //clientPrivateKey = try CryptorRSA.createPrivateKey(with: privateKeyData)
-                clientPrivateKey = try P256.Signing.PrivateKey(rawRepresentation: privateKeyData)
+                clientPublicKey = try CryptorRSA.createPublicKey(extractingFrom: certificateData)
+                //clientPublicKey = try P256.Signing.PublicKey(rawRepresentation: clientCertificate)//.suffix(65))
+                //clientPublicKey = publicKeyFromData(certificate: clientCertificate)
             } catch {
-                print("loadClientCertificate: \(error)")
+                print("clientCertificateAndPublicKey: \(error)")
+            }
+
+            do  {
+                let privateKeyData = try Data(contentsOf: URL(fileURLWithPath: privateKeyFile))
+                clientPrivateKey = try CryptorRSA.createPrivateKey(with: privateKeyData)
+                //clientPrivateKey = try P256.Signing.PrivateKey(rawRepresentation: privateKeyData)
+                //clientPrivateKey = privateKeyFromData(data: privateKeyData)
+            } catch {
+                print("clientPrivateKey: \(error)")
             }
         }
     }
@@ -239,18 +257,34 @@ class SecurityPolicy {
     func loadServerCertificate() {
         do {
             let data = Data(OPCUAHandler.endpoint.serverCertificate)
-             remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
-            //let pemString = CryptorRSA.convertDerToPem(from: data, type: .publicType)
-            //let pem = pemString.data(using: .utf8)!
-            //serverPublicKey = try CryptorRSA.createPublicKey(with: pem)
-            serverPublicKey = try P256.Signing.PublicKey(rawRepresentation: data)
+            remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
             
-            print("serverCertificate: \(data.count)")
+            let pemString = CryptorRSA.convertDerToPem(from: data, type: .publicType)
+            let pem = pemString.data(using: .utf8)!
+            serverPublicKey = try CryptorRSA.createPublicKey(with: pem)
+            //serverPublicKey = try P256.Signing.PublicKey(rawRepresentation: data)
+            //serverPublicKey = publicKeyFromData(certificate: data)
         } catch {
-            print("loadServerCertificate: \(error)")
+            print("serverPublicKey: \(error)")
         }
     }
 
+//    func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
+//        let priKeyECData = dataFromPEM(data: data)
+//
+//        let keyDict: [CFString: Any] = [
+//            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+//            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
+//            kSecAttrKeySizeInBits: 2048,
+//            kSecImportExportPassphrase as CFString: password,
+//            kSecReturnPersistentRef: false
+//        ]
+//        var error: Unmanaged<CFError>?
+//        let secKey = SecKeyCreateWithData(priKeyECData as CFData, keyDict as CFDictionary, &error)
+//        return secKey
+//    }
+
+    
 //    func publicKeyFromData(certificate: Data) -> SecKey? {
 //        var publicKey: SecKey?
 //        var trust: SecTrust?
@@ -274,57 +308,104 @@ class SecurityPolicy {
     }
     
     func sign(dataToSign: Data) throws -> Data {
-//        let algorithm: Data.Algorithm
-//        switch asymmetricSignatureAlgorithm {
-//        case .rsaSha1:
-//            algorithm = .sha1
-//        case .rsaSha256:
-//            algorithm = .sha256
-//        default:
-//            algorithm = .gcm
-//        }
-//
-//        let myPlaintext = CryptorRSA.createPlaintext(with: dataToSign)
-//        let signedData = try myPlaintext.signed(with: clientPrivateKey!, algorithm: algorithm)
-//        if !(try myPlaintext.verify(with: clientPublicKey!, signature: signedData!, algorithm: algorithm)) {
-//            throw OPCUAError.generic("Signature Verification Failed")
-//        }
-//
-//        return signedData!.data
-        
-        let signature = try clientPrivateKey.signature(for: dataToSign)
-        if clientPublicKey.isValidSignature(signature, for: dataToSign) {
-            print("The signature is valid.")
+        let algorithm: Data.Algorithm
+        switch asymmetricSignatureAlgorithm {
+        case .rsaSha1:
+            algorithm = .sha1
+        case .rsaSha256:
+            algorithm = .sha256
+        default:
+            algorithm = .gcm
         }
 
-        return signature.rawRepresentation
+        let myPlaintext = CryptorRSA.createPlaintext(with: dataToSign)
+        let signedData = try myPlaintext.signed(with: clientPrivateKey!, algorithm: algorithm)
+        if !(try myPlaintext.verify(with: clientPublicKey!, signature: signedData!, algorithm: algorithm)) {
+            throw OPCUAError.generic("Signature Verification Failed")
+        }
+
+        return signedData!.data
+        
+//        guard SecKeyIsAlgorithmSupported(clientPrivateKey!, .sign, algorithm) else {
+//            throw OPCUAError.generic("unsupported sign algorithm")
+//        }
+//
+//        var error: Unmanaged<CFError>?
+//        guard let signature = SecKeyCreateSignature(clientPrivateKey!,
+//                                                    algorithm,
+//                                                    dataToSign as CFData,
+//                                                    &error) as Data? else {
+//                                                        throw error!.takeRetainedValue() as Error
+//        }
+//
+//        guard SecKeyIsAlgorithmSupported(clientPublicKey!, .verify, algorithm) else {
+//            throw OPCUAError.generic("unsupported verify algorithm")
+//        }
+//
+//        guard SecKeyVerifySignature(clientPublicKey!,
+//                                    algorithm,
+//                                    dataToSign as CFData,
+//                                    signature as CFData,
+//                                    &error) else {
+//                                        throw error!.takeRetainedValue() as Error
+//        }
+//        return signature
+        
+        
+//        let signature = try clientPrivateKey.signature(for: dataToSign)
+//        if clientPublicKey.isValidSignature(signature, for: dataToSign) {
+//            print("The signature is valid.")
+//        }
+//        return signature.rawRepresentation
     }
 
     func crypt(dataToEncrypt: [UInt8]) throws -> [UInt8] {
-//        let algorithm: Data.Algorithm
-//        switch asymmetricEncryptionAlgorithm {
-//        case .rsaOaepSha1:
-//            algorithm = .sha256
-//        case .rsaOaepSha256:
-//            algorithm = .sha256
-//        default:
-//            algorithm = .gcm
-//        }
-//
+        let algorithm: Data.Algorithm
+        switch asymmetricEncryptionAlgorithm {
+        case .rsaOaepSha1:
+            algorithm = .sha256
+        case .rsaOaepSha256:
+            algorithm = .sha256
+        default:
+            algorithm = .gcm
+        }
+
 //        #if os(macOS)
 //        guard dataToEncrypt.count < 256-134 else {
 //            throw OPCUAError.generic("data exceeds the allowed length")
 //        }
 //        #endif
-//
-//        let myPlaintext = CryptorRSA.createPlaintext(with: Data(dataToEncrypt))
-//        let encryptedData = try myPlaintext.encrypted(with: serverPublicKey!, algorithm: algorithm)
-//        return [UInt8](encryptedData!.data)
 
-        //let sealedBox = try AES.GCM.seal(dataToEncrypt, using: key)
-        let symmetricKey = SymmetricKey(data: serverPublicKey!.rawRepresentation)
-        let encryptedData = try ChaChaPoly.seal(dataToEncrypt, using: symmetricKey)
-        return [UInt8](encryptedData.combined)
+        let myPlaintext = CryptorRSA.createPlaintext(with: Data(dataToEncrypt))
+        let encryptedData = try myPlaintext.encrypted(with: serverPublicKey!, algorithm: algorithm)
+        return [UInt8](encryptedData!.data)
+
+        
+//        guard SecKeyIsAlgorithmSupported(serverPublicKey!, .encrypt, algorithm) else {
+//            throw OPCUAError.generic("unsupported algorithm")
+//        }
+//
+//        guard (dataToEncrypt.count < (SecKeyGetBlockSize(serverPublicKey!)-134)) else {
+//            throw OPCUAError.generic("data exceeds the allowed length")
+//        }
+//
+//        let data = Data(UInt32(dataToEncrypt.count).bytes + dataToEncrypt)
+//        var error: Unmanaged<CFError>?
+//        guard let cipherText = SecKeyCreateEncryptedData(
+//            serverPublicKey!,
+//            algorithm,
+//            data as CFData,
+//            &error) as Data? else {
+//            throw error!.takeRetainedValue() as Error
+//        }
+//
+//        return [UInt8](cipherText)
+        
+        
+//        //let sealedBox = try AES.GCM.seal(dataToEncrypt, using: key)
+//        let symmetricKey = SymmetricKey(data: serverPublicKey!.rawRepresentation)
+//        let encryptedData = try ChaChaPoly.seal(dataToEncrypt, using: symmetricKey)
+//        return [UInt8](encryptedData.combined)
     }
     
     func getSecurityHeaderSize() -> Int {
@@ -347,9 +428,12 @@ class SecurityPolicy {
             && OPCUAHandler.endpoint.serverCertificate.count > 0
     }
     
-    func getAsymmetricKeyLength(publicKey: P256.Signing.PublicKey) -> Int {
+//    func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
+//        return SecKeyGetBlockSize(publicKey) * 8
+//    }
+
+    func getAsymmetricKeyLength(publicKey: CryptorRSA.PublicKey) -> Int {
         //return publicKey.bitCount
-        //return SecKeyGetBlockSize(publicKey) * 8
         return 256 * 8
     }
 
@@ -447,71 +531,101 @@ class SecurityPolicy {
 //        return try CryptorRSA.makeKeyPair(bits)
 //    }
 
-    func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
-        let signatureKeySize = getSymmetricSignatureKeySize()
-        let encryptionKeySize = getSymmetricEncryptionKeySize()
-        let cipherTextBlockSize = getSymmetricBlockSize()
-
-        assert(clientNonce.count > 0)
-        assert(serverNonce.count > 0)
-
-        let clientSignatureKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, 0, signatureKeySize)
-            : createPSha256Key(serverNonce, clientNonce, 0, signatureKeySize)
-
-        let clientEncryptionKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
-            : createPSha256Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
-
-        let clientInitializationVector = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
-            : createPSha256Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
-
-        let serverSignatureKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, 0, signatureKeySize)
-            : createPSha256Key(clientNonce, serverNonce, 0, signatureKeySize)
-
-        let serverEncryptionKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
-            : createPSha256Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
-
-        let serverInitializationVector = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
-            : createPSha256Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
-
-        return SecurityKeys(
-            clientKeys: SecretKeys(
-                signatureKey: clientSignatureKey,
-                encryptionKey: clientEncryptionKey,
-                initializationVector: clientInitializationVector
-            ),
-            serverKeys: SecretKeys(
-                signatureKey: serverSignatureKey,
-                encryptionKey: serverEncryptionKey,
-                initializationVector: serverInitializationVector
-            )
-        )
-    }
+//    func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) -> SecurityKeys {
+//        let signatureKeySize = getSymmetricSignatureKeySize()
+//        let encryptionKeySize = getSymmetricEncryptionKeySize()
+//        let cipherTextBlockSize = getSymmetricBlockSize()
+//
+//        assert(clientNonce.count > 0)
+//        assert(serverNonce.count > 0)
+//
+//        let clientSignatureKey = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(serverNonce, clientNonce, 0, signatureKeySize)
+//            : createPSha256Key(serverNonce, clientNonce, 0, signatureKeySize)
+//
+//        let clientEncryptionKey = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
+//            : createPSha256Key(serverNonce, clientNonce, signatureKeySize, encryptionKeySize)
+//
+//        let clientInitializationVector = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+//            : createPSha256Key(serverNonce, clientNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+//
+//        let serverSignatureKey = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(clientNonce, serverNonce, 0, signatureKeySize)
+//            : createPSha256Key(clientNonce, serverNonce, 0, signatureKeySize)
+//
+//        let serverEncryptionKey = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
+//            : createPSha256Key(clientNonce, serverNonce, signatureKeySize, encryptionKeySize)
+//
+//        let serverInitializationVector = keyDerivationAlgorithm == .pSha1
+//            ? createPSha1Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+//            : createPSha256Key(clientNonce, serverNonce, signatureKeySize + encryptionKeySize, cipherTextBlockSize)
+//
+//        return SecurityKeys(
+//            clientKeys: SecretKeys(
+//                signatureKey: clientSignatureKey,
+//                encryptionKey: clientEncryptionKey,
+//                initializationVector: clientInitializationVector
+//            ),
+//            serverKeys: SecretKeys(
+//                signatureKey: serverSignatureKey,
+//                encryptionKey: serverEncryptionKey,
+//                initializationVector: serverInitializationVector
+//            )
+//        )
+//    }
+//
+//    private func createPSha1Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
+//        let key = SymmetricKey(data: clientNonce)
+//        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: serverNonce, using: key)
+//        let data = Data(hash)
+//        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
+//            print("Validated ✅")
+//        }
+//        return data[start..<end].map { $0 }
+//    }
+//
+//    private func createPSha256Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
+//        let key = SymmetricKey(data: clientNonce)
+//        let hash = HMAC<SHA256>.authenticationCode(for: serverNonce, using: key)
+//        let data = Data(hash)
+//        if HMAC<SHA256>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
+//            print("Validated ✅")
+//        }
+//        return data[start..<end].map { $0 }
+//    }
     
-    private func createPSha1Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
-        let key = SymmetricKey(data: clientNonce)
-        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: serverNonce, using: key)
-        let data = Data(hash)
-        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
-            print("Validated ✅")
-        }
-        return data[start..<end].map { $0 }
-    }
-
-    private func createPSha256Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
-        let key = SymmetricKey(data: clientNonce)
-        let hash = HMAC<SHA256>.authenticationCode(for: serverNonce, using: key)
-        let data = Data(hash)
-        if HMAC<SHA256>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
-            print("Validated ✅")
-        }
-        return data[start..<end].map { $0 }
-    }
+    
+    /* Parsing */
+    
+//    private static func string2key(str: String) -> SecKey? {
+//        guard
+//            let data = Data(base64Encoded: str, options: [.ignoreUnknownCharacters]),
+//            let key = data2secKey(keyData: data)
+//        else { return nil }
+//
+//        return  key
+//    }
+//
+//    private static func data2secKey(keyData: Data) -> SecKey? {
+//        var error:Unmanaged<CFError>?
+//
+//        let attrs: [CFString: Any] = [
+//            kSecAttrKeyClass: kSecAttrKeyClassPublic,
+//            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+//            //kSecAttrKeySizeInBits: keySize,
+//            //kSecReturnPersistentRef: 1,
+//        ]
+//        let key = SecKeyCreateWithData(keyData as CFData, attrs as CFDictionary, &error)
+//
+//        if let err: Error = error?.takeRetainedValue() {
+//            //let nsError: NSError = realErr
+//            print("data2secKey ERR: \(err.localizedDescription)")
+//        }
+//        return key
+//    }
 }
 
 struct SecurityKeys {
