@@ -1,6 +1,6 @@
 //
 //  DataValue.swift
-//  
+//
 //
 //  Created by Gerardo Grisolini on 24/02/2020.
 //
@@ -48,6 +48,7 @@ public class DataValue: Promisable, OPCUAEncodable {
             return
         }
         
+        print("dataType: \(dataType)")
         switch dataType {
         case .null:
             break
@@ -64,11 +65,11 @@ public class DataValue: Promisable, OPCUAEncodable {
             variant.bytes = bytes[index..<(index+8)].map { $0 }
             index += 8
         case .string, .byteString:
-            let len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+            let len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if len < UInt32.max {
-                variant.bytes = bytes[index..<(index+len)].map { $0 }
-                index += len
+                variant.bytes = bytes[index..<(index+len.int)].map { $0 }
+                index += len.int
             }
         case .guid:
             variant.bytes = bytes[index..<(index+16)].map { $0 }
@@ -81,19 +82,19 @@ public class DataValue: Promisable, OPCUAEncodable {
         case .qualifiedName:
             variant.bytes = bytes[index...index+1].map { $0 }
             index += 2
-            let len = Int(UInt32(bytes: bytes[index..<(index+4)]))
+            let len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if len < UInt32.max {
-                variant.bytes += bytes[index..<(index+len)].map { $0 }
-                index += len
+                variant.bytes += bytes[index..<(index+len.int)].map { $0 }
+                index += len.int
             }
         case .localizedText:
             variant.bytes = [bytes[index]]
-            let len = Int(UInt32(bytes: bytes[index+1..<(index+5)]))
+            let len = UInt32(bytes: bytes[index+1..<(index+5)])
             index += 5
             if len < UInt32.max {
-                variant.bytes += bytes[index..<(index+len)].map { $0 }
-                index += len
+                variant.bytes += bytes[index..<(index+len.int)].map { $0 }
+                index += len.int
             }
         }
         
@@ -203,4 +204,6 @@ public struct Variant {
         }
     }
 }
+
+
 
