@@ -135,15 +135,16 @@ public class ZenOPCUA {
             if let onHandlerRemoved = self.onHandlerRemoved {
                 onHandlerRemoved()
             }
-              
-            //TODO: fixed .renew error resetting session
-            self.handler.resetMessageID()
-            self.handler.sessionActive = nil
-            OPCUAHandler.endpoint = EndpointDescription()
-            // end fix
             
             if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
+                    //TODO: fixed .renew error resetting session
+                    self.handler.resetMessageID()
+                    self.handler.sessionActive = nil
+                    OPCUAHandler.endpoint = EndpointDescription()
+                    // end fix
+
+                    sleep(3)
                     self.start().whenComplete { _ in
                         OPCUAHandler.isAcknowledgeSecure = false
                     }
