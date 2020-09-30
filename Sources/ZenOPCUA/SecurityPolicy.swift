@@ -11,7 +11,7 @@ import CryptorRSA
 //#if os(Linux)
 //import Crypto
 //#else
-//import CryptoKit
+import CryptoKit
 //#endif
 
 
@@ -258,10 +258,10 @@ class SecurityPolicy {
         do {
             let data = Data(OPCUAHandler.endpoint.serverCertificate)
             remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
-            
+            let d = CryptorRSA.addX509CertificateHeader
             let pemString = CryptorRSA.convertDerToPem(from: data, type: .publicType)
-            let pem = pemString.data(using: .utf8)!
-            serverPublicKey = try CryptorRSA.createPublicKey(with: pem)
+            print(pemString)
+            serverPublicKey = try CryptorRSA.createPublicKey(withPEM: pemString)
             //serverPublicKey = try P256.Signing.PublicKey(rawRepresentation: data)
             //serverPublicKey = publicKeyFromData(certificate: data)
         } catch {
@@ -301,10 +301,14 @@ class SecurityPolicy {
 //        return publicKey
 //    }
     
-    fileprivate func dataFromPEM(data: Data) -> Data {
-        let rows = String(data: data, encoding: .ascii)!.split(separator: "\n")
+    fileprivate func dataFromPEM(pemString: String) -> Data {
+        let rows = pemString.split(separator: "\n")
         let joined = rows[1...(rows.count - 2)].joined().data(using: .ascii)!
         return Data(base64Encoded: joined, options: .ignoreUnknownCharacters)!
+    }
+
+    fileprivate func dataFromPEM(data: Data) -> Data {
+        dataFromPEM(pemString: String(data: data, encoding: .ascii)!)
     }
     
     func sign(dataToSign: Data) throws -> Data {

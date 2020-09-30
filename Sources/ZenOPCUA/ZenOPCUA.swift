@@ -144,6 +144,7 @@ public class ZenOPCUA {
             
             if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
+                    if !OPCUAHandler.isAcknowledgeSecure && !OPCUAHandler.isAcknowledge { sleep(3) }
                     self.start().whenComplete { _ in }
                 }
             }
