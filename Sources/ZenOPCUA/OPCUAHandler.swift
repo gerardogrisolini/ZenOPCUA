@@ -188,12 +188,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         var securityMode = OPCUAHandler.messageSecurityMode
-        var userTokenType: SecurityTokenRequestType = .issue
         
         if securityMode != .none {
             if OPCUAHandler.endpoint.serverCertificate.count > 0 {
                 OPCUAHandler.isAcknowledgeSecure = false
-                userTokenType = .renew
             } else {
                 securityMode = .none
             }
@@ -202,10 +200,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
         let requestId = nextMessageID()
         let body = OpenSecureChannelRequest(
-            secureChannelId: requestId == 1 ? 1000 : 0,
+            secureChannelId: 0,
             messageSecurityMode: securityMode,
             securityPolicy: securityMode == .none ? SecurityPolicy() : OPCUAHandler.securityPolicy,
-            userTokenType: userTokenType,
+            userTokenType: .issue,
             serverCertificate: OPCUAHandler.endpoint.serverCertificate,
             requestedLifetime: requestedLifetime,
             requestId: requestId
