@@ -67,11 +67,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             var chunkBuffer = byteBufferAllocator.buffer(capacity: chunkSize)
             chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: 3)!)
             messageBuffer.moveReaderIndex(forwardBy: 8)
-            
-            let chunkType = messageBuffer.readableBytes - header > bodySize ? "C" : "F"
-            print("\(messageBuffer.readableBytes - header) > \(bodySize) = \(chunkType) (\(header))")
-            
-            chunkBuffer.writeString(chunkType)
+            chunkBuffer.writeString(messageBuffer.readableBytes - header > bodySize ? "C" : "F")
             chunkBuffer.writeBytes(UInt32(chunkSize).bytes)
             chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: header + bodySize)!)
             messageBuffer.moveReaderIndex(forwardBy: header + bodySize)
@@ -82,7 +78,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             }
 
             if isAsymmetricSigningEnabled {
-                let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.readableBytes)!)
+                let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!)
                 let signature = try OPCUAHandler.securityPolicy.sign(dataToSign: dataToSign)
                 chunkBuffer.writeBytes(signature)
                 print("sign: \(dataToSign.count) signature: \(signature.count) => chunkBuffer: \(chunkBuffer.readableBytes)")

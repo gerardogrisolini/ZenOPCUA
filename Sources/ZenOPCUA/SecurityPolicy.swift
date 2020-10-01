@@ -373,12 +373,6 @@ class SecurityPolicy {
 //        }
 
         let key = publicKeyFromData(certificate: Data(OPCUAHandler.endpoint.serverCertificate))!
-
-        #if os(macOS)
-        guard dataToEncrypt.count <= getAsymmetricPlainTextBlockSize() else {
-            throw OPCUAError.generic("data exceeds the allowed length")
-        }
-        #endif
         
         let algorithm2: SecKeyAlgorithm
         switch asymmetricEncryptionAlgorithm {
@@ -398,7 +392,6 @@ class SecurityPolicy {
             &error) as Data? else {
             throw error!.takeRetainedValue() as Error
         }
-        print("\(dataToEncrypt.count) => \(cipherText.count)")
 
         return [UInt8](cipherText)
         

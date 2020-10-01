@@ -6,14 +6,15 @@
 //
 
 class OpenSecureChannel {
-    var secureChannelId: UInt32 = 0
+    let secureChannelId: UInt32
     let securityPolicyUri: String
     var senderCertificate: [UInt8] = []
     var receiverCertificateThumbprint: [UInt8] = []
     let sequenseNumber: UInt32
     let requestId: UInt32
     
-    init(securityPolicyUri: String, requestId: UInt32) {
+    init(secureChannelId: UInt32, securityPolicyUri: String, requestId: UInt32) {
+        self.secureChannelId = secureChannelId
         self.securityPolicyUri = securityPolicyUri
         self.sequenseNumber = requestId
         self.requestId = requestId

@@ -103,8 +103,9 @@ public class ZenOPCUA {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
-        self.handler.sessionActive = nil
-        self.handler.resetMessageID()
+        handler.sessionActive = nil
+        handler.resetMessageID()
+
         if !OPCUAHandler.isAcknowledgeSecure {
             OPCUAHandler.endpoint = EndpointDescription()
         }

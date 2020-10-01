@@ -202,6 +202,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
         let requestId = nextMessageID()
         let body = OpenSecureChannelRequest(
+            secureChannelId: requestId == 1 ? 1000 : 0,
             messageSecurityMode: securityMode,
             securityPolicy: securityMode == .none ? SecurityPolicy() : OPCUAHandler.securityPolicy,
             userTokenType: userTokenType,

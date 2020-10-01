@@ -37,6 +37,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
     }
     
     init(
+        secureChannelId: UInt32,
         messageSecurityMode: MessageSecurityMode,
         securityPolicy: SecurityPolicy,
         userTokenType: SecurityTokenRequestType,
@@ -50,7 +51,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime
         self.messageSecurityMode = messageSecurityMode
-        super.init(securityPolicyUri: securityPolicy.securityPolicyUri, requestId: requestId)
+        super.init(secureChannelId: secureChannelId, securityPolicyUri: securityPolicy.securityPolicyUri, requestId: requestId)
 
         if serverCertificate.count == 0 {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)

@@ -14,7 +14,6 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-
 //        let opcua = ZenOPCUA(
 //            eventLoopGroup: eventLoopGroup,
 //            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
@@ -173,8 +172,6 @@ final class ZenOPCUATests: XCTestCase {
 //            }
              
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: false).wait())
-            
-            //XCTAssertTrue(results.count > 0)
         } catch {
             XCTFail("\(error)")
         }
