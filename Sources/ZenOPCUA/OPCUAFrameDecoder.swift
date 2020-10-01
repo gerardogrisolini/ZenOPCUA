@@ -19,12 +19,13 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         //print("\(buffer.readableBytes) >= \(lenght)")
         
         if let chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!), chunkType == .part {
+            let count = buffer.readableBytes / lenght
+
             if parts == nil {
-                parts = context.channel.allocator.buffer(capacity: lenght)
+                parts = context.channel.allocator.buffer(capacity: count * lenght)
                 parts!.writeBytes(buffer.getBytes(at: 0, length: 24)!)
             }
 
-            let count = buffer.readableBytes / lenght
             for _ in 0..<count {
                 let b = buffer.getBytes(at: buffer.readerIndex, length: lenght)!
                 parts!.writeBytes(b[24...])
@@ -33,14 +34,16 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
 
             if let chunkType = buffer.getString(at: buffer.readerIndex + 3, length: 1) {
                 guard ChunkTypes(rawValue: chunkType)! == .frame else { return .needMoreData }
+            } else {
+                return .needMoreData
             }
         }
 
         if var f = parts {
-            if buffer.readerIndex < buffer.writerIndex {
+            if buffer.readableBytes > 0 {
                 f.writeBytes(buffer.getBytes(at: buffer.readerIndex + 24, length: buffer.readableBytes - 24)!)
+                buffer.moveReaderIndex(forwardBy: buffer.readableBytes)
             }
-
             buffer.clear()
             buffer.writeBytes(f.getBytes(at: 0, length: 4)!)
             buffer.writeBytes(UInt32(f.writerIndex).bytes)

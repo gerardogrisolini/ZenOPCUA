@@ -15,20 +15,21 @@ final class ZenOPCUATests: XCTestCase {
 
     func testExample() {
 
-//        let opcua = ZenOPCUA(
-//            eventLoopGroup: eventLoopGroup,
-//            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-//            messageSecurityMode: .none,
-//            securityPolicy: .none
-//        )
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
             endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-            messageSecurityMode: .signAndEncrypt,
-            securityPolicy: .basic256,
-            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.crt",
-            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private.key"
+            messageSecurityMode: .none,
+            securityPolicy: .none
         )
+
+//        let opcua = ZenOPCUA(
+//            eventLoopGroup: eventLoopGroup,
+//            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
+//            messageSecurityMode: .signAndEncrypt,
+//            securityPolicy: .basic256,
+//            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.crt",
+//            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private.key"
+//        )
         
         opcua.onHandlerActivated = {
             print("OPCUA Client activated")
@@ -50,8 +51,10 @@ final class ZenOPCUATests: XCTestCase {
         }
 
         do {
-            try opcua.connect(reconnect: false).wait()
+            try opcua.connect(reconnect: false, sessionLifetime: 12).wait()
+            sleep(15)
             
+
 //            let root: [BrowseDescription] = [
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253))
 //            ]
@@ -169,8 +172,6 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
              
-            sleep(1)
-            
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: false).wait())
             
             //XCTAssertTrue(results.count > 0)

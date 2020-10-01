@@ -67,7 +67,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            //response.securityToken.revisedLifetime
+            print(response.securityToken.revisedLifetime)
             getEndpoints(context: context, response: response)
         case .error:
             var error: Error
@@ -82,7 +82,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 error = OPCUAError.generic(code.description)
             }
             onErrorCaught(context: context, error: error)
-            promises[0]!.fail(error)
+            promises.forEach { promise in
+                promise.value.fail(error)
+            }
         default:
             guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
             //print(method)
