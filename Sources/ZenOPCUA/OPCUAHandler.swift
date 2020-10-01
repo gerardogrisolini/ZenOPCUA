@@ -67,7 +67,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            print(response.securityToken.revisedLifetime)
+            //print(response.securityToken.revisedLifetime)
             getEndpoints(context: context, response: response)
         case .error:
             var error: Error

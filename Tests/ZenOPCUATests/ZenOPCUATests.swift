@@ -51,7 +51,7 @@ final class ZenOPCUATests: XCTestCase {
         }
 
         do {
-            try opcua.connect(reconnect: false, sessionLifetime: 12).wait()
+            try opcua.connect(reconnect: false).wait()
             sleep(15)
             
 
