@@ -255,18 +255,14 @@ class SecurityPolicy {
     }
 
     func loadServerCertificate() {
-        do {
-            let data = Data(OPCUAHandler.endpoint.serverCertificate)
-            remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
-            let d = CryptorRSA.addX509CertificateHeader
-            let pemString = CryptorRSA.convertDerToPem(from: data, type: .publicType)
-            print(pemString)
-            serverPublicKey = try CryptorRSA.createPublicKey(withPEM: pemString)
-            //serverPublicKey = try P256.Signing.PublicKey(rawRepresentation: data)
-            //serverPublicKey = publicKeyFromData(certificate: data)
-        } catch {
-            print("serverPublicKey: \(error)")
-        }
+        let data = Data(OPCUAHandler.endpoint.serverCertificate)
+        remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: data))
+        //let pemString = CryptorRSA.convertDerToPem(from: d, type: .publicType)
+        //print(pemString)
+        let key = publicKeyFromData(certificate: data)!
+        serverPublicKey = CryptorRSA.PublicKey(with: key)
+        //serverPublicKey = try P256.Signing.PublicKey(rawRepresentation: data)
+        //serverPublicKey = publicKeyFromData(certificate: data)
     }
 
 //    func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
@@ -285,21 +281,21 @@ class SecurityPolicy {
 //    }
 
     
-//    func publicKeyFromData(certificate: Data) -> SecKey? {
-//        var publicKey: SecKey?
-//        var trust: SecTrust?
-//
-//        guard let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData) else { return nil }
-//
-//        let policy = SecPolicyCreateBasicX509()
-//        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
-//
-//        if status == errSecSuccess, let trust = trust {
-//            publicKey = SecTrustCopyPublicKey(trust)!
-//        }
-//
-//        return publicKey
-//    }
+    func publicKeyFromData(certificate: Data) -> SecKey? {
+        var publicKey: SecKey?
+        var trust: SecTrust?
+
+        guard let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData) else { return nil }
+
+        let policy = SecPolicyCreateBasicX509()
+        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
+
+        if status == errSecSuccess, let trust = trust {
+            publicKey = SecTrustCopyPublicKey(trust)!
+        }
+
+        return publicKey
+    }
     
     fileprivate func dataFromPEM(pemString: String) -> Data {
         let rows = pemString.split(separator: "\n")
@@ -364,25 +360,50 @@ class SecurityPolicy {
     }
 
     func crypt(dataToEncrypt: [UInt8]) throws -> [UInt8] {
-        let algorithm: Data.Algorithm
+        let data = Data(UInt32(dataToEncrypt.count).bytes + dataToEncrypt)
+
+//        let algorithm: Data.Algorithm
+//        switch asymmetricEncryptionAlgorithm {
+//        case .rsaOaepSha1:
+//            algorithm = .sha1
+//        case .rsaOaepSha256:
+//            algorithm = .sha256
+//        default:
+//            algorithm = .gcm
+//        }
+
+        let key = publicKeyFromData(certificate: Data(OPCUAHandler.endpoint.serverCertificate))!
+
+        #if os(macOS)
+        guard dataToEncrypt.count < SecKeyGetBlockSize(key) - 134 else {
+            throw OPCUAError.generic("data exceeds the allowed length")
+        }
+        #endif
+        
+        let algorithm2: SecKeyAlgorithm
         switch asymmetricEncryptionAlgorithm {
         case .rsaOaepSha1:
-            algorithm = .sha256
+            algorithm2 = .rsaEncryptionOAEPSHA1
         case .rsaOaepSha256:
-            algorithm = .sha256
+            algorithm2 = .rsaEncryptionOAEPSHA256
         default:
-            algorithm = .gcm
+            algorithm2 = .rsaEncryptionPKCS1
         }
 
-//        #if os(macOS)
-//        guard dataToEncrypt.count < 256-134 else {
-//            throw OPCUAError.generic("data exceeds the allowed length")
-//        }
-//        #endif
-
-        let myPlaintext = CryptorRSA.createPlaintext(with: Data(dataToEncrypt))
-        let encryptedData = try myPlaintext.encrypted(with: serverPublicKey!, algorithm: algorithm)
-        return [UInt8](encryptedData!.data)
+        var error: Unmanaged<CFError>?
+        guard let cipherText = SecKeyCreateEncryptedData(
+            key,
+            algorithm2,
+            data as CFData,
+            &error) as Data? else {
+            throw error!.takeRetainedValue() as Error
+        }
+        print(cipherText.count)
+        return [UInt8](cipherText)
+        
+//        let myPlaintext = CryptorRSA.createPlaintext(with: Data(data))
+//        let encryptedData = try myPlaintext.encrypted(with: serverPublicKey!, algorithm: algorithm)
+//        return [UInt8](encryptedData!.data)
 
         
 //        guard SecKeyIsAlgorithmSupported(serverPublicKey!, .encrypt, algorithm) else {
@@ -437,7 +458,6 @@ class SecurityPolicy {
 //    }
 
     func getAsymmetricKeyLength(publicKey: CryptorRSA.PublicKey) -> Int {
-        //return publicKey.bitCount
         return 256 * 8
     }
 

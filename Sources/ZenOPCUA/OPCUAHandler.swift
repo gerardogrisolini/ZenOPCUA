@@ -70,16 +70,19 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             //response.securityToken.revisedLifetime
             getEndpoints(context: context, response: response)
         case .error:
+            var error: Error
             let code = UInt32(bytes: frame.body[0...3])
             if let status = StatusCodes(rawValue: code) {
-                onErrorCaught(context: context, error: OPCUAError.code(status))
-                return
+                var description = code.description
+                if frame.body.count > 8, let reason = String(bytes: frame.body[8...], encoding: .utf8) {
+                    description = reason
+                }
+                error = OPCUAError.code(status, reason: description)
+            } else {
+                error = OPCUAError.generic(code.description)
             }
-            var error = code.description
-            if frame.body.count > 8, let reason = String(bytes: frame.body[8...], encoding: .utf8) {
-                error = reason
-            }
-            onErrorCaught(context: context, error: OPCUAError.generic(error))
+            onErrorCaught(context: context, error: error)
+            promises[0]!.fail(error)
         default:
             guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
             //print(method)

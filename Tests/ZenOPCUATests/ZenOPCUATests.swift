@@ -169,7 +169,7 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
              
-            sleep(5)
+            sleep(1)
             
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: false).wait())
             

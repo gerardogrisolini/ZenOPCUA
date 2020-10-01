@@ -12,7 +12,7 @@ import NIOConcurrencyHelpers
 public enum OPCUAError : Error {
     case connectionError
     case sessionError
-    case code(_ status: StatusCodes)
+    case code(_ status: StatusCodes, reason: String = "")
     case generic(_ text: String)
 }
 
