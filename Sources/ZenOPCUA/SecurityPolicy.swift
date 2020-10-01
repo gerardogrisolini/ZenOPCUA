@@ -360,7 +360,7 @@ class SecurityPolicy {
     }
 
     func crypt(dataToEncrypt: [UInt8]) throws -> [UInt8] {
-        let data = Data(UInt32(dataToEncrypt.count).bytes + dataToEncrypt)
+        //let data = Data(UInt32(dataToEncrypt.count).bytes + dataToEncrypt)
 
 //        let algorithm: Data.Algorithm
 //        switch asymmetricEncryptionAlgorithm {
@@ -375,7 +375,7 @@ class SecurityPolicy {
         let key = publicKeyFromData(certificate: Data(OPCUAHandler.endpoint.serverCertificate))!
 
         #if os(macOS)
-        guard dataToEncrypt.count < SecKeyGetBlockSize(key) - 134 else {
+        guard dataToEncrypt.count <= getAsymmetricPlainTextBlockSize() else {
             throw OPCUAError.generic("data exceeds the allowed length")
         }
         #endif
@@ -394,11 +394,12 @@ class SecurityPolicy {
         guard let cipherText = SecKeyCreateEncryptedData(
             key,
             algorithm2,
-            data as CFData,
+            Data(dataToEncrypt) as CFData,
             &error) as Data? else {
             throw error!.takeRetainedValue() as Error
         }
-        print(cipherText.count)
+        print("\(dataToEncrypt.count) => \(cipherText.count)")
+
         return [UInt8](cipherText)
         
 //        let myPlaintext = CryptorRSA.createPlaintext(with: Data(data))
@@ -487,17 +488,17 @@ class SecurityPolicy {
         guard let serverPublicKey = serverPublicKey else { return 1 }
 
         switch (asymmetricEncryptionAlgorithm) {
-        #if os(Linux)
+//        #if os(Linux)
         case .rsa15:
             return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 11
         case .rsaOaepSha1:
             return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 42
         case .rsaOaepSha256:
             return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 66
-        #else
-        case .rsa15, .rsaOaepSha1, .rsaOaepSha256:
-            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 136
-        #endif
+//        #else
+//        case .rsa15, .rsaOaepSha1, .rsaOaepSha256:
+//            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 66
+//        #endif
         default:
             return 1
         }
