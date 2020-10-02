@@ -68,9 +68,9 @@ final class ZenOPCUATests: XCTestCase {
 //            }
             
             let subscription = Subscription(
-                requestedPubliscingInterval: 100,
-                requestedLifetimeCount: 1,
-                requesteMaxKeepAliveCount: 1,
+                requestedPubliscingInterval: 250,
+                requestedLifetimeCount: 100,
+                requesteMaxKeepAliveCount: 10,
                 maxNotificationsPerPublish: 0,
                 publishingEnabled: true
             )
@@ -171,9 +171,9 @@ final class ZenOPCUATests: XCTestCase {
 //                    print("writed: 2")
 //                }
 //            }
-            sleep(60)
+            sleep(30)
 
-            XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: false).wait())
+            XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
         } catch {
             XCTFail("\(error)")
         }

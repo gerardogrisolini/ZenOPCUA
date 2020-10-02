@@ -183,6 +183,7 @@ public class ZenOPCUA {
 
         if deleteSubscriptions {
             return stopPublishing().flatMap { () -> EventLoopFuture<Void> in
+                sleep(1)
                 return self.closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { (_) -> EventLoopFuture<Void> in
                     return self.stop()
                 }
@@ -448,7 +449,7 @@ public class ZenOPCUA {
             guard let channel = self.channel else { return }
 
             let time = TimeAmount.milliseconds(milliseconds)
-            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time, delay: time, { task -> EventLoopFuture<Void> in
+            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: TimeAmount.seconds(1), delay: time, { task -> EventLoopFuture<Void> in
                 if self.handler.sessionActive != nil {
                     #if DEBUG
                     print("🔄 ZenOPCUA: publishing \(self.dateFormatter.string(from: Date()))")
