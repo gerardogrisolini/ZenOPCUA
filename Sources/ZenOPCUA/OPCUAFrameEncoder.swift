@@ -77,7 +77,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
             if isSigningEnabled {
                 let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!)
-                let signature = try OPCUAHandler.securityPolicy.sign(dataToSign: dataToSign)
+                let signature = try OPCUAHandler.securityPolicy.sign(data: dataToSign)
                 chunkBuffer.writeBytes(signature)
                 print("sign: \(dataToSign.count) signature: \(signature.count) => chunkBuffer: \(chunkBuffer.readableBytes)")
             }
@@ -128,26 +128,26 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     }
 
     var securityHeaderSize: Int {
-        return OPCUAHandler.securityPolicy.getSecurityHeaderSize()
+        return OPCUAHandler.securityPolicy.securityHeaderSize
     }
 
     var cipherTextBlockSize: Int {
-        return OPCUAHandler.securityPolicy.getAsymmetricCipherTextBlockSize()
+        return OPCUAHandler.securityPolicy.asymmetricCipherTextBlockSize
     }
 
     var plainTextBlockSize: Int {
-        return OPCUAHandler.securityPolicy.getAsymmetricPlainTextBlockSize()
+        return OPCUAHandler.securityPolicy.asymmetricPlainTextBlockSize
     }
 
     var signatureSize: Int {
-        return OPCUAHandler.securityPolicy.getAsymmetricSignatureSize()
+        return OPCUAHandler.securityPolicy.asymmetricSignatureSize
     }
     
     var isSigningEnabled: Bool {
-        return OPCUAHandler.securityPolicy.isAsymmetricSigningEnabled()
+        return OPCUAHandler.securityPolicy.isAsymmetricSigningEnabled
     }
 
     var isEncryptionEnabled: Bool {
-        return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled()
+        return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled
     }
 }
