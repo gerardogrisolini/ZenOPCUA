@@ -7,15 +7,26 @@
 
 public struct Subscription: OPCUAEncodable {
     public let requestedPubliscingInterval: Double
-    public var requestedLifetimeCount: UInt32 = 1000
-    public var requesteMaxKeepAliveCount: UInt32 = 12
-    public var maxNotificationsPerPublish: UInt32 = 0 //default 10
+    public var requestedLifetimeCount: UInt32
+    public var requesteMaxKeepAliveCount: UInt32
+    public var maxNotificationsPerPublish: UInt32
     public var publishingEnabled: Bool
-    public var priority: UInt8 = 10
+    public var priority: UInt8
 
-    public init(requestedPubliscingInterval: Double = 250, publishingEnabled: Bool = true) {
+    public init(
+        requestedPubliscingInterval: Double = 250,
+        requestedLifetimeCount: UInt32 = 1000,
+        requesteMaxKeepAliveCount: UInt32 = 12,
+        maxNotificationsPerPublish: UInt32 = 10,
+        publishingEnabled: Bool = true,
+        priority: UInt8 = 10
+    ) {
         self.requestedPubliscingInterval = requestedPubliscingInterval
+        self.requestedLifetimeCount = requestedLifetimeCount
+        self.requesteMaxKeepAliveCount = requesteMaxKeepAliveCount
+        self.maxNotificationsPerPublish = maxNotificationsPerPublish
         self.publishingEnabled = publishingEnabled
+        self.priority = priority
     }
     
     internal var bytes: [UInt8] {

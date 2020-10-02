@@ -67,7 +67,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            //print(response.securityToken.revisedLifetime)
             getEndpoints(context: context, response: response)
         case .error:
             var error: Error
@@ -136,9 +135,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .createSubscriptionResponse:
                 let response = CreateSubscriptionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
-//                    print("revisedLifetimeCount: \(response.revisedLifetimeCount)")
-//                    print("revisedMaxKeepAliveCount: \(response.revisedMaxKeepAliveCount)")
-//                    print("revisedPubliscingInterval: \(response.revisedPubliscingInterval)")
+                    print("revisedLifetimeCount: \(response.revisedLifetimeCount)")
+                    print("revisedMaxKeepAliveCount: \(response.revisedMaxKeepAliveCount)")
+                    print("revisedPubliscingInterval: \(response.revisedPubliscingInterval)")
                     promises[response.responseHeader.requestHandle]?.succeed(response)
                 } else {
                     let error = OPCUAError.code(response.responseHeader.serviceResult)
@@ -153,9 +152,15 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 promises[response.responseHeader.requestHandle]?.succeed(response.results)
             case .publishResponse:
                 let response = PublishResponse(bytes: frame.body)
-                promises[response.responseHeader.requestHandle]?.succeed(response.subscriptionId)
-                guard let dataChanged = dataChanged else { return }
-                dataChanged(response.notificationMessage.notificationData)
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    promises[response.responseHeader.requestHandle]?.succeed(response.subscriptionId)
+                    guard let dataChanged = dataChanged else { return }
+                    dataChanged(response.notificationMessage.notificationData)
+                } else {
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    promises[response.responseHeader.requestHandle]!.fail(error)
+                    onErrorCaught(context: context, error: error)
+                }
             case .serviceFault:
                 let part = frame.body[20...43].map { $0 }
                 let responseHeader = ResponseHeader(bytes: part)

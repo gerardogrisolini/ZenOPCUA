@@ -125,20 +125,31 @@ public class ZenOPCUA {
         handler.password = password
         handler.requestedLifetime = sessionLifetime * 1000
 
+        handler.handlerActivated = onHandlerActivated
         handler.dataChanged = onDataChanged
         handler.errorCaught = { error in
             if let onErrorCaught = self.onErrorCaught {
                 onErrorCaught(error)
             }
-            if "\(error)".contains("\(StatusCodes.UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS)") {
-                let interval = self.milliseconds + 100
-                let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
-                self.onErrorCaught?(info)
-                self.startPublishing(milliseconds: interval).whenComplete { _ in }
+            
+            switch error {
+            case OPCUAError.code(let code, _):
+                switch code {
+                case .UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS:
+                    let interval = self.milliseconds + 100
+                    let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
+                    self.onErrorCaught?(info)
+                    self.startPublishing(milliseconds: interval).whenComplete { _ in }
+                case .UA_STATUSCODE_BADTIMEOUT, .UA_STATUSCODE_BADNOSUBSCRIPTION:
+                    self.stopPublishing().whenComplete { _ in }
+                default:
+                    break
+                }
+            default:
+                break
             }
         }
-        handler.handlerActivated = onHandlerActivated
-        handler.handlerRemoved = {            
+        handler.handlerRemoved = {
             if let onHandlerRemoved = self.onHandlerRemoved {
                 onHandlerRemoved()
             }
@@ -383,7 +394,8 @@ public class ZenOPCUA {
         }
 
         let requestId = self.handler.nextMessageID()
-
+        handler.promises[requestId] = eventLoopGroup.next().makePromise(of: Promisable.self)
+        
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = PublishRequest(
             secureChannelId: session.secureChannelId,

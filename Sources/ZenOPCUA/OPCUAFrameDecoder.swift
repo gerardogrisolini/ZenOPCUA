@@ -62,10 +62,9 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     }
 
     public func decodeLast(context: ChannelHandlerContext, buffer: inout ByteBuffer, seenEOF: Bool) throws -> DecodingState {
-        print("decodeLast.readableBytes: \(buffer.readableBytes)")
+        //return try decode(context: context, buffer: &buffer)
         // EOF is not semantic in WebSocket, so ignore this.
-        //return .needMoreData
-        return try decode(context: context, buffer: &buffer)
+        return .needMoreData
     }
     
     public func parse(buffer: inout ByteBuffer) throws -> OPCUAFrame? {

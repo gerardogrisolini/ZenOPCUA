@@ -9,10 +9,10 @@ import Foundation
 
 class PublishResponse: MessageBase, OPCUADecodable {
     let typeId: NodeIdNumeric
-    let responseHeader: ResponseHeader
+    var responseHeader: ResponseHeader
     let subscriptionId: UInt32
     var availableSequenceNumbers: [UInt32] = []
-    let moreNotifications: Bool
+    var moreNotifications: Bool
     var notificationMessage: NotificationMessage
     
     var results: [StatusCodes] = []
@@ -43,6 +43,8 @@ class PublishResponse: MessageBase, OPCUADecodable {
         notificationMessage.publishTime = Int64(bytes: bytes[index..<(index+8)]).date
         index += 8
 
+        super.init(bytes: bytes[0...15].map { $0 })
+
         count = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         if count < UInt32.max {
@@ -54,6 +56,12 @@ class PublishResponse: MessageBase, OPCUADecodable {
                 
                 var subCount = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
+                
+                if let code = StatusCodes(rawValue: subCount), code == .UA_STATUSCODE_BADTIMEOUT {
+                    responseHeader.serviceResult = code
+                    return
+                }
+                
                 if subCount < UInt32.max {
                     for _ in 0..<subCount {
                         let clientHandle = UInt32(bytes: bytes[index..<(index+4)])
@@ -108,8 +116,6 @@ class PublishResponse: MessageBase, OPCUADecodable {
                 index += len.int
             }
         }
-
-        super.init(bytes: bytes[0...15].map { $0 })
     }
 }
 
@@ -133,4 +139,8 @@ public struct DataChangeNotification {
 public struct MonitoredItemNotification {
     public var clientHandle: UInt32
     public var value: DataValue
+}
+
+public struct StatusChangeNotification {
+    
 }
