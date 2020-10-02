@@ -69,8 +69,8 @@ final class ZenOPCUATests: XCTestCase {
             
             let subscription = Subscription(
                 requestedPubliscingInterval: 250,
-                requestedLifetimeCount: 100,
-                requesteMaxKeepAliveCount: 10,
+                requestedLifetimeCount: 10000,
+                requesteMaxKeepAliveCount: 120,
                 maxNotificationsPerPublish: 0,
                 publishingEnabled: true
             )
