@@ -13,7 +13,7 @@ class OpenSecureChannel {
     let sequenseNumber: UInt32
     let requestId: UInt32
     
-    init(secureChannelId: UInt32, securityPolicyUri: String, requestId: UInt32) {
+    init(secureChannelId: UInt32 = 0, securityPolicyUri: String, requestId: UInt32) {
         self.secureChannelId = secureChannelId
         self.securityPolicyUri = securityPolicyUri
         self.sequenseNumber = requestId
