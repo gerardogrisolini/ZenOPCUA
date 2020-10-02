@@ -344,7 +344,7 @@ class SecurityPolicy {
         let plainText = CryptorRSA.createPlaintext(with: data)
         let signed = CryptorRSA.SignedData(with: signature)
         do {
-            return try plainText.verify(with: clientPublicKey!, signature: signed, algorithm: algorithm)
+            return try plainText.verify(with: serverPublicKey!, signature: signed, algorithm: algorithm)
         } catch {
             print("signVerify: \(error)")
             return false

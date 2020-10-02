@@ -77,16 +77,16 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
 
         if isSigningEnabled {
             try verifyChunk(chunkBuffer: &buffer)
+            buffer.moveWriterIndex(to: buffer.writerIndex - OPCUAHandler.securityPolicy.remoteAsymmetricSignatureSize)
         }
 
         var head = OPCUAFrameHead()
         head.messageType = type
         head.chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!)!
-        head.messageSize = UInt32(bytes: buffer.getBytes(at: buffer.readerIndex + 4, length: 4)!)
-        let messageSize = head.messageSize.int
-        let bytes = buffer.getBytes(at: buffer.readerIndex + 8, length: messageSize - 8) ?? [UInt8]()
+        head.messageSize = UInt32(buffer.writerIndex)
+        let bytes = buffer.getBytes(at: buffer.readerIndex + 8, length: buffer.writerIndex - 8) ?? [UInt8]()
         
-        buffer.moveReaderIndex(forwardBy: messageSize)
+        buffer.moveReaderIndex(forwardBy: buffer.writerIndex)
 
         return OPCUAFrame(head: head, body: bytes)
     }
@@ -114,6 +114,8 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
             chunkBuffer.moveWriterIndex(to: header)
             chunkBuffer.writeBuffer(&plainTextBuffer);
             
+            print("decrypt: chunkBuffer => \(chunkBuffer.writerIndex + header) => chunkNioBuffer: \(header + plainTextBuffer.writerIndex)")
+
             return chunkBuffer
         } catch {
             throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADSECURITYCHECKSFAILED, reason: error.localizedDescription)
@@ -122,15 +124,15 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     
     public func verifyChunk(chunkBuffer: inout ByteBuffer) throws {
         let signatureSize = OPCUAHandler.securityPolicy.remoteAsymmetricSignatureSize
-        
         let len = chunkBuffer.writerIndex - signatureSize
         let data = Data(chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: len)!)
-        chunkBuffer.moveReaderIndex(to: len)
-
-        let signatureBytes = Data(chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: signatureSize)!)
-        if !(OPCUAHandler.securityPolicy.signVerify(signature: signatureBytes, data: data)) {
+        let signature = Data(chunkBuffer.getBytes(at: chunkBuffer.readerIndex + len, length: signatureSize)!)
+        
+        if !(OPCUAHandler.securityPolicy.signVerify(signature: signature, data: data)) {
             throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADUSERSIGNATUREINVALID)
         }
+
+        print("verify: \(chunkBuffer.readableBytes) signature: \(signature.count) => chunkBuffer: \(data.count)")
     }
 
     var isEncryptionEnabled: Bool {
