@@ -320,10 +320,6 @@ class SecurityPolicy {
 
         let myPlaintext = CryptorRSA.createPlaintext(with: dataToSign)
         let signedData = try myPlaintext.signed(with: clientPrivateKey!, algorithm: algorithm)
-        if !(try myPlaintext.verify(with: clientPublicKey!, signature: signedData!, algorithm: algorithm)) {
-            throw OPCUAError.generic("Signature Verification Failed")
-        }
-
         return signedData!.data
         
 //        guard SecKeyIsAlgorithmSupported(clientPrivateKey!, .sign, algorithm) else {
@@ -358,8 +354,23 @@ class SecurityPolicy {
 //        }
 //        return signature.rawRepresentation
     }
-
-    func crypt(dataToEncrypt: [UInt8]) throws -> [UInt8] {
+    
+    func signVerify(signedData: Data) throws -> Bool {
+        let algorithm: Data.Algorithm
+        switch asymmetricSignatureAlgorithm {
+        case .rsaSha1:
+            algorithm = .sha1
+        case .rsaSha256:
+            algorithm = .sha256
+        default:
+            algorithm = .gcm
+        }
+        
+        let signed = CryptorRSA.SignedData(with: signedData)
+        return try CryptorRSA.createPlaintext(with: Data()).verify(with: clientPublicKey!, signature: signed, algorithm: algorithm)
+    }
+    
+    func crypt(data: [UInt8]) throws -> [UInt8] {
         //let data = Data(UInt32(dataToEncrypt.count).bytes + dataToEncrypt)
 
 //        let algorithm: Data.Algorithm
@@ -388,7 +399,7 @@ class SecurityPolicy {
         guard let cipherText = SecKeyCreateEncryptedData(
             key,
             algorithm2,
-            Data(dataToEncrypt) as CFData,
+            Data(data) as CFData,
             &error) as Data? else {
             throw error!.takeRetainedValue() as Error
         }
@@ -427,6 +438,10 @@ class SecurityPolicy {
 //        return [UInt8](encryptedData.combined)
     }
     
+    func decrypt(data: [UInt8]) throws -> [UInt8] {
+        return data
+    }
+    
     func getSecurityHeaderSize() -> Int {
         return SECURE_MESSAGE_HEADER_SIZE +
             securityPolicyUri.count +
@@ -453,6 +468,17 @@ class SecurityPolicy {
 
     func getAsymmetricKeyLength(publicKey: CryptorRSA.PublicKey) -> Int {
         return 256 * 8
+    }
+
+    func getRemoteAsymmetricSignatureSize() -> Int {
+        guard let serverPublicKey = serverPublicKey else { return 0 }
+
+        switch asymmetricSignatureAlgorithm {
+        case .rsaSha1, .rsaSha256, .rsaSha256Pss:
+            return (getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8
+        default:
+            return 0
+        }
     }
 
     func getAsymmetricSignatureSize() -> Int {

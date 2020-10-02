@@ -5,12 +5,14 @@
 //  Created by Gerardo Grisolini on 26/01/2020.
 //
 
+import Foundation
 import NIO
 
 final class OPCUAFrameDecoder: ByteToMessageDecoder {
     public typealias InboundOut = OPCUAFrame
     private var parts: ByteBuffer? = nil
-    
+    let byteBufferAllocator = ByteBufferAllocator()
+
     public func decode(context: ChannelHandlerContext, buffer: inout ByteBuffer) throws -> DecodingState  {
         guard buffer.readableBytes >= 8 else { return .needMoreData }
 
@@ -51,7 +53,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
             parts = nil
         }
         
-        if let frame = parse(buffer: &buffer) {
+        if let frame = try parse(buffer: &buffer) {
             context.fireChannelRead(self.wrapInboundOut(frame))
             return .continue
         }
@@ -60,15 +62,24 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     }
 
     public func decodeLast(context: ChannelHandlerContext, buffer: inout ByteBuffer, seenEOF: Bool) throws -> DecodingState {
+        print("decodeLast.readableBytes: \(buffer.readableBytes)")
         // EOF is not semantic in WebSocket, so ignore this.
         //return .needMoreData
-        try decode(context: context, buffer: &buffer)
+        return try decode(context: context, buffer: &buffer)
     }
     
-    public func parse(buffer: inout ByteBuffer) -> OPCUAFrame? {
+    public func parse(buffer: inout ByteBuffer) throws -> OPCUAFrame? {
         guard let messageType = buffer.getString(at: buffer.readerIndex, length: 3),
               let type = MessageTypes(rawValue: messageType) else { return nil }
         
+        if isEncryptionEnabled {
+            buffer = try decryptChunk(chunkBuffer: &buffer)
+        }
+
+        if isSigningEnabled {
+            try verifyChunk(chunkBuffer: &buffer)
+        }
+
         var head = OPCUAFrameHead()
         head.messageType = type
         head.chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!)!
@@ -79,5 +90,55 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         buffer.moveReaderIndex(forwardBy: messageSize)
 
         return OPCUAFrame(head: head, body: bytes)
+    }
+    
+    private func decryptChunk(chunkBuffer: inout ByteBuffer) throws -> ByteBuffer {
+        let cipherTextBlockSize = OPCUAHandler.securityPolicy.getAsymmetricCipherTextBlockSize()
+        let blockCount = chunkBuffer.readableBytes / cipherTextBlockSize
+        let plainTextBufferSize = cipherTextBlockSize * blockCount
+        var plainTextBuffer = byteBufferAllocator.buffer(capacity: plainTextBufferSize)
+
+        do {
+            chunkBuffer.moveReaderIndex(forwardBy: OPCUAHandler.securityPolicy.getSecurityHeaderSize())
+            chunkBuffer.moveWriterIndex(to: chunkBuffer.readerIndex)
+
+            assert (chunkBuffer.readableBytes % cipherTextBlockSize == 0)
+
+            //if (isAsymmetric()) {
+                for _ in 0..<blockCount {
+                    let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: cipherTextBlockSize)!
+                    chunkBuffer.moveReaderIndex(forwardBy: cipherTextBlockSize)
+                    let bytes = try OPCUAHandler.securityPolicy.decrypt(data: dataToDencrypt)
+                    plainTextBuffer.writeBytes(bytes)
+                }
+            //} else {
+            //    cipher.doFinal(chunkNioBuffer, plainTextNioBuffer);
+            //}
+
+            chunkBuffer.writeBuffer(&plainTextBuffer);
+            chunkBuffer.moveReaderIndex(to: 0)
+            
+            return chunkBuffer
+        } catch {
+            throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADSECURITYCHECKSFAILED, reason: error.localizedDescription)
+        }
+    }
+    
+    public func verifyChunk(chunkBuffer: inout ByteBuffer) throws {
+        let signatureSize = OPCUAHandler.securityPolicy.getRemoteAsymmetricSignatureSize()
+        chunkBuffer.moveReaderIndex(to: chunkBuffer.writerIndex - signatureSize)
+
+        let signatureBytes = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: signatureSize)!
+        if !(try OPCUAHandler.securityPolicy.signVerify(signedData: Data(signatureBytes))) {
+            throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADUSERSIGNATUREINVALID)
+        }
+    }
+
+    var isEncryptionEnabled: Bool {
+        return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled()
+    }
+    
+    var isSigningEnabled: Bool {
+        return OPCUAHandler.securityPolicy.isAsymmetricSigningEnabled()
     }
 }

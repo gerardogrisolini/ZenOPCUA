@@ -27,10 +27,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     }
     
     func signAndEncrypt(messageBuffer: inout ByteBuffer, out: inout ByteBuffer) throws {
-        let encrypted = isAsymmetricEncryptionEnabled
-        
         let maxChunkSize = OPCUAHandler.bufferSize
-        let paddingOverhead = encrypted ? (cipherTextBlockSize > 256 ? 2 : 1) : 0
+        let paddingOverhead = isEncryptionEnabled ? (cipherTextBlockSize > 256 ? 2 : 1) : 0
 
         let maxCipherTextSize = maxChunkSize - SECURE_MESSAGE_HEADER_SIZE - securityHeaderSize
         let maxCipherTextBlocks = maxCipherTextSize / cipherTextBlockSize
@@ -39,12 +37,12 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
         assert (maxPlainTextSize + securityHeaderSize + SECURE_MESSAGE_HEADER_SIZE <= maxChunkSize)
 
-        let header = encrypted ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize : 0
+        let header = isEncryptionEnabled ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize : 0
         while messageBuffer.readableBytes > 0 {
             let bodySize = min(messageBuffer.readableBytes - header - 8, maxBodySize)
 
             var paddingSize: Int
-            if encrypted {
+            if isEncryptionEnabled {
                 let plainTextSize = SEQUENCE_HEADER_SIZE + bodySize + paddingOverhead + signatureSize
                 let remaining = plainTextSize % plainTextBlockSize
                 paddingSize = remaining > 0 ? plainTextBlockSize - remaining : 0
@@ -55,9 +53,9 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             let plainTextContentSize = SEQUENCE_HEADER_SIZE + bodySize +
                 signatureSize + paddingSize + paddingOverhead
 
-            assert (!encrypted || plainTextContentSize % plainTextBlockSize == 0)
+            assert (!isEncryptionEnabled || plainTextContentSize % plainTextBlockSize == 0)
 
-            let chunkSize = encrypted
+            let chunkSize = isEncryptionEnabled
                 ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize +
                 (plainTextContentSize / plainTextBlockSize) * cipherTextBlockSize
                 : SEQUENCE_HEADER_SIZE + bodySize
@@ -73,11 +71,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             messageBuffer.moveReaderIndex(forwardBy: header + bodySize)
 
             /* Padding and Signature */
-            if encrypted {
+            if isEncryptionEnabled {
                 writePadding(cipherTextBlockSize, paddingSize, &chunkBuffer)
             }
 
-            if isAsymmetricSigningEnabled {
+            if isSigningEnabled {
                 let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!)
                 let signature = try OPCUAHandler.securityPolicy.sign(dataToSign: dataToSign)
                 chunkBuffer.writeBytes(signature)
@@ -85,7 +83,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             }
 
             /* Encryption */
-            if (encrypted) {
+            if (isEncryptionEnabled) {
                 out.writeBytes(chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: header)!)
                 chunkBuffer.moveReaderIndex(to: header)
                 
@@ -96,7 +94,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
                 for _ in 0..<blockCount {
                     let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: plainTextBlockSize)!
-                    let dataEncrypted = try OPCUAHandler.securityPolicy.crypt(dataToEncrypt: dataToEncrypt)
+                    let dataEncrypted = try OPCUAHandler.securityPolicy.crypt(data: dataToEncrypt)
                     
                     assert (dataEncrypted.count == cipherTextBlockSize)
                     
@@ -145,11 +143,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         return OPCUAHandler.securityPolicy.getAsymmetricSignatureSize()
     }
     
-    var isAsymmetricSigningEnabled: Bool {
+    var isSigningEnabled: Bool {
         return OPCUAHandler.securityPolicy.isAsymmetricSigningEnabled()
     }
 
-    var isAsymmetricEncryptionEnabled: Bool {
+    var isEncryptionEnabled: Bool {
         return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled()
     }
 }
