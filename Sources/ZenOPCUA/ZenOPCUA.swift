@@ -1,6 +1,6 @@
 //
 //  ZenOPCUA.swift
-//  
+//
 //
 //  Created by Gerardo Grisolini on 26/01/2020.
 //
@@ -12,7 +12,7 @@ import NIOConcurrencyHelpers
 public enum OPCUAError : Error {
     case connectionError
     case sessionError
-    case code(_ status: StatusCodes)
+    case code(_ status: StatusCodes, reason: String = "")
     case generic(_ text: String)
 }
 
@@ -44,7 +44,7 @@ public class ZenOPCUA {
         handler.applicationName = applicationName
         OPCUAHandler.messageSecurityMode = messageSecurityMode
         let security = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
-        try? security.loadClientCertificate(certificate: certificate, privateKey: privateKey)
+        security.loadClientCertificate(certificate: certificate, privateKey: privateKey)
         OPCUAHandler.securityPolicy = security
     }
     
@@ -71,7 +71,7 @@ public class ZenOPCUA {
     
     private func start() -> EventLoopFuture<Void> {
         let server = getHostFromEndpoint()
-
+        
         let handlers: [ChannelHandler] = [
             ByteToMessageHandler(OPCUAFrameDecoder()),
             MessageToByteHandler(OPCUAFrameEncoder()),
@@ -102,6 +102,13 @@ public class ZenOPCUA {
         guard let channel = channel else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
+
+        handler.sessionActive = nil
+        handler.resetMessageID()
+
+        if !OPCUAHandler.isAcknowledgeSecure {
+            OPCUAHandler.endpoint = EndpointDescription()
+        }
         
         channel.flush()
         return channel.close(mode: .all).map { () -> () in
@@ -131,23 +138,15 @@ public class ZenOPCUA {
             }
         }
         handler.handlerActivated = onHandlerActivated
-        handler.handlerRemoved = {            
+        handler.handlerRemoved = {
             if let onHandlerRemoved = self.onHandlerRemoved {
                 onHandlerRemoved()
             }
             
             if ZenOPCUA.reconnect && !OPCUAHandler.isAcknowledge || OPCUAHandler.isAcknowledgeSecure {
                 self.stop().whenComplete { _ in
-                    //TODO: fixed .renew error resetting session
-                    self.handler.resetMessageID()
-                    self.handler.sessionActive = nil
-                    OPCUAHandler.endpoint = EndpointDescription()
-                    // end fix
-
-                    sleep(3)
-                    self.start().whenComplete { _ in
-                        OPCUAHandler.isAcknowledgeSecure = false
-                    }
+                    if !OPCUAHandler.isAcknowledgeSecure && !OPCUAHandler.isAcknowledge { sleep(3) }
+                    self.start().whenComplete { _ in }
                 }
             }
         }
@@ -170,7 +169,7 @@ public class ZenOPCUA {
     
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
         ZenOPCUA.reconnect = false
-        
+
         if deleteSubscriptions {
             return stopPublishing().flatMap { () -> EventLoopFuture<Void> in
                 return self.closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { (_) -> EventLoopFuture<Void> in
@@ -404,10 +403,9 @@ public class ZenOPCUA {
     }
     
     private func writeSyncronized(_ frame: OPCUAFrame, promise: EventLoopPromise<Void>? = nil) {
-        guard let channel = channel else { return }
-
         dispatchQueue.async(flags: .barrier) {
             do {
+                guard let channel = self.channel else { throw OPCUAError.connectionError}
                 try channel.writeAndFlush(frame).wait()
                 promise?.succeed(())
             } catch {
@@ -462,4 +460,3 @@ public class ZenOPCUA {
         return promise.futureResult
     }
 }
-

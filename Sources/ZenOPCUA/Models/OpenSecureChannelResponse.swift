@@ -10,7 +10,7 @@ class OpenSecureChannelResponse: OpenSecureChannel, OPCUADecodable {
     var responseHeader: ResponseHeader
     var serverProtocolVersion: UInt32
     var securityToken: SecurityToken
-    var serverNonce: String?
+    var serverNonce: [UInt8]
 
     required init(bytes: [UInt8]) {
         typeId = NodeIdNumeric(method: .openSecureChannelResponse)
@@ -22,7 +22,7 @@ class OpenSecureChannelResponse: OpenSecureChannel, OPCUADecodable {
         
         //TODO: complete parsing response
         
-        serverNonce = nil //bytes[123...126]
+        serverNonce = bytes[123...126].map { $0 }
         super.init(securityPolicyUri: SecurityPolicies.none.uri, requestId: responseHeader.requestHandle)
         secureChannelId = UInt32(bytes: bytes[0...3])
     }
