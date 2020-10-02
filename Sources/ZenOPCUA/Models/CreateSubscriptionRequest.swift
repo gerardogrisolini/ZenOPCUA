@@ -7,8 +7,8 @@
 
 public struct Subscription: OPCUAEncodable {
     public let requestedPubliscingInterval: Double
-    public var requestedLifetimeCount: UInt32 = 1000
-    public var requesteMaxKeepAliveCount: UInt32 = 12
+    public var requestedLifetimeCount: UInt32 = 2000 //default 1000
+    public var requesteMaxKeepAliveCount: UInt32 = 24 //default 12
     public var maxNotificationsPerPublish: UInt32 = 0 //default 10
     public var publishingEnabled: Bool
     public var priority: UInt8 = 10
