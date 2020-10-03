@@ -29,6 +29,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     }
     
     func signAndEncrypt(messageBuffer: inout ByteBuffer, out: inout ByteBuffer) throws {
+        let isEncryptionEnabled = OPCUAHandler.securityPolicy.isEncryptionEnabled
+
         let maxChunkSize = OPCUAHandler.bufferSize
         let paddingOverhead = isEncryptionEnabled ? (cipherTextBlockSize > 256 ? 2 : 1) : 0
 
@@ -78,7 +80,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 writePadding(cipherTextBlockSize, paddingSize, &chunkBuffer)
             }
 
-            if isSigningEnabled {
+            if OPCUAHandler.securityPolicy.isSigningEnabled {
                 let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!)
                 let signature = try OPCUAHandler.securityPolicy.sign(data: dataToSign)
                 chunkBuffer.writeBytes(signature)
@@ -90,7 +92,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 out.writeBytes(chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: header)!)
                 chunkBuffer.moveReaderIndex(to: header)
                 
-                if OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled {
+                if OPCUAHandler.securityPolicy.isAsymmetric {
                     assert ((chunkBuffer.readableBytes) % plainTextBlockSize == 0)
                     
                     let blockCount = chunkBuffer.readableBytes / plainTextBlockSize
@@ -140,27 +142,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         }
     }
 
-    var securityHeaderSize: Int {
-        return OPCUAHandler.securityPolicy.securityHeaderSize
-    }
+    var securityHeaderSize: Int { OPCUAHandler.securityPolicy.securityHeaderSize }
 
-    var cipherTextBlockSize: Int {
-        return OPCUAHandler.securityPolicy.asymmetricCipherTextBlockSize
-    }
+    var cipherTextBlockSize: Int { OPCUAHandler.securityPolicy.asymmetricCipherTextBlockSize }
 
-    var plainTextBlockSize: Int {
-        return OPCUAHandler.securityPolicy.asymmetricPlainTextBlockSize
-    }
+    var plainTextBlockSize: Int { OPCUAHandler.securityPolicy.asymmetricPlainTextBlockSize }
 
-    var signatureSize: Int {
-        return OPCUAHandler.securityPolicy.asymmetricSignatureSize
-    }
-    
-    var isSigningEnabled: Bool {
-        return OPCUAHandler.securityPolicy.isAsymmetricSigningEnabled
-    }
-
-    var isEncryptionEnabled: Bool {
-        return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled
-    }
+    var signatureSize: Int { OPCUAHandler.securityPolicy.asymmetricSignatureSize }
 }

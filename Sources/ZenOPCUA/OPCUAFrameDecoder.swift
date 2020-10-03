@@ -71,11 +71,11 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         guard let messageType = buffer.getString(at: buffer.readerIndex, length: 3),
               let type = MessageTypes(rawValue: messageType) else { return nil }
         
-        if isEncryptionEnabled {
+        if OPCUAHandler.securityPolicy.isEncryptionEnabled {
             buffer = try decryptChunk(chunkBuffer: &buffer)
         }
 
-        if isSigningEnabled {
+        if OPCUAHandler.securityPolicy.isSigningEnabled {
             try verifyChunk(chunkBuffer: &buffer)
             buffer.moveWriterIndex(to: buffer.writerIndex - OPCUAHandler.securityPolicy.remoteAsymmetricSignatureSize)
         }
@@ -93,7 +93,9 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     
     private func decryptChunk(chunkBuffer: inout ByteBuffer) throws -> ByteBuffer {
         let cipherTextBlockSize = OPCUAHandler.securityPolicy.asymmetricCipherTextBlockSize
-        let header = isEncryptionEnabled ? SECURE_MESSAGE_HEADER_SIZE + (chunkBuffer.readableBytes > securityHeaderSize ? securityHeaderSize : 0) : 0
+        let header = OPCUAHandler.securityPolicy.isEncryptionEnabled
+            ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize
+            : 0
         
         chunkBuffer.moveReaderIndex(forwardBy: header)
         let blockCount = chunkBuffer.readableBytes / cipherTextBlockSize
@@ -101,7 +103,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         var plainTextBuffer = byteBufferAllocator.buffer(capacity: plainTextBufferSize)
 
         do {
-            if OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled {
+            if OPCUAHandler.securityPolicy.isAsymmetric {
             
                 assert (chunkBuffer.readableBytes % cipherTextBlockSize == 0)
 
@@ -145,16 +147,6 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         print("verify: \(chunkBuffer.readableBytes) \(signature.count) => \(data.count)")
     }
 
-    var isEncryptionEnabled: Bool {
-        return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled
-            || OPCUAHandler.securityPolicy.isSymmetricEncryptionEnabled
-    }
-    
-    var isSigningEnabled: Bool {
-        return OPCUAHandler.securityPolicy.isAsymmetricSigningEnabled
-            || OPCUAHandler.securityPolicy.isSymmetricSigningEnabled
-    }
-    
     var securityHeaderSize: Int {
         return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled
             ? OPCUAHandler.securityPolicy.securityRemoteHeaderSize
