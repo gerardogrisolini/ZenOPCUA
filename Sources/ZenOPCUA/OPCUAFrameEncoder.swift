@@ -17,6 +17,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     let byteBufferAllocator = ByteBufferAllocator()
     
     public func encode(data frame: OPCUAFrame, out: inout ByteBuffer) throws {
+        print(" --> \(frame.head)")
+
         //for frame in value.split() {
             var byteBuffer = byteBufferAllocator.buffer(capacity: frame.body.count + 8)
             byteBuffer.writeString("\(frame.head.messageType.rawValue)\(frame.head.chunkType.rawValue)")
@@ -80,7 +82,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!)
                 let signature = try OPCUAHandler.securityPolicy.sign(data: dataToSign)
                 chunkBuffer.writeBytes(signature)
-                print("sign: \(dataToSign.count) signature: \(signature.count) => chunkBuffer: \(chunkBuffer.readableBytes)")
+                print("sign: \(dataToSign.count) => \(chunkBuffer.readableBytes)")
             }
 
             /* Encryption */
@@ -88,23 +90,33 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 out.writeBytes(chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: header)!)
                 chunkBuffer.moveReaderIndex(to: header)
                 
-                assert ((chunkBuffer.readableBytes) % plainTextBlockSize == 0)
-                
-                let blockCount = chunkBuffer.readableBytes / plainTextBlockSize
-                var chunkNioBuffer = byteBufferAllocator.buffer(capacity: blockCount * cipherTextBlockSize)
+                if OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled {
+                    assert ((chunkBuffer.readableBytes) % plainTextBlockSize == 0)
+                    
+                    let blockCount = chunkBuffer.readableBytes / plainTextBlockSize
+                    var chunkNioBuffer = byteBufferAllocator.buffer(capacity: blockCount * cipherTextBlockSize)
 
-                for _ in 0..<blockCount {
-                    let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: plainTextBlockSize)!
+                    for _ in 0..<blockCount {
+                        let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: plainTextBlockSize)!
+                        let dataEncrypted = try OPCUAHandler.securityPolicy.crypt(data: dataToEncrypt)
+                        
+                        assert (dataEncrypted.count == cipherTextBlockSize)
+                        
+                        chunkNioBuffer.writeBytes(dataEncrypted)
+                        chunkBuffer.moveReaderIndex(forwardBy: plainTextBlockSize)
+                        out.writeBuffer(&chunkNioBuffer)
+                    }
+                    print("encrypt: \(chunkBuffer.readerIndex) => \(header + chunkNioBuffer.writerIndex)")
+
+                } else {
+
+                    let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes)!
                     let dataEncrypted = try OPCUAHandler.securityPolicy.crypt(data: dataToEncrypt)
-                    
-                    assert (dataEncrypted.count == cipherTextBlockSize)
-                    
-                    chunkNioBuffer.writeBytes(dataEncrypted)
-                    chunkBuffer.moveReaderIndex(forwardBy: plainTextBlockSize)
+                    chunkBuffer.moveReaderIndex(forwardBy: chunkBuffer.readableBytes)
+                    out.writeBytes(dataEncrypted)
+                    print("encrypt: \(chunkBuffer.readerIndex) => \(header + dataEncrypted.count)")
                 }
-                print("encrypt: chunkBuffer => \(chunkBuffer.readerIndex) => chunkNioBuffer: \(header + chunkNioBuffer.readableBytes)")
 
-                out.writeBuffer(&chunkNioBuffer)
             } else {
                 out.writeBuffer(&chunkBuffer)
             }

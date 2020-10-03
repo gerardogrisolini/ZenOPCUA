@@ -60,6 +60,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
+        print(" <-- \(frame.head)")
         
         switch frame.head.messageType {
         case .acknowledge:
@@ -67,6 +68,12 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
+            
+            OPCUAHandler.securityPolicy.generateSecurityKeys(
+                serverNonce: response.serverNonce,
+                clientNonce: OPCUAHandler.securityPolicy.clientNonce
+            )
+            
             getEndpoints(context: context, response: response)
         case .error:
             var error: Error

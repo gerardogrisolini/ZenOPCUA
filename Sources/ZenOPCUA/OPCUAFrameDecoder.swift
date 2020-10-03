@@ -93,28 +93,38 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     
     private func decryptChunk(chunkBuffer: inout ByteBuffer) throws -> ByteBuffer {
         let cipherTextBlockSize = OPCUAHandler.securityPolicy.asymmetricCipherTextBlockSize
-        let header = isEncryptionEnabled ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize : 0
-
+        let header = isEncryptionEnabled ? SECURE_MESSAGE_HEADER_SIZE + (chunkBuffer.readableBytes > securityHeaderSize ? securityHeaderSize : 0) : 0
+        
         chunkBuffer.moveReaderIndex(forwardBy: header)
         let blockCount = chunkBuffer.readableBytes / cipherTextBlockSize
         let plainTextBufferSize = cipherTextBlockSize * blockCount
         var plainTextBuffer = byteBufferAllocator.buffer(capacity: plainTextBufferSize)
 
         do {
-            assert (chunkBuffer.readableBytes % cipherTextBlockSize == 0)
-
-            for _ in 0..<blockCount {
-                let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: cipherTextBlockSize)!
-                chunkBuffer.moveReaderIndex(forwardBy: cipherTextBlockSize)
-                let bytes = try OPCUAHandler.securityPolicy.decrypt(data: dataToDencrypt)
-                plainTextBuffer.writeBytes(bytes)
-            }
-
-            chunkBuffer.moveReaderIndex(to: 0)
-            chunkBuffer.moveWriterIndex(to: header)
-            chunkBuffer.writeBuffer(&plainTextBuffer);
+            if OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled {
             
-            print("decrypt: chunkBuffer => \(chunkBuffer.writerIndex + header) => chunkNioBuffer: \(header + plainTextBuffer.writerIndex)")
+                assert (chunkBuffer.readableBytes % cipherTextBlockSize == 0)
+
+                for _ in 0..<blockCount {
+                    let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: cipherTextBlockSize)!
+                    chunkBuffer.moveReaderIndex(forwardBy: cipherTextBlockSize)
+                    let bytes = try OPCUAHandler.securityPolicy.decrypt(data: dataToDencrypt)
+                    plainTextBuffer.writeBytes(bytes)
+                }
+
+                chunkBuffer.moveReaderIndex(to: 0)
+                chunkBuffer.moveWriterIndex(to: header)
+                chunkBuffer.writeBuffer(&plainTextBuffer);
+            
+            } else {
+                
+                let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes)!
+                let bytes = try OPCUAHandler.securityPolicy.decrypt(data: dataToDencrypt)
+                chunkBuffer.moveReaderIndex(to: 0)
+                chunkBuffer.moveWriterIndex(to: header)
+                chunkBuffer.writeBytes(bytes);
+            }
+            print("decrypt: \(chunkBuffer.writerIndex + header) => \(header + plainTextBuffer.writerIndex)")
 
             return chunkBuffer
         } catch {
@@ -132,18 +142,22 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
             throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADUSERSIGNATUREINVALID)
         }
 
-        print("verify: \(chunkBuffer.readableBytes) signature: \(signature.count) => chunkBuffer: \(data.count)")
+        print("verify: \(chunkBuffer.readableBytes) \(signature.count) => \(data.count)")
     }
 
     var isEncryptionEnabled: Bool {
         return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled
+            || OPCUAHandler.securityPolicy.isSymmetricEncryptionEnabled
     }
     
     var isSigningEnabled: Bool {
         return OPCUAHandler.securityPolicy.isAsymmetricSigningEnabled
+            || OPCUAHandler.securityPolicy.isSymmetricSigningEnabled
     }
     
     var securityHeaderSize: Int {
-        return OPCUAHandler.securityPolicy.securityRemoteHeaderSize
+        return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled
+            ? OPCUAHandler.securityPolicy.securityRemoteHeaderSize
+            : 0
     }
 }
