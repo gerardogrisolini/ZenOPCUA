@@ -266,7 +266,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         else { return false }
         
         OPCUAHandler.endpoint = endpoint
-        OPCUAHandler.securityPolicy.loadServerCertificate()
+        OPCUAHandler.securityPolicy.loadLocalCertificate()
 
         let requestId = nextMessageID()
         let frame: OPCUAFrame
@@ -315,11 +315,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             print("SecurityMode \(endpoint.messageSecurityMode)")
 
             var userIdentityInfo: UserIdentityInfo
-            if OPCUAHandler.securityPolicy.clientCertificate.count > 0 {
+            if OPCUAHandler.securityPolicy.localCertificate.count > 0 {
                 let policy = endpoint.userIdentityTokens.first(where: { $0.tokenType == .certificate })!
                 userIdentityInfo = UserIdentityInfoX509(
                     policyId: policy.policyId,
-                    certificate: OPCUAHandler.securityPolicy.clientCertificate,
+                    certificate: OPCUAHandler.securityPolicy.localCertificate,
                     serverCertificate: OPCUAHandler.endpoint.serverCertificate,
                     serverNonce: response.serverNonce
                 )

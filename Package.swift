@@ -19,14 +19,14 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
-//        .package(url: "https://github.com/apple/swift-crypto.git", .branch("master")),
-        .package(url: "https://github.com/IBM-Swift/BlueRSA.git", .branch("master"))
+        .package(url: "https://github.com/apple/swift-crypto.git", .branch("master")),
+//        .package(url: "https://github.com/IBM-Swift/BlueRSA.git", .branch("master"))
     ],
     targets: [
         .target(name: "ZenOPCUA", dependencies: [
             "NIO",
-//            "Crypto",
-            "CryptorRSA"
+            "Crypto",
+//            "CryptorRSA"
         ], swiftSettings: swiftSettings),
         .testTarget(name: "ZenOPCUATests", dependencies: ["ZenOPCUA"])
     ],

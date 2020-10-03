@@ -64,9 +64,9 @@ class OpenSecureChannelRequest: OPCUAEncodable {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)
             self.senderCertificate.append(contentsOf: UInt32.max.bytes)
             self.receiverCertificateThumbprint.append(contentsOf: UInt32.max.bytes)
-        } else if securityPolicy.clientCertificate.count > 0 {
-            self.senderCertificate.append(contentsOf: UInt32(securityPolicy.clientCertificate.count).bytes)
-            self.senderCertificate.append(contentsOf: securityPolicy.clientCertificate)
+        } else if securityPolicy.localCertificate.count > 0 {
+            self.senderCertificate.append(contentsOf: UInt32(securityPolicy.localCertificate.count).bytes)
+            self.senderCertificate.append(contentsOf: securityPolicy.localCertificate)
 
             self.clientNonce.append(contentsOf: UInt32(securityPolicy.clientNonce.count).bytes)
             self.clientNonce.append(contentsOf: securityPolicy.clientNonce)
