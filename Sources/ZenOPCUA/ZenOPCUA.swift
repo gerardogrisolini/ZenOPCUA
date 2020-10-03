@@ -106,9 +106,9 @@ public class ZenOPCUA {
         handler.sessionActive = nil
         handler.resetMessageID()
 
-        if !OPCUAHandler.isAcknowledgeSecure {
-            OPCUAHandler.endpoint = EndpointDescription()
-        }
+//        if !OPCUAHandler.isAcknowledgeSecure {
+//            OPCUAHandler.endpoint = EndpointDescription()
+//        }
         
         channel.flush()
         return channel.close(mode: .all).map { () -> () in
@@ -119,7 +119,6 @@ public class ZenOPCUA {
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true, sessionLifetime: UInt32 = 36000) -> EventLoopFuture<Void> {
         ZenOPCUA.reconnect = reconnect
         OPCUAHandler.isAcknowledge = true
-        OPCUAHandler.isAcknowledgeSecure = OPCUAHandler.messageSecurityMode != .none
         
         handler.username = username
         handler.password = password
@@ -173,7 +172,6 @@ public class ZenOPCUA {
             }
             .flatMapError { error -> EventLoopFuture<Void> in
                 OPCUAHandler.isAcknowledge = false
-                OPCUAHandler.isAcknowledgeSecure = false
                 return self.eventLoopGroup.next().makeFailedFuture(error)
             }
     }

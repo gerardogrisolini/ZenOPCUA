@@ -79,7 +79,7 @@ class OpenSecureChannelRequest: OPCUAEncodable {
 }
 
 public enum MessageSecurityMode : UInt32 {
-    case invalid = 0
+    //case invalid = 0
     case none = 1
     case sign = 2
     case signAndEncrypt = 3

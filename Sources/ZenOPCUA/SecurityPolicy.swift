@@ -142,7 +142,7 @@ class SecurityPolicy {
         }
     }
 
-    func loademoteCertificate() {
+    func loadRemoteCertificate() {
         remoteCertificate = Data(OPCUAHandler.endpoint.serverCertificate)
         remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: remoteCertificate))
         //let pemString = CryptorRSA.convertDerToPem(from: d, type: .publicType)
@@ -332,7 +332,7 @@ class SecurityPolicy {
             && OPCUAHandler.messageSecurityMode == .signAndEncrypt
     }
 
-    var isSigningEnabled: Bool { OPCUAHandler.messageSecurityMode == .sign || OPCUAHandler.messageSecurityMode == .signAndEncrypt }
+    var isSigningEnabled: Bool { OPCUAHandler.messageSecurityMode != .none }
     var isEncryptionEnabled: Bool { OPCUAHandler.messageSecurityMode == .signAndEncrypt }
     var isAsymmetric: Bool { securityKeys == nil }
     

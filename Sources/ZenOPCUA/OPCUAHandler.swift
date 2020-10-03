@@ -33,7 +33,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     static var endpoint: EndpointDescription = EndpointDescription()
     static var bufferSize: Int = 8196
     static var isAcknowledge: Bool = false
-    static var isAcknowledgeSecure: Bool = false
+    static var isAcknowledgeSecure: Bool { messageSecurityMode != .none && securityPolicy.securityKeys == nil }
     
     var endpointUrl: String = ""
     var applicationName: String = ""
@@ -97,9 +97,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             switch method {
             case .getEndpointsResponse:
                 if !createSession(context: context, response: GetEndpointsResponse(bytes: frame.body)) {
-                    OPCUAHandler.isAcknowledgeSecure = false
                     ZenOPCUA.reconnect = false
-                    
                     let error = OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints")
                     promises[0]!.fail(error)
                     onErrorCaught(context: context, error: error)
@@ -107,9 +105,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             case .createSessionResponse:
                 let response = CreateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
-                    OPCUAHandler.isAcknowledgeSecure = false
                     ZenOPCUA.reconnect = false
-                    
                     let error = OPCUAError.code(response.responseHeader.serviceResult)
                     promises[0]!.fail(error)
                     onErrorCaught(context: context, error: error)
@@ -120,7 +116,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 let response = ActivateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
                     OPCUAHandler.isAcknowledge = false
-                    OPCUAHandler.isAcknowledgeSecure = false
                     promises[0]!.succeed(Empty())
                     onHandlerActivated()
                 } else {
@@ -200,13 +195,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         var securityMode = OPCUAHandler.messageSecurityMode
-        
-        if securityMode != .none {
-            if OPCUAHandler.endpoint.serverCertificate.count > 0 {
-                OPCUAHandler.isAcknowledgeSecure = false
-            } else {
-                securityMode = .none
-            }
+        if securityMode != .none && OPCUAHandler.securityPolicy.securityKeys == nil {
+            securityMode = .none
         }
 
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
@@ -266,7 +256,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         else { return false }
         
         OPCUAHandler.endpoint = endpoint
-        OPCUAHandler.securityPolicy.loadLocalCertificate()
+        OPCUAHandler.securityPolicy.loadRemoteCertificate()
 
         let requestId = nextMessageID()
         let frame: OPCUAFrame
