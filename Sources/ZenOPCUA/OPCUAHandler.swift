@@ -68,12 +68,12 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            
-            OPCUAHandler.securityPolicy.generateSecurityKeys(
-                serverNonce: response.serverNonce,
-                clientNonce: OPCUAHandler.securityPolicy.clientNonce
-            )
-            
+            if OPCUAHandler.messageSecurityMode != .none {
+                OPCUAHandler.securityPolicy.generateSecurityKeys(
+                    serverNonce: response.serverNonce,
+                    clientNonce: OPCUAHandler.securityPolicy.clientNonce
+                )
+            }
             getEndpoints(context: context, response: response)
         case .error:
             var error: Error
