@@ -7,10 +7,16 @@
 
 import Foundation
 
-class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
+class OpenSecureChannelRequest: OPCUAEncodable {
+    let secureChannelId: UInt32 = 0
+    let securityPolicyUri: String
+    var senderCertificate: [UInt8] = []
+    var receiverCertificateThumbprint: [UInt8] = []
+    let sequenseNumber: UInt32
+    let requestId: UInt32
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
     let requestHeader: RequestHeader
-    var clientProtocolVersion: UInt32 = 0
+    let clientProtocolVersion: UInt32 = 0
     let securityTokenRequestType: SecurityTokenRequestType
     let messageSecurityMode: MessageSecurityMode
     var clientNonce: [UInt8] = []
@@ -45,13 +51,15 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         requestId: UInt32
     ) {
         print("Opened SecureChannel with SecurityPolicy \(securityPolicy.securityPolicyUri)")
-
+        
+        self.securityPolicyUri = securityPolicy.securityPolicyUri
+        self.sequenseNumber = requestId
+        self.requestId = requestId
         self.requestHeader = RequestHeader(requestHandle: 0)
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime
         self.messageSecurityMode = messageSecurityMode
-        super.init(securityPolicyUri: securityPolicy.securityPolicyUri, requestId: requestId)
-
+        
         if serverCertificate.count == 0 {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)
             self.senderCertificate.append(contentsOf: UInt32.max.bytes)

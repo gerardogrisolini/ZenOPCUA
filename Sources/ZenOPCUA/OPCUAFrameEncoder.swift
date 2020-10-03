@@ -38,7 +38,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         assert (maxPlainTextSize + securityHeaderSize + SECURE_MESSAGE_HEADER_SIZE <= maxChunkSize)
 
         let header = isEncryptionEnabled ? SECURE_MESSAGE_HEADER_SIZE + (messageBuffer.readableBytes > securityHeaderSize ? securityHeaderSize : 0) : 0
-        print("header: \(header)")
+        
         while messageBuffer.readableBytes > 0 {
             let bodySize = min(messageBuffer.readableBytes - header - 8, maxBodySize)
 
