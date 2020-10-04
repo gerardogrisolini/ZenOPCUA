@@ -10,7 +10,7 @@ import Foundation
 class OpenSecureChannelRequest: OPCUAEncodable {
     let secureChannelId: UInt32 = 0
     let securityPolicyUri: String
-    var senderCertificate: [UInt8] = []
+    var senderCertificate: Data = Data()
     var receiverCertificateThumbprint: [UInt8] = []
     let sequenseNumber: UInt32
     let requestId: UInt32
@@ -46,7 +46,7 @@ class OpenSecureChannelRequest: OPCUAEncodable {
         messageSecurityMode: MessageSecurityMode,
         securityPolicy: SecurityPolicy,
         userTokenType: SecurityTokenRequestType,
-        serverCertificate: [UInt8],
+        serverCertificate: Data,
         requestedLifetime: UInt32,
         requestId: UInt32
     ) {

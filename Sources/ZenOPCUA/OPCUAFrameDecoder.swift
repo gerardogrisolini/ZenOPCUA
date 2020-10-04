@@ -76,7 +76,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         }
 
         if OPCUAHandler.securityPolicy.isSigningEnabled {
-            try verifyChunk(chunkBuffer: &buffer)
+            //try verifyChunk(chunkBuffer: &buffer)
             buffer.moveWriterIndex(to: buffer.writerIndex - OPCUAHandler.securityPolicy.remoteAsymmetricSignatureSize)
         }
 

@@ -14,21 +14,21 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-        let opcua = ZenOPCUA(
-            eventLoopGroup: eventLoopGroup,
-            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-            messageSecurityMode: .none,
-            securityPolicy: .none
-        )
-
 //        let opcua = ZenOPCUA(
 //            eventLoopGroup: eventLoopGroup,
 //            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-//            messageSecurityMode: .signAndEncrypt,
-//            securityPolicy: .basic256,
-//            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.crt",
-//            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
+//            messageSecurityMode: .none,
+//            securityPolicy: .none
 //        )
+
+        let opcua = ZenOPCUA(
+            eventLoopGroup: eventLoopGroup,
+            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
+            messageSecurityMode: .signAndEncrypt,
+            securityPolicy: .basic256Sha256,
+            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.crt",
+            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
+        )
         
         opcua.onHandlerActivated = {
             print("OPCUA Client activated")

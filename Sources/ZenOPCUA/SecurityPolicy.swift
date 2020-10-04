@@ -116,11 +116,11 @@ class SecurityPolicy {
     }
 
     func loadLocalCertificate(certificate: String? = nil, privateKey: String? = nil) {
-        if securityPolicyUri.securityPolicy != .none {
-            self.clientNonce.append(contentsOf: SecurityPolicy.generateNonce(32))
-        }
-        
         if let certificateFile = certificate, let privateKeyFile = privateKey {
+            if securityPolicyUri.securityPolicy != .none {
+                self.clientNonce.append(contentsOf: SecurityPolicy.generateNonce(32))
+            }
+
             do {
                 let certificateData = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
                 localCertificate = dataFromPEM(data: certificateData)
@@ -142,8 +142,8 @@ class SecurityPolicy {
         }
     }
 
-    func loadRemoteCertificate() {
-        remoteCertificate = Data(OPCUAHandler.endpoint.serverCertificate)
+    func loadRemoteCertificate(data: [UInt8]) {
+        remoteCertificate.append(contentsOf: data) //Data(OPCUAHandler.endpoint.serverCertificate)
         remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: remoteCertificate))
         //let pemString = CryptorRSA.convertDerToPem(from: d, type: .publicType)
         //print(pemString)
@@ -203,7 +203,7 @@ class SecurityPolicy {
     var securityRemoteHeaderSize: Int {
         return SECURE_MESSAGE_HEADER_SIZE +
             securityPolicyUri.count +
-            OPCUAHandler.endpoint.serverCertificate.count +
+            remoteCertificate.count +
             localCertificateThumbprint.count
     }
         
@@ -308,32 +308,27 @@ class SecurityPolicy {
     }
     
     var isAsymmetricSigningEnabled: Bool {
-        return OPCUAHandler.messageSecurityMode != .none
-            //&& !OPCUAHandler.isAcknowledgeSecure
-            && localCertificate.count > 0
+        return OPCUAHandler.messageSecurityMode != .none && localCertificate.count > 0
     }
     
     var isSymmetricSigningEnabled: Bool {
         return localCertificate.count > 0 && OPCUAHandler.messageSecurityMode != .none
-            //&& !OPCUAHandler.isAcknowledgeSecure
             && (OPCUAHandler.messageSecurityMode == .sign || OPCUAHandler.messageSecurityMode == .signAndEncrypt)
     }
     
     var isAsymmetricEncryptionEnabled: Bool {
         return OPCUAHandler.messageSecurityMode != .none
-            //&& !OPCUAHandler.isAcknowledgeSecure
             && localCertificate.count > 0
-            && OPCUAHandler.endpoint.serverCertificate.count > 0
+            && remoteCertificate.count > 0
     }
 
    var isSymmetricEncryptionEnabled: Bool {
-        return OPCUAHandler.endpoint.serverCertificate.count > 0 && OPCUAHandler.messageSecurityMode != .none
-            //&& !OPCUAHandler.isAcknowledgeSecure
+        return remoteCertificate.count > 0 && OPCUAHandler.messageSecurityMode != .none
             && OPCUAHandler.messageSecurityMode == .signAndEncrypt
     }
 
-    var isSigningEnabled: Bool { OPCUAHandler.messageSecurityMode != .none }
-    var isEncryptionEnabled: Bool { OPCUAHandler.messageSecurityMode == .signAndEncrypt }
+    var isSigningEnabled: Bool { OPCUAHandler.messageSecurityMode != .none && localCertificate.count > 0 }
+    var isEncryptionEnabled: Bool { OPCUAHandler.messageSecurityMode == .signAndEncrypt && localCertificate.count > 0 }
     var isAsymmetric: Bool { securityKeys == nil }
     
     
@@ -397,24 +392,56 @@ class SecurityPolicy {
         )
     }
 
-    private func createPSha1Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
-        let key = SymmetricKey(data: clientNonce)
-        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: serverNonce, using: key)
+//    private func createPSha256Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> SymmetricKey {
+//        let symKeySalt = SymmetricKey(size: .bits256)
+//        let salt = symKeySalt.withUnsafeBytes { Data($0) }
+//
+//        let publicKey = try! P256.KeyAgreement.PublicKey(rawRepresentation: secret)
+//        let privateKey = try! P256.KeyAgreement.PrivateKey(rawRepresentation: seed)
+//
+//        let sharedSecret = try! privateKey.sharedSecretFromKeyAgreement(with: publicKey)
+//        let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(using: SHA256.self,
+//                                                   salt: salt,
+//                                             sharedInfo: Data(),
+//                                        outputByteCount: length)
+//
+//        return symmetricKey
+//    }
+//
+//    private func createPSha1Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> SymmetricKey {
+//        let symKeySalt = SymmetricKey(size: .bits256)
+//        let salt = symKeySalt.withUnsafeBytes { Data($0) }
+//
+//        let publicKey = try! P256.KeyAgreement.PublicKey(rawRepresentation: secret)
+//        let privateKey = try! P256.KeyAgreement.PrivateKey(rawRepresentation: seed)
+//
+//        let sharedSecret = try! privateKey.sharedSecretFromKeyAgreement(with: publicKey)
+//        let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(using: SHA256.self,
+//                                                   salt: salt,
+//                                             sharedInfo: Data(),
+//                                        outputByteCount: length)
+//
+//        return symmetricKey
+//    }
+
+    private func createPSha1Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> Data {
+        let key = SymmetricKey(data: SHA256.hash(data: secret))
+        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: seed, using: key)
         let data = Data(hash)
-        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
+        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: seed, using: key) {
             print("Validated ✅")
         }
-        return data[start..<end].map { $0 }
+        return data[offset..<length]
     }
 
-    private func createPSha256Key(_ serverNonce: [UInt8], _ clientNonce: [UInt8], _ start: Int, _ end: Int) -> [UInt8] {
-        let key = SymmetricKey(data: clientNonce)
-        let hash = HMAC<SHA256>.authenticationCode(for: serverNonce, using: key)
+    private func createPSha256Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> Data {
+        let key = SymmetricKey(data: SHA256.hash(data: secret))
+        let hash = HMAC<SHA256>.authenticationCode(for: seed, using: key)
         let data = Data(hash)
-        if HMAC<SHA256>.isValidAuthenticationCode(data, authenticating: serverNonce, using: key) {
+        if HMAC<SHA256>.isValidAuthenticationCode(data, authenticating: seed, using: key) {
             print("Validated ✅")
         }
-        return data[start..<end].map { $0 }
+        return data[offset..<length]
     }
 
     
@@ -440,75 +467,74 @@ class SecurityPolicy {
     /* Asymmetric */
 
     func signAsymmetric(data: Data) throws -> Data {
-//        let algorithm: SecKeyAlgorithm
-//        switch asymmetricSignatureAlgorithm {
-//        case .rsaSha1:
-//            algorithm = .rsaSignatureMessagePKCS1v15SHA1
-//        case .rsaSha256:
-//            algorithm = .rsaSignatureMessagePKCS1v15SHA256
-//        default:
-//            algorithm = .rsaSignatureMessagePSSSHA256
-//        }
-//
-//        let clientPrivateKey = privateKeyFromData(data: localPrivateKey)!
-//        let clientPublicKey = publicKeyFromData(certificate: localCertificate)!
-//
-//        guard SecKeyIsAlgorithmSupported(clientPrivateKey, .sign, algorithm) else {
-//            throw OPCUAError.generic("unsupported sign algorithm")
-//        }
-//
-//        var error: Unmanaged<CFError>?
-//        guard let signature = SecKeyCreateSignature(clientPrivateKey,
-//                                                    algorithm,
-//                                                    data as CFData,
-//                                                    &error) as Data? else {
-//                                                        throw error!.takeRetainedValue() as Error
-//        }
-//
-//        return signature
+        let algorithm: SecKeyAlgorithm
+        switch asymmetricSignatureAlgorithm {
+        case .rsaSha1:
+            algorithm = .rsaSignatureMessagePKCS1v15SHA1
+        case .rsaSha256:
+            algorithm = .rsaSignatureMessagePKCS1v15SHA256
+        default:
+            algorithm = .rsaSignatureMessagePSSSHA256
+        }
 
-        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: localPrivateKey)
-        let signature = try privateKey.signature(for: data)
-        return signature.rawRepresentation
+        let clientPrivateKey = privateKeyFromData(data: localPrivateKey)!
+
+        guard SecKeyIsAlgorithmSupported(clientPrivateKey, .sign, algorithm) else {
+            throw OPCUAError.generic("unsupported sign algorithm")
+        }
+
+        var error: Unmanaged<CFError>?
+        guard let signature = SecKeyCreateSignature(clientPrivateKey,
+                                                    algorithm,
+                                                    data as CFData,
+                                                    &error) as Data? else {
+                                                        throw error!.takeRetainedValue() as Error
+        }
+
+        return signature
+
+//        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: localPrivateKey)
+//        let signature = try privateKey.signature(for: data)
+//        return signature.rawRepresentation
     }
     
     func signVerifyAsymmetric(signature: Data, data: Data) -> Bool {
-//        let algorithm: SecKeyAlgorithm
-//        switch asymmetricSignatureAlgorithm {
-//        case .rsaSha1:
-//            algorithm = .rsaSignatureMessagePKCS1v15SHA1
-//        case .rsaSha256:
-//            algorithm = .rsaSignatureMessagePKCS1v15SHA256
-//        default:
-//            algorithm = .rsaSignatureMessagePSSSHA256
-//        }
-//
-//        let clientPublicKey = publicKeyFromData(certificate: localCertificate)!
-//
-//        guard SecKeyIsAlgorithmSupported(clientPublicKey, .verify, algorithm) else {
-//            print("unsupported verify algorithm")
-//            return false
-//        }
-//
-//        var error: Unmanaged<CFError>?
-//        guard SecKeyVerifySignature(clientPublicKey,
-//                                    algorithm,
-//                                    data as CFData,
-//                                    signature as CFData,
-//                                    &error) else {
-//                                        print(error!.takeRetainedValue() as Error)
-//                                        return false
-//                                    }
-//        return true
+        let algorithm: SecKeyAlgorithm
+        switch asymmetricSignatureAlgorithm {
+        case .rsaSha1:
+            algorithm = .rsaSignatureMessagePKCS1v15SHA1
+        case .rsaSha256:
+            algorithm = .rsaSignatureMessagePKCS1v15SHA256
+        default:
+            algorithm = .rsaSignatureMessagePSSSHA256
+        }
 
-        do {
-            let publicKey = try P256.Signing.PublicKey(rawRepresentation: remoteCertificate)
-            let sign = try P256.Signing.ECDSASignature(rawRepresentation: signature)
-            return publicKey.isValidSignature(sign, for: data)
-        } catch {
-            print("signVerifyAsymmetric: \(error)")
+        let clientPublicKey = publicKeyFromData(certificate: localCertificate)!
+
+        guard SecKeyIsAlgorithmSupported(clientPublicKey, .verify, algorithm) else {
+            print("unsupported verify algorithm")
             return false
         }
+
+        var error: Unmanaged<CFError>?
+        guard SecKeyVerifySignature(clientPublicKey,
+                                    algorithm,
+                                    data as CFData,
+                                    signature as CFData,
+                                    &error) else {
+                                        print(error!.takeRetainedValue() as Error)
+                                        return false
+                                    }
+        return true
+
+//        do {
+//            let publicKey = try P256.Signing.PublicKey(rawRepresentation: remoteCertificate)
+//            let sign = try P256.Signing.ECDSASignature(rawRepresentation: signature)
+//            return publicKey.isValidSignature(sign, for: data)
+//        } catch {
+//            print("signVerifyAsymmetric: \(error)")
+//            return false
+//        }
     }
     
     func cryptAsymmetric(data: [UInt8]) throws -> [UInt8] {
@@ -563,16 +589,16 @@ class SecurityPolicy {
     /* Symmetric */
 
     func cryptSymmetric(data: [UInt8]) throws -> [UInt8] {
-        let symmetricKey = SymmetricKey(data: securityKeys!.serverKeys.encryptionKey)
-        //let encryptedData = try ChaChaPoly.seal(data, using: symmetricKey)
-        let encryptedData = try AES.GCM.seal(data, using: symmetricKey)
+        let sk = SymmetricKey(data: securityKeys!.clientKeys.encryptionKey)
+        let iv = try AES.GCM.Nonce(data: securityKeys!.serverKeys.initializationVector)
+        let encryptedData = try AES.GCM.seal(data, using: sk, nonce: iv)
         return [UInt8](encryptedData.combined!)
     }
 
     func decryptSymmetric(data: [UInt8]) throws -> [UInt8] {
-        let symmetricKey = SymmetricKey(data: securityKeys!.clientKeys.encryptionKey)
+        let sk = SymmetricKey(data: securityKeys!.clientKeys.encryptionKey)
         let sealedBox = try AES.GCM.SealedBox(combined: data)
-        let decryptedData = try AES.GCM.open(sealedBox, using: symmetricKey)
+        let decryptedData = try AES.GCM.open(sealedBox, using: sk)
         return [UInt8](decryptedData)
     }
     
@@ -594,7 +620,7 @@ struct SecurityKeys {
 }
 
 struct SecretKeys {
-    let signatureKey: [UInt8]
-    let encryptionKey: [UInt8]
-    let initializationVector: [UInt8]
+    let signatureKey: Data
+    let encryptionKey: Data
+    let initializationVector: Data
 }

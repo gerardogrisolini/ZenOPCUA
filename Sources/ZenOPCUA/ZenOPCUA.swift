@@ -42,10 +42,10 @@ public class ZenOPCUA {
         self.eventLoopGroup = eventLoopGroup
         handler.endpointUrl = endpointUrl
         handler.applicationName = applicationName
+        handler.certificate = certificate
+        handler.privateKey = privateKey
         OPCUAHandler.messageSecurityMode = messageSecurityMode
-        let security = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
-        security.loadLocalCertificate(certificate: certificate, privateKey: privateKey)
-        OPCUAHandler.securityPolicy = security
+        OPCUAHandler.securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
     }
     
     private func getHostFromEndpoint() -> (host: String, port: Int) {
@@ -106,10 +106,6 @@ public class ZenOPCUA {
         handler.sessionActive = nil
         handler.resetMessageID()
 
-//        if !OPCUAHandler.isAcknowledgeSecure {
-//            OPCUAHandler.endpoint = EndpointDescription()
-//        }
-        
         channel.flush()
         return channel.close(mode: .all).map { () -> () in
             self.channel = nil

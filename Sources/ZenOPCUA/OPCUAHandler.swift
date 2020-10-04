@@ -30,7 +30,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     static var securityPolicy: SecurityPolicy = SecurityPolicy()
     static var messageSecurityMode: MessageSecurityMode = .none
-    static var endpoint: EndpointDescription = EndpointDescription()
     static var bufferSize: Int = 8196
     static var isAcknowledge: Bool = false
     static var isAcknowledgeSecure: Bool { messageSecurityMode != .none && securityPolicy.securityKeys == nil }
@@ -39,6 +38,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var applicationName: String = ""
     var username: String? = nil
     var password: String? = nil
+    var certificate: String? = nil
+    var privateKey: String? = nil
     var requestedLifetime: UInt32 = 0
 
     public init() {
@@ -68,7 +69,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            if OPCUAHandler.messageSecurityMode != .none {
+            if response.serverNonce.count > 0 {
                 OPCUAHandler.securityPolicy.generateSecurityKeys(
                     serverNonce: response.serverNonce,
                     clientNonce: OPCUAHandler.securityPolicy.clientNonce
@@ -195,8 +196,12 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         var securityMode = OPCUAHandler.messageSecurityMode
-        if securityMode != .none && OPCUAHandler.securityPolicy.securityKeys == nil {
-            securityMode = .none
+        if securityMode != .none {
+            if OPCUAHandler.securityPolicy.remoteCertificate.count == 0 {
+                securityMode = .none
+            } else {
+                OPCUAHandler.securityPolicy.loadLocalCertificate(certificate: certificate, privateKey: privateKey)
+            }
         }
 
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
@@ -205,7 +210,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             messageSecurityMode: securityMode,
             securityPolicy: securityMode == .none ? SecurityPolicy() : OPCUAHandler.securityPolicy,
             userTokenType: .issue,
-            serverCertificate: OPCUAHandler.endpoint.serverCertificate,
+            serverCertificate: OPCUAHandler.securityPolicy.remoteCertificate,
             requestedLifetime: requestedLifetime,
             requestId: requestId
         )
@@ -255,8 +260,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 })
         else { return false }
         
-        OPCUAHandler.endpoint = endpoint
-        OPCUAHandler.securityPolicy.loadRemoteCertificate()
+        OPCUAHandler.securityPolicy.loadRemoteCertificate(data: endpoint.serverCertificate)
 
         let requestId = nextMessageID()
         let frame: OPCUAFrame
@@ -279,7 +283,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 sequenceNumber: requestId,
                 requestId: requestId,
                 requestHandle: response.requestId,
-                serverUri: OPCUAHandler.endpoint.server.applicationUri,
+                serverUri: endpoint.server.applicationUri,
                 endpointUrl: endpointUrl,
                 applicationName: applicationName,
                 securityPolicy: OPCUAHandler.securityPolicy
@@ -310,7 +314,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 userIdentityInfo = UserIdentityInfoX509(
                     policyId: policy.policyId,
                     certificate: OPCUAHandler.securityPolicy.localCertificate,
-                    serverCertificate: OPCUAHandler.endpoint.serverCertificate,
+                    serverCertificate: endpoint.serverCertificate,
                     serverNonce: response.serverNonce
                 )
             } else if let username = username, let password = password {
