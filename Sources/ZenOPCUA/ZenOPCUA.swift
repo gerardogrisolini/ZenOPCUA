@@ -112,13 +112,13 @@ public class ZenOPCUA {
         }
     }
     
-    public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true, sessionLifetime: UInt32 = 36000) -> EventLoopFuture<Void> {
+    public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true, sessionLifetime: UInt32 = 3600000) -> EventLoopFuture<Void> {
         ZenOPCUA.reconnect = reconnect
         OPCUAHandler.isAcknowledge = true
         
         handler.username = username
         handler.password = password
-        handler.requestedLifetime = sessionLifetime * 1000
+        handler.requestedLifetime = sessionLifetime
 
         handler.handlerActivated = onHandlerActivated
         handler.dataChanged = onDataChanged
@@ -131,10 +131,10 @@ public class ZenOPCUA {
             case OPCUAError.code(let code, _):
                 switch code {
                 case .UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS:
-                    let interval = self.milliseconds + 100
-                    let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
-                    self.onErrorCaught?(info)
-                    self.startPublishing(milliseconds: interval).whenComplete { _ in }
+                    //let interval = self.milliseconds + 100
+                    //let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
+                    self.onErrorCaught?(error)
+                    self.startPublishing(milliseconds: self.milliseconds).whenComplete { _ in }
                 case .UA_STATUSCODE_BADTIMEOUT, .UA_STATUSCODE_BADNOSUBSCRIPTION:
                     self.stopPublishing().whenComplete { _ in }
                 default:
@@ -403,10 +403,11 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
 
-        let promise = eventLoopGroup.next().makePromise(of: Void.self)
-        writeSyncronized(frame, promise: promise)
+        writeSyncronized(frame)
 
-        return promise.futureResult
+        return handler.promises[requestId]!.futureResult.map { _ -> () in
+            ()
+        }
     }
     
     private func writeSyncronized(_ frame: OPCUAFrame, promise: EventLoopPromise<Void>? = nil) {
@@ -443,7 +444,7 @@ public class ZenOPCUA {
             guard let channel = self.channel else { return }
 
             let time = TimeAmount.milliseconds(milliseconds)
-            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: TimeAmount.seconds(1), delay: time, { task -> EventLoopFuture<Void> in
+            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time * 3, delay: time, { task -> EventLoopFuture<Void> in
                 if self.handler.sessionActive != nil {
                     #if DEBUG
                     print("🔄 ZenOPCUA: publishing \(self.dateFormatter.string(from: Date()))")

@@ -350,100 +350,6 @@ class SecurityPolicy {
 //        }
 //    }
 
-    func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) {
-        assert(clientNonce.count > 0)
-        assert(serverNonce.count > 0)
-
-        let clientSignatureKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, 0, symmetricSignatureKeySize)
-            : createPSha256Key(serverNonce, clientNonce, 0, symmetricSignatureKeySize)
-
-        let clientEncryptionKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, symmetricSignatureKeySize, symmetricEncryptionKeySize)
-            : createPSha256Key(serverNonce, clientNonce, symmetricSignatureKeySize, symmetricEncryptionKeySize)
-
-        let clientInitializationVector = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(serverNonce, clientNonce, symmetricSignatureKeySize + symmetricEncryptionKeySize, symmetricBlockSize)
-            : createPSha256Key(serverNonce, clientNonce, symmetricSignatureKeySize + symmetricEncryptionKeySize, symmetricBlockSize)
-
-        let serverSignatureKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, 0, symmetricSignatureKeySize)
-            : createPSha256Key(clientNonce, serverNonce, 0, symmetricSignatureKeySize)
-
-        let serverEncryptionKey = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, symmetricSignatureKeySize, symmetricEncryptionKeySize)
-            : createPSha256Key(clientNonce, serverNonce, symmetricSignatureKeySize, symmetricEncryptionKeySize)
-
-        let serverInitializationVector = keyDerivationAlgorithm == .pSha1
-            ? createPSha1Key(clientNonce, serverNonce, symmetricSignatureKeySize + symmetricEncryptionKeySize, symmetricBlockSize)
-            : createPSha256Key(clientNonce, serverNonce, symmetricSignatureKeySize + symmetricEncryptionKeySize, symmetricBlockSize)
-
-        securityKeys = SecurityKeys(
-            clientKeys: SecretKeys(
-                signatureKey: clientSignatureKey,
-                encryptionKey: clientEncryptionKey,
-                initializationVector: clientInitializationVector
-            ),
-            serverKeys: SecretKeys(
-                signatureKey: serverSignatureKey,
-                encryptionKey: serverEncryptionKey,
-                initializationVector: serverInitializationVector
-            )
-        )
-    }
-
-//    private func createPSha256Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> SymmetricKey {
-//        let symKeySalt = SymmetricKey(size: .bits256)
-//        let salt = symKeySalt.withUnsafeBytes { Data($0) }
-//
-//        let publicKey = try! P256.KeyAgreement.PublicKey(rawRepresentation: secret)
-//        let privateKey = try! P256.KeyAgreement.PrivateKey(rawRepresentation: seed)
-//
-//        let sharedSecret = try! privateKey.sharedSecretFromKeyAgreement(with: publicKey)
-//        let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(using: SHA256.self,
-//                                                   salt: salt,
-//                                             sharedInfo: Data(),
-//                                        outputByteCount: length)
-//
-//        return symmetricKey
-//    }
-//
-//    private func createPSha1Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> SymmetricKey {
-//        let symKeySalt = SymmetricKey(size: .bits256)
-//        let salt = symKeySalt.withUnsafeBytes { Data($0) }
-//
-//        let publicKey = try! P256.KeyAgreement.PublicKey(rawRepresentation: secret)
-//        let privateKey = try! P256.KeyAgreement.PrivateKey(rawRepresentation: seed)
-//
-//        let sharedSecret = try! privateKey.sharedSecretFromKeyAgreement(with: publicKey)
-//        let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(using: SHA256.self,
-//                                                   salt: salt,
-//                                             sharedInfo: Data(),
-//                                        outputByteCount: length)
-//
-//        return symmetricKey
-//    }
-
-    private func createPSha1Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> Data {
-        let key = SymmetricKey(data: SHA256.hash(data: secret))
-        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: seed, using: key)
-        let data = Data(hash)
-        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: seed, using: key) {
-            print("Validated ✅")
-        }
-        return data[offset..<length]
-    }
-
-    private func createPSha256Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> Data {
-        let key = SymmetricKey(data: SHA256.hash(data: secret))
-        let hash = HMAC<SHA256>.authenticationCode(for: seed, using: key)
-        let data = Data(hash)
-        if HMAC<SHA256>.isValidAuthenticationCode(data, authenticating: seed, using: key) {
-            print("Validated ✅")
-        }
-        return data[offset..<length]
-    }
-
     
     /* Common */
 
@@ -592,12 +498,14 @@ class SecurityPolicy {
         let sk = SymmetricKey(data: securityKeys!.clientKeys.encryptionKey)
         let iv = try AES.GCM.Nonce(data: securityKeys!.serverKeys.initializationVector)
         let encryptedData = try AES.GCM.seal(data, using: sk, nonce: iv)
-        return [UInt8](encryptedData.combined!)
+        print(encryptedData.ciphertext)
+        return [UInt8](encryptedData.ciphertext)
     }
 
     func decryptSymmetric(data: [UInt8]) throws -> [UInt8] {
         let sk = SymmetricKey(data: securityKeys!.clientKeys.encryptionKey)
         let sealedBox = try AES.GCM.SealedBox(combined: data)
+        //let sealedBox = try AES.GCM.SealedBox(nonce: myiv, ciphertext: mySealedBox.ciphertext, tag: mySealedBox.tag)
         let decryptedData = try AES.GCM.open(sealedBox, using: sk)
         return [UInt8](decryptedData)
     }
@@ -611,6 +519,78 @@ class SecurityPolicy {
     func signVerifySymmetric(signature: Data, data: Data) -> Bool {
         let symmetricKey = SymmetricKey(data: securityKeys!.serverKeys.signatureKey)
         return HMAC<SHA256>.isValidAuthenticationCode(signature, authenticating: data, using: symmetricKey)
+    }
+    
+    func generateSecurityKeys(serverNonce: [UInt8], clientNonce: [UInt8]) {
+        assert(clientNonce.count > 0)
+        assert(serverNonce.count > 0)
+
+        let clientSignatureKey = createPShaKey(serverNonce, clientNonce, 0, symmetricSignatureKeySize)
+        let clientEncryptionKey = createPShaKey(serverNonce, clientNonce, symmetricSignatureKeySize, symmetricEncryptionKeySize)
+        let clientInitializationVector = createPShaKey(serverNonce, clientNonce, symmetricSignatureKeySize + symmetricEncryptionKeySize, symmetricBlockSize)
+        let serverSignatureKey = createPShaKey(clientNonce, serverNonce, 0, symmetricSignatureKeySize)
+        let serverEncryptionKey = createPShaKey(clientNonce, serverNonce, symmetricSignatureKeySize, symmetricEncryptionKeySize)
+        let serverInitializationVector = createPShaKey(clientNonce, serverNonce, symmetricSignatureKeySize + symmetricEncryptionKeySize, symmetricBlockSize)
+
+        securityKeys = SecurityKeys(
+            clientKeys: SecretKeys(
+                signatureKey: clientSignatureKey,
+                encryptionKey: clientEncryptionKey,
+                initializationVector: clientInitializationVector
+            ),
+            serverKeys: SecretKeys(
+                signatureKey: serverSignatureKey,
+                encryptionKey: serverEncryptionKey,
+                initializationVector: serverInitializationVector
+            )
+        )
+    }
+
+//    private func createPSha1Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> Data {
+//        let key = SymmetricKey(data: Insecure.SHA1.hash(data: secret))
+//        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: seed, using: key)
+//        let data = Data(hash)
+//        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: seed, using: key) {
+//            print("Validated ✅")
+//        }
+//        return data[offset..<length]
+//    }
+
+    private func createPShaKey(
+        _ secret: [UInt8],
+        _ seed: [UInt8],
+        _ offset: Int,
+        _ length: Int) -> Data {
+
+        var required = offset + length
+        var out = Data(repeating: 0, count: required)
+        var off = 0
+        var toCopy: Int
+        var a = Data(seed)
+        var tmp: Data
+        
+        //keyDerivationAlgorithm == .pSha1
+        //let hmacSha1 = HMAC<Insecure.SHA1>(key: key)
+        
+        let key = SymmetricKey(data: SHA256.hash(data: secret))
+        
+        while required > 0 {
+            var mac = HMAC<SHA256>(key: key)
+            mac.update(data: a)
+            a = Data(mac.finalize())//.withUnsafeBytes { $0.load(as: [UInt8].self) }
+            //mac.reset()
+            mac = .init(key: key)
+            mac.update(data: a)
+            mac.update(data: seed)
+            tmp = Data(mac.finalize())
+            toCopy = min(required, tmp.count)
+            //System.arraycopy(tmp, 0, out, offset, toCopy)
+            out.append(contentsOf: tmp[0..<toCopy])
+            off += toCopy
+            required -= toCopy
+        }
+
+        return out[offset..<offset+length]
     }
 }
 
