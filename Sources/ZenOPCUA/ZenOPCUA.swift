@@ -136,9 +136,9 @@ public class ZenOPCUA {
             case OPCUAError.code(let code, _):
                 switch code {
                 case .UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS:
-                    let interval = self.milliseconds + 100
-                    let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
-                    self.onErrorCaught?(info)
+                    //let interval = self.milliseconds + 100
+                    //let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
+                    self.onErrorCaught?(error)
                     self.startPublishing(milliseconds: interval).whenComplete { _ in }
                 case .UA_STATUSCODE_BADTIMEOUT, .UA_STATUSCODE_BADNOSUBSCRIPTION:
                     self.stopPublishing().whenComplete { _ in }
@@ -409,10 +409,11 @@ public class ZenOPCUA {
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
 
-        let promise = eventLoopGroup.next().makePromise(of: Void.self)
-        writeSyncronized(frame, promise: promise)
+        writeSyncronized(frame)
 
-        return promise.futureResult
+        return handler.promises[requestId]!.futureResult.map { _ -> () in
+            ()
+        }
     }
     
     private func writeSyncronized(_ frame: OPCUAFrame, promise: EventLoopPromise<Void>? = nil) {
