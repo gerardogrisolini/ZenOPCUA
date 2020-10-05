@@ -114,8 +114,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
                     let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes)!
                     let dataEncrypted = try OPCUAHandler.securityPolicy.crypt(data: dataToEncrypt)
-                    chunkBuffer.moveReaderIndex(forwardBy: chunkBuffer.readableBytes)
                     out.writeBytes(dataEncrypted)
+                    chunkBuffer.moveReaderIndex(forwardBy: chunkBuffer.readableBytes)
                     print("encrypt: \(chunkBuffer.readerIndex) => \(header + dataEncrypted.count)")
                 }
 

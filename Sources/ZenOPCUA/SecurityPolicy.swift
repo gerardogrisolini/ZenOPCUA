@@ -465,6 +465,8 @@ class SecurityPolicy {
         }
 
         return [UInt8](cipherText)
+        
+        //let savedKey = key.withUnsafeBytes {Data(Array($0)).base64EncodedString()}
     }
         
     func decryptAsymmetric(data: [UInt8]) throws -> [UInt8] {
@@ -495,29 +497,28 @@ class SecurityPolicy {
     /* Symmetric */
 
     func cryptSymmetric(data: [UInt8]) throws -> [UInt8] {
-        let sk = SymmetricKey(data: securityKeys!.clientKeys.encryptionKey)
+        let sk = SymmetricKey(data: SHA256.hash(data: securityKeys!.serverKeys.encryptionKey))
         let iv = try AES.GCM.Nonce(data: securityKeys!.serverKeys.initializationVector)
         let encryptedData = try AES.GCM.seal(data, using: sk, nonce: iv)
-        print(encryptedData.ciphertext)
         return [UInt8](encryptedData.ciphertext)
     }
 
     func decryptSymmetric(data: [UInt8]) throws -> [UInt8] {
-        let sk = SymmetricKey(data: securityKeys!.clientKeys.encryptionKey)
-        let sealedBox = try AES.GCM.SealedBox(combined: data)
-        //let sealedBox = try AES.GCM.SealedBox(nonce: myiv, ciphertext: mySealedBox.ciphertext, tag: mySealedBox.tag)
+        let sk = SymmetricKey(data: SHA256.hash(data: securityKeys!.clientKeys.encryptionKey))
+        let iv = try AES.GCM.Nonce(data: securityKeys!.clientKeys.initializationVector)
+        let sealedBox = try AES.GCM.SealedBox(nonce: iv, ciphertext: data, tag: Data())
         let decryptedData = try AES.GCM.open(sealedBox, using: sk)
         return [UInt8](decryptedData)
     }
     
     func signSymmetric(data: Data) -> Data {
-        let symmetricKey = SymmetricKey(data: securityKeys!.clientKeys.signatureKey)
+        let symmetricKey = SymmetricKey(data: SHA256.hash(data: securityKeys!.clientKeys.signatureKey))
         let data = HMAC<SHA256>.authenticationCode(for: data, using: symmetricKey)
         return Data(data)
     }
 
     func signVerifySymmetric(signature: Data, data: Data) -> Bool {
-        let symmetricKey = SymmetricKey(data: securityKeys!.serverKeys.signatureKey)
+        let symmetricKey = SymmetricKey(data: SHA256.hash(data: securityKeys!.serverKeys.signatureKey))
         return HMAC<SHA256>.isValidAuthenticationCode(signature, authenticating: data, using: symmetricKey)
     }
     
@@ -546,16 +547,6 @@ class SecurityPolicy {
         )
     }
 
-//    private func createPSha1Key(_ secret: [UInt8], _ seed: [UInt8], _ offset: Int, _ length: Int) -> Data {
-//        let key = SymmetricKey(data: Insecure.SHA1.hash(data: secret))
-//        let hash = HMAC<Insecure.SHA1>.authenticationCode(for: seed, using: key)
-//        let data = Data(hash)
-//        if HMAC<Insecure.SHA1>.isValidAuthenticationCode(data, authenticating: seed, using: key) {
-//            print("Validated ✅")
-//        }
-//        return data[offset..<length]
-//    }
-
     private func createPShaKey(
         _ secret: [UInt8],
         _ seed: [UInt8],
@@ -569,25 +560,39 @@ class SecurityPolicy {
         var a = Data(seed)
         var tmp: Data
         
-        //keyDerivationAlgorithm == .pSha1
-        //let hmacSha1 = HMAC<Insecure.SHA1>(key: key)
-        
         let key = SymmetricKey(data: SHA256.hash(data: secret))
         
-        while required > 0 {
+        if keyDerivationAlgorithm == .pSha1 {
+            var mac = HMAC<Insecure.SHA1>(key: key)
+            while required > 0 {
+                mac.update(data: a)
+                a = Data(mac.finalize())
+                //mac.reset()
+                mac = .init(key: key)
+                mac.update(data: a)
+                mac.update(data: seed)
+                tmp = Data(mac.finalize())
+                toCopy = min(required, tmp.count)
+                out.append(contentsOf: tmp[0..<toCopy])
+                off += toCopy
+                required -= toCopy
+            }
+
+        } else {
             var mac = HMAC<SHA256>(key: key)
-            mac.update(data: a)
-            a = Data(mac.finalize())//.withUnsafeBytes { $0.load(as: [UInt8].self) }
-            //mac.reset()
-            mac = .init(key: key)
-            mac.update(data: a)
-            mac.update(data: seed)
-            tmp = Data(mac.finalize())
-            toCopy = min(required, tmp.count)
-            //System.arraycopy(tmp, 0, out, offset, toCopy)
-            out.append(contentsOf: tmp[0..<toCopy])
-            off += toCopy
-            required -= toCopy
+            while required > 0 {
+                mac.update(data: a)
+                a = Data(mac.finalize())
+                //mac.reset()
+                mac = .init(key: key)
+                mac.update(data: a)
+                mac.update(data: seed)
+                tmp = Data(mac.finalize())
+                toCopy = min(required, tmp.count)
+                out.append(contentsOf: tmp[0..<toCopy])
+                off += toCopy
+                required -= toCopy
+            }
         }
 
         return out[offset..<offset+length]
