@@ -31,10 +31,10 @@ final class ZenOPCUATests: XCTestCase {
 //        )
         
         opcua.onHandlerActivated = {
-            print("OPCUA Client activated")
+            print("Client activated")
         }
         opcua.onHandlerRemoved = {
-            print("OPCUA Client disconnected")
+            print("Client disconnected")
         }
         opcua.onErrorCaught = { error in
             print("Error: \(error)")
@@ -42,10 +42,11 @@ final class ZenOPCUATests: XCTestCase {
         
         opcua.onDataChanged = { data in
             data.forEach { dataChange in
-                print("*****************")
+                print("")
                 dataChange.dataChangeNotification.monitoredItems.forEach { item in
-                    print("\(item.value.variant.value) - \(item.value.serverTimestamp)")
+                    print(item.value.variant.value)
                 }
+                print("")
             }
         }
 
@@ -68,7 +69,7 @@ final class ZenOPCUATests: XCTestCase {
 //            }
 
             let subscription = Subscription(
-                requestedPubliscingInterval: 1000,
+                requestedPubliscingInterval: 250,
                 requestedLifetimeCount: 1000,
                 requesteMaxKeepAliveCount: 12,
                 maxNotificationsPerPublish: 0,

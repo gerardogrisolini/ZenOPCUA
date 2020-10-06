@@ -438,7 +438,7 @@ public class ZenOPCUA {
             let time = TimeAmount.milliseconds(milliseconds)
             self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time * 3, delay: time, { task -> EventLoopFuture<Void> in
                 if self.handler.sessionActive != nil {
-                    debugPrint("🔄 ZenOPCUA: publishing \(Date())")
+                    debugPrint(" --- Publishing \(Date())")
                     return self.publish()
                 }
                 
