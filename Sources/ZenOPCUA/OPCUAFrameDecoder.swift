@@ -18,7 +18,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
 
         let lenght = UInt32(bytes: buffer.getBytes(at: buffer.readerIndex + 4, length: 4)!).int
         guard buffer.readableBytes >= lenght else { return .needMoreData }
-        //print("\(buffer.readableBytes) >= \(lenght)")
+        //debugPrint("\(buffer.readableBytes) >= \(lenght)")
         
         if let chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!), chunkType == .part {
             let count = buffer.readableBytes / lenght
@@ -126,7 +126,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
                 chunkBuffer.moveWriterIndex(to: header)
                 chunkBuffer.writeBytes(bytes);
             }
-            print("decrypt: \(chunkBuffer.writerIndex + header) => \(header + plainTextBuffer.writerIndex)")
+            debugPrint("decrypt: \(chunkBuffer.writerIndex + header) => \(header + plainTextBuffer.writerIndex)")
 
             return chunkBuffer
         } catch {
@@ -144,7 +144,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
             throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADUSERSIGNATUREINVALID)
         }
 
-        print("verify: \(chunkBuffer.readableBytes) \(signature.count) => \(data.count)")
+        debugPrint("verify: \(chunkBuffer.readableBytes) \(signature.count) => \(data.count)")
     }
 
     var securityHeaderSize: Int {

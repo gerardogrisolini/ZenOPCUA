@@ -60,7 +60,6 @@ class OpenSecureChannelResponse: MessageBase, OPCUADecodable {
         securityToken = SecurityToken(bytes: bytes[index..<index+20].map { $0 })
         index += 20
         tokenId = securityToken.tokenId
-        print(securityToken)
         
         len = UInt32(bytes: bytes[index..<index+4])
         index += 4

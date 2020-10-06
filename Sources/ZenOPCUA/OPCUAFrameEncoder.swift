@@ -17,7 +17,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     let byteBufferAllocator = ByteBufferAllocator()
     
     public func encode(data frame: OPCUAFrame, out: inout ByteBuffer) throws {
-        print(" --> \(frame.head)")
+        debugPrint(" --> \(frame.head)")
 
         //for frame in value.split() {
             var byteBuffer = byteBufferAllocator.buffer(capacity: frame.body.count + 8)
@@ -84,7 +84,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!)
                 let signature = try OPCUAHandler.securityPolicy.sign(data: dataToSign)
                 chunkBuffer.writeBytes(signature)
-                print("sign: \(dataToSign.count) => \(chunkBuffer.readableBytes)")
+                debugPrint("sign: \(dataToSign.count) => \(chunkBuffer.readableBytes)")
             }
 
             /* Encryption */
@@ -108,7 +108,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                         out.writeBuffer(&chunkNioBuffer)
                         chunkBuffer.moveReaderIndex(forwardBy: plainTextBlockSize)
                     }
-                    print("encrypt: \(chunkBuffer.readerIndex) => \(header + chunkNioBuffer.writerIndex)")
+                    debugPrint("encrypt: \(chunkBuffer.readerIndex) => \(header + chunkNioBuffer.writerIndex)")
 
                 } else {
 
@@ -119,7 +119,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
                     out.writeBytes(dataEncrypted)
                     chunkBuffer.moveReaderIndex(forwardBy: chunkBuffer.readableBytes)
-                    print("encrypt: \(chunkBuffer.readerIndex) => \(header + dataEncrypted.count)")
+                    debugPrint("encrypt: \(chunkBuffer.readerIndex) => \(header + dataEncrypted.count)")
                 }
 
             } else {
