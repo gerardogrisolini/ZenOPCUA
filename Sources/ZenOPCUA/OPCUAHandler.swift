@@ -46,9 +46,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     public func channelActive(context: ChannelHandlerContext) {
-        #if DEBUG
-        print("OPCUA Client connected to \(context.remoteAddress!)")
-        #endif
+        debugPrint("OPCUA Client connected to \(context.remoteAddress!)")
         sendHello(context: context)
     }
     
@@ -61,7 +59,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
-        print(" <-- \(frame.head)")
+        debugPrint(" <-- \(frame.head)")
         
         switch frame.head.messageType {
         case .acknowledge:

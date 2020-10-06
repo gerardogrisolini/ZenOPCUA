@@ -424,14 +424,6 @@ public class ZenOPCUA {
     
     private var publisher: RepeatedTask? = nil
     private var milliseconds: Int64 = 0
-    #if DEBUG
-    let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-        formatter.timeZone = TimeZone.current
-        return formatter
-    }()
-    #endif
     
     public func startPublishing() {
         self.startPublishing(milliseconds: milliseconds).whenComplete { _ in }
@@ -446,9 +438,7 @@ public class ZenOPCUA {
             let time = TimeAmount.milliseconds(milliseconds)
             self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time * 3, delay: time, { task -> EventLoopFuture<Void> in
                 if self.handler.sessionActive != nil {
-                    #if DEBUG
-                    print("🔄 ZenOPCUA: publishing \(self.dateFormatter.string(from: Date()))")
-                    #endif
+                    debugPrint("🔄 ZenOPCUA: publishing \(Date())")
                     return self.publish()
                 }
                 
