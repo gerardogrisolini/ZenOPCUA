@@ -100,20 +100,23 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
                     for _ in 0..<blockCount {
                         let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: plainTextBlockSize)!
-                        let dataEncrypted = try OPCUAHandler.securityPolicy.crypt(data: dataToEncrypt)
+                        let dataEncrypted = try OPCUAHandler.securityPolicy.cryptAsymmetric(data: dataToEncrypt)
                         
                         assert (dataEncrypted.count == cipherTextBlockSize)
                         
                         chunkNioBuffer.writeBytes(dataEncrypted)
-                        chunkBuffer.moveReaderIndex(forwardBy: plainTextBlockSize)
                         out.writeBuffer(&chunkNioBuffer)
+                        chunkBuffer.moveReaderIndex(forwardBy: plainTextBlockSize)
                     }
                     print("encrypt: \(chunkBuffer.readerIndex) => \(header + chunkNioBuffer.writerIndex)")
 
                 } else {
 
                     let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes)!
-                    let dataEncrypted = try OPCUAHandler.securityPolicy.crypt(data: dataToEncrypt)
+                    let dataEncrypted = try OPCUAHandler.securityPolicy.cryptSymmetric(data: dataToEncrypt)
+
+                    assert (dataEncrypted.count == dataToEncrypt.count)
+
                     out.writeBytes(dataEncrypted)
                     chunkBuffer.moveReaderIndex(forwardBy: chunkBuffer.readableBytes)
                     print("encrypt: \(chunkBuffer.readerIndex) => \(header + dataEncrypted.count)")

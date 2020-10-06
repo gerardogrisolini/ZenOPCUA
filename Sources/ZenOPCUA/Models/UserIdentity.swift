@@ -79,7 +79,7 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
             self.encryptionAlgorithm = securityPolicy.asymmetricEncryptionAlgorithm.rawValue.split(separator: ",").first?.description
             do {
                 let dataToEncrypt = password.utf8.map { $0 } + serverNonce
-                self.password = try securityPolicy.crypt(data: dataToEncrypt)
+                self.password = try securityPolicy.cryptAsymmetric(data: dataToEncrypt)
             } catch {
                 print(error)
             }
@@ -113,7 +113,7 @@ struct UserIdentityInfoX509: UserIdentityInfo {
 
             if OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm != .none {
                 let dataToSign = Data(serverCertificate + serverNonce)
-                let signature = try OPCUAHandler.securityPolicy.sign(data: dataToSign)
+                let signature = try OPCUAHandler.securityPolicy.signAsymmetric(data: dataToSign)
                 userTokenSignature = SignatureData(
                     algorithm: OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,
                     signature: [UInt8](signature)

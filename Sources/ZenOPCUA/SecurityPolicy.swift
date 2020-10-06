@@ -116,7 +116,7 @@ class SecurityPolicy {
     }
 
     func loadLocalCertificate(certificate: String? = nil, privateKey: String? = nil) {
-        if let certificateFile = certificate, let privateKeyFile = privateKey {
+        if localCertificate.count == 0, let certificateFile = certificate, let privateKeyFile = privateKey {
             if securityPolicyUri.securityPolicy != .none {
                 self.clientNonce.append(contentsOf: SecurityPolicy.generateNonce(32))
             }
@@ -353,13 +353,13 @@ class SecurityPolicy {
     
     /* Common */
 
-    func crypt(data: [UInt8]) throws -> [UInt8] {
-        try isAsymmetric ? cryptAsymmetric(data: data) : cryptSymmetric(data: data)
-    }
-
-    func decrypt(data: [UInt8]) throws -> [UInt8] {
-        try isAsymmetric ? decryptAsymmetric(data: data) : decryptSymmetric(data: data)
-    }
+//    func crypt(data: [UInt8]) throws -> [UInt8] {
+//        try isAsymmetric ? cryptAsymmetric(data: data) : cryptSymmetric(data: data)
+//    }
+//
+//    func decrypt(data: [UInt8]) throws -> [UInt8] {
+//        try isAsymmetric ? decryptAsymmetric(data: data) : decryptSymmetric(data: data)
+//    }
 
     func sign(data: Data) throws -> Data {
         try isAsymmetric ? signAsymmetric(data: data) : signSymmetric(data: data)
@@ -483,7 +483,7 @@ class SecurityPolicy {
         let key = privateKeyFromData(data: localPrivateKey)!
         var error: Unmanaged<CFError>?
         guard let plainData = SecKeyCreateDecryptedData(
-                key,
+            key,
             algorithm,
             Data(data) as CFData,
             &error) as Data? else {
@@ -560,14 +560,12 @@ class SecurityPolicy {
         var a = Data(seed)
         var tmp: Data
         
-        let key = SymmetricKey(data: SHA256.hash(data: secret))
-        
         if keyDerivationAlgorithm == .pSha1 {
+            let key = SymmetricKey(data: Insecure.SHA1.hash(data: secret))
             var mac = HMAC<Insecure.SHA1>(key: key)
             while required > 0 {
                 mac.update(data: a)
                 a = Data(mac.finalize())
-                //mac.reset()
                 mac = .init(key: key)
                 mac.update(data: a)
                 mac.update(data: seed)
@@ -577,13 +575,12 @@ class SecurityPolicy {
                 off += toCopy
                 required -= toCopy
             }
-
         } else {
+            let key = SymmetricKey(data: SHA256.hash(data: secret))
             var mac = HMAC<SHA256>(key: key)
             while required > 0 {
                 mac.update(data: a)
                 a = Data(mac.finalize())
-                //mac.reset()
                 mac = .init(key: key)
                 mac.update(data: a)
                 mac.update(data: seed)

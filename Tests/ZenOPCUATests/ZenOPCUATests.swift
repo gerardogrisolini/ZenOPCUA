@@ -14,21 +14,21 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
+        let opcua = ZenOPCUA(
+            eventLoopGroup: eventLoopGroup,
+            endpointUrl: "opc.tcp://concentratoreviet.ddns.net:4842",
+            messageSecurityMode: .none,
+            securityPolicy: .none
+        )
+
 //        let opcua = ZenOPCUA(
 //            eventLoopGroup: eventLoopGroup,
 //            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-//            messageSecurityMode: .none,
-//            securityPolicy: .none
+//            messageSecurityMode: .signAndEncrypt,
+//            securityPolicy: .basic256Sha256,
+//            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.crt",
+//            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
 //        )
-
-        let opcua = ZenOPCUA(
-            eventLoopGroup: eventLoopGroup,
-            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-            messageSecurityMode: .signAndEncrypt,
-            securityPolicy: .basic256Sha256,
-            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.crt",
-            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
-        )
         
         opcua.onHandlerActivated = {
             print("OPCUA Client activated")
@@ -50,9 +50,8 @@ final class ZenOPCUATests: XCTestCase {
         }
 
         do {
-            try opcua.connect(reconnect: false).wait()
-            sleep(2)
-            
+            try opcua.connect(reconnect: false, sessionLifetime: 60000).wait()
+
 //            let root: [BrowseDescription] = [
 //                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253))
 //            ]
@@ -68,15 +67,15 @@ final class ZenOPCUATests: XCTestCase {
 //                print("deleteSubscription: \(result)")
 //            }
 
-//            let subscription = Subscription(
-//                requestedPubliscingInterval: 250,
-//                requestedLifetimeCount: 1000,
-//                requesteMaxKeepAliveCount: 12,
-//                maxNotificationsPerPublish: 0,
-//                publishingEnabled: true
-//            )
-//            let subId = try opcua.createSubscription(subscription: subscription, startPublishing: true).wait()
-//            let itemsToCreate: [MonitoredItemCreateRequest] = [
+            let subscription = Subscription(
+                requestedPubliscingInterval: 1000,
+                requestedLifetimeCount: 1000,
+                requesteMaxKeepAliveCount: 12,
+                maxNotificationsPerPublish: 0,
+                publishingEnabled: true
+            )
+            let subId = try opcua.createSubscription(subscription: subscription, startPublishing: true).wait()
+            let itemsToCreate: [MonitoredItemCreateRequest] = [
 //                MonitoredItemCreateRequest(
 //                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
 //                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
@@ -105,11 +104,15 @@ final class ZenOPCUATests: XCTestCase {
 //                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle")),
 //                    requestedParameters: MonitoringParameters(clientHandle: 7, samplingInterval: 250)
 //                )
-//            ]
-//            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
-//            results.forEach { result in
-//                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
-//            }
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20504)),
+                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 1000)
+                )
+            ]
+            let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
+            results.forEach { result in
+                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
+            }
 
 //            let reads = [
 //                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
@@ -173,6 +176,9 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
 //            sleep(60 * 60 * 90)
+
+            sleep(120)
+            print("fine")
 
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
         } catch {

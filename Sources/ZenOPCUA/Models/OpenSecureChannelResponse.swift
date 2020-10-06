@@ -5,20 +5,19 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
-class OpenSecureChannelResponse: OPCUADecodable {
-    let secureChannelId: UInt32
-    let securityPolicyUri: String
+class OpenSecureChannelResponse: MessageBase, OPCUADecodable {
+    var securityPolicyUri: String!
     var senderCertificate: [UInt8] = []
     var receiverCertificateThumbprint: [UInt8] = []
-    let sequenseNumber: UInt32
-    let requestId: UInt32
-    var typeId: NodeIdNumeric
-    var responseHeader: ResponseHeader
-    var serverProtocolVersion: UInt32
-    var securityToken: SecurityToken
+    var typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelResponse)
+    var responseHeader: ResponseHeader!
+    var serverProtocolVersion: UInt32!
+    var securityToken: SecurityToken!
     var serverNonce: [UInt8] = []
 
-    required init(bytes: [UInt8]) {
+    required override init(bytes: [UInt8]) {
+        super.init()
+        
         var index = 0
 
         secureChannelId = UInt32(bytes: bytes[index..<index+4])
@@ -43,7 +42,7 @@ class OpenSecureChannelResponse: OPCUADecodable {
             index += len.int
         }
         
-        sequenseNumber = UInt32(bytes: bytes[index..<index+4])
+        sequenceNumber = UInt32(bytes: bytes[index..<index+4])
         index += 4
         
         requestId = UInt32(bytes: bytes[index..<index+4])
@@ -60,7 +59,9 @@ class OpenSecureChannelResponse: OPCUADecodable {
         
         securityToken = SecurityToken(bytes: bytes[index..<index+20].map { $0 })
         index += 20
-
+        tokenId = securityToken.tokenId
+        print(securityToken)
+        
         len = UInt32(bytes: bytes[index..<index+4])
         index += 4
         if len < UInt32.max {

@@ -110,7 +110,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
                 for _ in 0..<blockCount {
                     let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: cipherTextBlockSize)!
                     chunkBuffer.moveReaderIndex(forwardBy: cipherTextBlockSize)
-                    let bytes = try OPCUAHandler.securityPolicy.decrypt(data: dataToDencrypt)
+                    let bytes = try OPCUAHandler.securityPolicy.decryptAsymmetric(data: dataToDencrypt)
                     plainTextBuffer.writeBytes(bytes)
                 }
 
@@ -121,7 +121,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
             } else {
                 
                 let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes)!
-                let bytes = try OPCUAHandler.securityPolicy.decrypt(data: dataToDencrypt)
+                let bytes = try OPCUAHandler.securityPolicy.decryptSymmetric(data: dataToDencrypt)
                 chunkBuffer.moveReaderIndex(to: 0)
                 chunkBuffer.moveWriterIndex(to: header)
                 chunkBuffer.writeBytes(bytes);

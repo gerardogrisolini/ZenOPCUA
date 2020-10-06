@@ -69,13 +69,27 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             openSecureChannel(context: context)
         case .openChannel:
             let response = OpenSecureChannelResponse(bytes: frame.body)
-            if response.serverNonce.count > 0 {
-                OPCUAHandler.securityPolicy.generateSecurityKeys(
-                    serverNonce: response.serverNonce,
-                    clientNonce: OPCUAHandler.securityPolicy.clientNonce
-                )
+            guard response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD else {
+                promises[0]!.fail(OPCUAError.code(response.responseHeader.serviceResult, reason: ""))
+                return
             }
-            getEndpoints(context: context, response: response)
+            
+            let time = TimeAmount.milliseconds(Int64(Double(response.securityToken.revisedLifetime) * 0.75))
+            context.eventLoop.next().scheduleTask(in: time) { () -> () in
+                self.openSecureChannel(context: context, renew: true)
+            }
+            
+            if let session = sessionActive {
+                session.tokenId = response.securityToken.tokenId
+            } else {
+                if response.serverNonce.count > 1 {
+                    OPCUAHandler.securityPolicy.generateSecurityKeys(
+                        serverNonce: response.serverNonce,
+                        clientNonce: OPCUAHandler.securityPolicy.clientNonce
+                    )
+                }
+                getEndpoints(context: context, response: response)
+            }
         case .error:
             var error: Error
             let code = UInt32(bytes: frame.body[0...3])
@@ -194,7 +208,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
 //        context.close(mode: .all)
     }
     
-    fileprivate func openSecureChannel(context: ChannelHandlerContext) {
+    fileprivate func openSecureChannel(context: ChannelHandlerContext, renew: Bool = false) {
         var securityMode = OPCUAHandler.messageSecurityMode
         if securityMode != .none {
             if OPCUAHandler.securityPolicy.remoteCertificate.count == 0 {
@@ -209,10 +223,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let body = OpenSecureChannelRequest(
             messageSecurityMode: securityMode,
             securityPolicy: securityMode == .none ? SecurityPolicy() : OPCUAHandler.securityPolicy,
-            userTokenType: .issue,
+            userTokenType: renew ? .renew : .issue,
             serverCertificate: OPCUAHandler.securityPolicy.remoteCertificate,
             requestedLifetime: requestedLifetime,
-            requestId: requestId
+            requestId: requestId,
+            secureChannelId: sessionActive?.secureChannelId ?? 0
         )
         
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -250,7 +265,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let frame = OPCUAFrame(head: head, body: body.bytes)
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
-
+    
     fileprivate func createSession(context: ChannelHandlerContext, response: GetEndpointsResponse) -> Bool {
         guard let endpoint = response
                 .endpoints
@@ -283,7 +298,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 sequenceNumber: requestId,
                 requestId: requestId,
                 requestHandle: response.requestId,
-                serverUri: endpoint.server.applicationUri,
+                serverUri: endpointUrl, //endpoint.server.applicationUri,
                 endpointUrl: endpointUrl,
                 applicationName: applicationName,
                 securityPolicy: OPCUAHandler.securityPolicy

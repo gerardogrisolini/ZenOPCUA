@@ -8,7 +8,7 @@
 import Foundation
 
 class OpenSecureChannelRequest: OPCUAEncodable {
-    let secureChannelId: UInt32 = 0
+    let secureChannelId: UInt32
     let securityPolicyUri: String
     var senderCertificate: Data = Data()
     var receiverCertificateThumbprint: [UInt8] = []
@@ -48,10 +48,12 @@ class OpenSecureChannelRequest: OPCUAEncodable {
         userTokenType: SecurityTokenRequestType,
         serverCertificate: Data,
         requestedLifetime: UInt32,
-        requestId: UInt32
+        requestId: UInt32,
+        secureChannelId: UInt32 = 0
     ) {
         print("Opened SecureChannel with SecurityPolicy \(securityPolicy.securityPolicyUri)")
-        
+
+        self.secureChannelId = secureChannelId
         self.securityPolicyUri = securityPolicy.securityPolicyUri
         self.sequenseNumber = requestId
         self.requestId = requestId
