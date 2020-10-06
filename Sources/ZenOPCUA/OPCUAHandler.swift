@@ -296,7 +296,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 sequenceNumber: requestId,
                 requestId: requestId,
                 requestHandle: response.requestId,
-                serverUri: endpointUrl, //endpoint.server.applicationUri,
+                serverUri: endpoint.server.applicationUri,
                 endpointUrl: endpointUrl,
                 applicationName: applicationName,
                 securityPolicy: OPCUAHandler.securityPolicy
