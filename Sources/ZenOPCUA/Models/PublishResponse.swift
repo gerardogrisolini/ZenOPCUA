@@ -1,6 +1,6 @@
 //
 //  PublishResponse.swift
-//  
+//
 //
 //  Created by Gerardo Grisolini on 26/02/2020.
 //
@@ -20,6 +20,7 @@ class PublishResponse: MessageBase, OPCUADecodable {
     
     required override init(bytes: [UInt8]) {
         typeId = NodeIdNumeric(method: .publishResponse)
+
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
 

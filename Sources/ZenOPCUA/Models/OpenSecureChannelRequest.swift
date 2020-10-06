@@ -7,10 +7,16 @@
 
 import Foundation
 
-class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
+class OpenSecureChannelRequest: OPCUAEncodable {
+    let secureChannelId: UInt32
+    let securityPolicyUri: String
+    var senderCertificate: Data = Data()
+    var receiverCertificateThumbprint: [UInt8] = []
+    let sequenseNumber: UInt32
+    let requestId: UInt32
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
     let requestHeader: RequestHeader
-    var clientProtocolVersion: UInt32 = 0
+    let clientProtocolVersion: UInt32 = 0
     let securityTokenRequestType: SecurityTokenRequestType
     let messageSecurityMode: MessageSecurityMode
     var clientNonce: [UInt8] = []
@@ -40,25 +46,29 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
         messageSecurityMode: MessageSecurityMode,
         securityPolicy: SecurityPolicy,
         userTokenType: SecurityTokenRequestType,
-        serverCertificate: [UInt8],
+        serverCertificate: Data,
         requestedLifetime: UInt32,
-        requestId: UInt32
+        requestId: UInt32,
+        secureChannelId: UInt32 = 0
     ) {
         print("Opened SecureChannel with SecurityPolicy \(securityPolicy.securityPolicyUri)")
 
+        self.secureChannelId = secureChannelId
+        self.securityPolicyUri = securityPolicy.securityPolicyUri
+        self.sequenseNumber = requestId
+        self.requestId = requestId
         self.requestHeader = RequestHeader(requestHandle: 0)
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime
         self.messageSecurityMode = messageSecurityMode
-        super.init(securityPolicyUri: securityPolicy.securityPolicyUri, requestId: requestId)
-
+        
         if serverCertificate.count == 0 {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)
             self.senderCertificate.append(contentsOf: UInt32.max.bytes)
             self.receiverCertificateThumbprint.append(contentsOf: UInt32.max.bytes)
-        } else if securityPolicy.clientCertificate.count > 0 {
-            self.senderCertificate.append(contentsOf: UInt32(securityPolicy.clientCertificate.count).bytes)
-            self.senderCertificate.append(contentsOf: securityPolicy.clientCertificate)
+        } else if securityPolicy.localCertificate.count > 0 {
+            self.senderCertificate.append(contentsOf: UInt32(securityPolicy.localCertificate.count).bytes)
+            self.senderCertificate.append(contentsOf: securityPolicy.localCertificate)
 
             self.clientNonce.append(contentsOf: UInt32(securityPolicy.clientNonce.count).bytes)
             self.clientNonce.append(contentsOf: securityPolicy.clientNonce)
@@ -71,7 +81,7 @@ class OpenSecureChannelRequest: OpenSecureChannel, OPCUAEncodable {
 }
 
 public enum MessageSecurityMode : UInt32 {
-    case invalid = 0
+    //case invalid = 0
     case none = 1
     case sign = 2
     case signAndEncrypt = 3

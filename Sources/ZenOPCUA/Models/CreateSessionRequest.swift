@@ -66,9 +66,9 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
             self.clientNonce.append(contentsOf: UInt32.max.bytes)
         }
         
-        if securityPolicy.clientCertificate.count > 0 {
-            self.clientCertificate.append(contentsOf: UInt32(securityPolicy.clientCertificate.count).bytes)
-            self.clientCertificate.append(contentsOf: securityPolicy.clientCertificate)
+        if securityPolicy.localCertificate.count > 0 {
+            self.clientCertificate.append(contentsOf: UInt32(securityPolicy.localCertificate.count).bytes)
+            self.clientCertificate.append(contentsOf: securityPolicy.localCertificate)
         } else {
             self.clientCertificate.append(contentsOf: UInt32.max.bytes)
         }
