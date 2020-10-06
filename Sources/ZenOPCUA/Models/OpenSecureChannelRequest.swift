@@ -7,7 +7,7 @@
 
 import Foundation
 
-class OpenSecureChannelRequest: OPCUAEncodable {
+public class OpenSecureChannelRequest: OPCUAEncodable {
     let secureChannelId: UInt32
     let securityPolicyUri: String
     var senderCertificate: Data = Data()

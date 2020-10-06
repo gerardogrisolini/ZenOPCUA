@@ -16,7 +16,8 @@ final class ZenOPCUATests: XCTestCase {
     func testExample() {
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
-            endpointUrl: "opc.tcp://concentratoreviet.ddns.net:4842",
+//            endpointUrl: "opc.tcp://concentratoreviet.ddns.net:4842",
+            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
             messageSecurityMode: .none,
             securityPolicy: .none
         )
@@ -69,7 +70,7 @@ final class ZenOPCUATests: XCTestCase {
 //            }
 
             let subscription = Subscription(
-                requestedPubliscingInterval: 250,
+                requestedPubliscingInterval: 1000,
                 requestedLifetimeCount: 1000,
                 requesteMaxKeepAliveCount: 12,
                 maxNotificationsPerPublish: 0,
@@ -77,38 +78,38 @@ final class ZenOPCUATests: XCTestCase {
             )
             let subId = try opcua.createSubscription(subscription: subscription, startPublishing: true).wait()
             let itemsToCreate: [MonitoredItemCreateRequest] = [
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Expression")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Random")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 3, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sawtooth")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 4, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sinusoid")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 5, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Square")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 6, samplingInterval: 250)
-//                ),
-//                MonitoredItemCreateRequest(
-//                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle")),
-//                    requestedParameters: MonitoringParameters(clientHandle: 7, samplingInterval: 250)
-//                )
                 MonitoredItemCreateRequest(
-                    itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20504)),
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
                     requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Expression")),
+                    requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Random")),
+                    requestedParameters: MonitoringParameters(clientHandle: 3, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sawtooth")),
+                    requestedParameters: MonitoringParameters(clientHandle: 4, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sinusoid")),
+                    requestedParameters: MonitoringParameters(clientHandle: 5, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Square")),
+                    requestedParameters: MonitoringParameters(clientHandle: 6, samplingInterval: 250)
+                ),
+                MonitoredItemCreateRequest(
+                    itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle")),
+                    requestedParameters: MonitoringParameters(clientHandle: 7, samplingInterval: 250)
                 )
+//                MonitoredItemCreateRequest(
+//                    itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20504)),
+//                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
+//                )
             ]
             let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
             results.forEach { result in
@@ -178,7 +179,7 @@ final class ZenOPCUATests: XCTestCase {
 //            }
 //            sleep(60 * 60 * 90)
 
-            sleep(60)
+            sleep(80)
 
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
         } catch {

@@ -72,10 +72,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 return
             }
             
-            let time = TimeAmount.milliseconds(Int64(Double(response.securityToken.revisedLifetime) * 0.75))
-            context.eventLoop.next().scheduleTask(in: time) { () -> () in
-                self.openSecureChannel(context: context, renew: true)
-            }
+//            let time = TimeAmount.milliseconds(Int64(Double(response.securityToken.revisedLifetime) * 0.75))
+//            context.eventLoop.next().scheduleTask(in: time) { () -> () in
+//                self.openSecureChannel(context: context)
+//            }
             
             if let session = sessionActive {
                 session.tokenId = response.securityToken.tokenId
@@ -206,7 +206,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
 //        context.close(mode: .all)
     }
     
-    fileprivate func openSecureChannel(context: ChannelHandlerContext, renew: Bool = false) {
+    fileprivate func openSecureChannel(context: ChannelHandlerContext) {
         var securityMode = OPCUAHandler.messageSecurityMode
         if securityMode != .none {
             if OPCUAHandler.securityPolicy.remoteCertificate.count == 0 {
@@ -216,18 +216,20 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             }
         }
 
-        let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
+        let secureChannelId = sessionActive?.secureChannelId ?? 0
         let requestId = nextMessageID()
+        
+        let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
         let body = OpenSecureChannelRequest(
             messageSecurityMode: securityMode,
             securityPolicy: securityMode == .none ? SecurityPolicy() : OPCUAHandler.securityPolicy,
-            userTokenType: renew ? .renew : .issue,
+            userTokenType: secureChannelId > 0 ? .renew : .issue,
             serverCertificate: OPCUAHandler.securityPolicy.remoteCertificate,
             requestedLifetime: requestedLifetime,
             requestId: requestId,
-            secureChannelId: sessionActive?.secureChannelId ?? 0
+            secureChannelId: secureChannelId
         )
-        
+
         let frame = OPCUAFrame(head: head, body: body.bytes)
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
