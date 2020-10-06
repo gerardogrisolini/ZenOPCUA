@@ -12,7 +12,7 @@ let package = Package(
         .library(name: "ZenOPCUA", targets: ["ZenOPCUA"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.23.0"),
 //        .package(url: "https://github.com/apple/swift-crypto.git", .branch("master")),
 //        .package(url: "https://github.com/IBM-Swift/BlueRSA.git", .branch("master"))
     ],
