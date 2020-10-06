@@ -139,7 +139,7 @@ public class ZenOPCUA {
                     //let interval = self.milliseconds + 100
                     //let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
                     self.onErrorCaught?(error)
-                    self.startPublishing(milliseconds: interval).whenComplete { _ in }
+                    self.startPublishing(milliseconds: self.milliseconds).whenComplete { _ in }
                 case .UA_STATUSCODE_BADTIMEOUT, .UA_STATUSCODE_BADNOSUBSCRIPTION:
                     self.stopPublishing().whenComplete { _ in }
                 default:
