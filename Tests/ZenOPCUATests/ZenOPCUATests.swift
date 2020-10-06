@@ -107,7 +107,7 @@ final class ZenOPCUATests: XCTestCase {
 //                )
                 MonitoredItemCreateRequest(
                     itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20504)),
-                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 1000)
+                    requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
                 )
             ]
             let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: itemsToCreate).wait()
@@ -178,7 +178,7 @@ final class ZenOPCUATests: XCTestCase {
 //            }
 //            sleep(60 * 60 * 90)
 
-            sleep(120)
+            sleep(60)
 
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
         } catch {
