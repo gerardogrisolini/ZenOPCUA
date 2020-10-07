@@ -17,8 +17,10 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     let byteBufferAllocator = ByteBufferAllocator()
     
     public func encode(data frame: OPCUAFrame, out: inout ByteBuffer) throws {
-        debugPrint(" --> \(frame.head)")
-
+        #if DEBUG
+        print(" --> \(frame.head)")
+        #endif
+        
         //for frame in value.split() {
             var byteBuffer = byteBufferAllocator.buffer(capacity: frame.body.count + 8)
             byteBuffer.writeString("\(frame.head.messageType.rawValue)\(frame.head.chunkType.rawValue)")
@@ -106,7 +108,9 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 let dataToSign = Data(chunkBuffer.getBytes(at: 0, length: chunkBuffer.writerIndex)!)
                 let signature = try OPCUAHandler.securityPolicy.sign(data: dataToSign)
                 chunkBuffer.writeBytes(signature)
-                debugPrint("sign: \(dataToSign.count) => \(chunkBuffer.readableBytes)")
+                #if DEBUG
+                print("sign: \(dataToSign.count) => \(chunkBuffer.readableBytes)")
+                #endif
             }
 
             /* Encryption */
@@ -130,8 +134,9 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                         out.writeBuffer(&chunkNioBuffer)
                         chunkBuffer.moveReaderIndex(forwardBy: plainTextBlockSize)
                     }
-                    debugPrint("encrypt: \(chunkBuffer.readerIndex) => \(header + chunkNioBuffer.writerIndex)")
-
+                    #if DEBUG
+                    print("encrypt: \(chunkBuffer.readerIndex) => \(header + chunkNioBuffer.writerIndex)")
+                    #endif
                 } else {
 
                     let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes)!
@@ -141,7 +146,9 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
                     out.writeBytes(dataEncrypted)
                     chunkBuffer.moveReaderIndex(forwardBy: chunkBuffer.readableBytes)
-                    debugPrint("encrypt: \(chunkBuffer.readerIndex) => \(header + dataEncrypted.count)")
+                    #if DEBUG
+                    print("encrypt: \(chunkBuffer.readerIndex) => \(header + dataEncrypted.count)")
+                    #endif
                 }
 
             } else {
