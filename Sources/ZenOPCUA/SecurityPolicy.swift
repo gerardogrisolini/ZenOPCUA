@@ -207,10 +207,9 @@ class SecurityPolicy {
             localCertificateThumbprint.count
     }
         
-    func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
+//    func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
 //        return SecKeyGetBlockSize(publicKey) * 8
-        return 256 * 8
-    }
+//    }
 
     var remoteAsymmetricSignatureSize: Int {
 //        guard let serverPublicKey = publicKeyFromData(certificate: remoteCertificate) else { return 0 }
