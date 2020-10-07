@@ -47,7 +47,6 @@ class CreateSubscriptionRequest: MessageBase, OPCUAEncodable {
     init(
         secureChannelId: UInt32,
         tokenId: UInt32,
-        sequenceNumber: UInt32,
         requestId: UInt32,
         requestHandle: UInt32,
         authenticationToken: Node,
@@ -58,7 +57,6 @@ class CreateSubscriptionRequest: MessageBase, OPCUAEncodable {
         super.init()
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
-        self.sequenceNumber = sequenceNumber
         self.requestId = requestId
     }
 

@@ -12,7 +12,7 @@ public class OpenSecureChannelRequest: OPCUAEncodable {
     let securityPolicyUri: String
     var senderCertificate: Data = Data()
     var receiverCertificateThumbprint: [UInt8] = []
-    let sequenseNumber: UInt32
+    let sequenceNumber: UInt32 = 0
     let requestId: UInt32
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .openSecureChannelRequest)
     let requestHeader: RequestHeader
@@ -27,7 +27,7 @@ public class OpenSecureChannelRequest: OPCUAEncodable {
             securityPolicyUri.bytes +
             senderCertificate +
             receiverCertificateThumbprint +
-            sequenseNumber.bytes
+            sequenceNumber.bytes
         //print("header: \(header.count)")
         let body = typeId.bytes +
             requestHeader.bytes +
@@ -55,7 +55,6 @@ public class OpenSecureChannelRequest: OPCUAEncodable {
 
         self.secureChannelId = secureChannelId
         self.securityPolicyUri = securityPolicy.securityPolicyUri
-        self.sequenseNumber = requestId
         self.requestId = requestId
         self.requestHeader = RequestHeader(requestHandle: 0)
         self.securityTokenRequestType = userTokenType

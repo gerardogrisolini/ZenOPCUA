@@ -40,7 +40,6 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
     init(
         secureChannelId: UInt32,
         tokenId: UInt32,
-        sequenceNumber: UInt32,
         requestId: UInt32,
         requestHandle: UInt32,
         serverUri: String,
@@ -56,7 +55,6 @@ class CreateSessionRequest: MessageBase, OPCUAEncodable {
         super.init()
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
-        self.sequenceNumber = sequenceNumber
         self.requestId = requestId
         
         if securityPolicy.clientNonce.count > 0 {

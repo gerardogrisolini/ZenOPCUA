@@ -61,8 +61,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             assert (!isEncryptionEnabled || plainTextContentSize % plainTextBlockSize == 0)
 
             let chunkSize = isEncryptionEnabled
-                ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize +
-                (plainTextContentSize / plainTextBlockSize) * cipherTextBlockSize
+                ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize + (plainTextContentSize / plainTextBlockSize) * cipherTextBlockSize
                 : SEQUENCE_HEADER_SIZE + bodySize
 
             assert (chunkSize <= maxChunkSize)
@@ -72,8 +71,31 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             messageBuffer.moveReaderIndex(forwardBy: 8)
             chunkBuffer.writeString(messageBuffer.readableBytes - header > bodySize ? "C" : "F")
             chunkBuffer.writeBytes(UInt32(chunkSize).bytes)
-            chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: header + bodySize)!)
-            messageBuffer.moveReaderIndex(forwardBy: header + bodySize)
+            // secureChannelId
+            chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: 4)!)
+            messageBuffer.moveReaderIndex(forwardBy: 4)
+            // tokenlId or secureHeader
+            var len = 0
+            switch chunkBuffer.getString(at: 0, length: 3)! {
+            case "OPN":
+                len = securityHeaderSize
+                chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: len)!)
+                chunkBuffer.writeBytes(nextSequenceNumber().bytes)
+                len = len + 4
+                messageBuffer.moveReaderIndex(forwardBy: len)
+                len = header + bodySize - len - 4
+                chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: len)!)
+            case "MSG":
+                chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: 4)!)
+                chunkBuffer.writeBytes(nextSequenceNumber().bytes)
+                messageBuffer.moveReaderIndex(forwardBy: 8)
+                len = header + bodySize - 12
+                chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: len)!)
+            default:
+                len = header + bodySize - 4
+                chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: len)!)
+            }
+            messageBuffer.moveReaderIndex(forwardBy: len)
 
             /* Padding and Signature */
             if isEncryptionEnabled {
@@ -152,4 +174,15 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     var plainTextBlockSize: Int { OPCUAHandler.securityPolicy.asymmetricPlainTextBlockSize }
 
     var signatureSize: Int { OPCUAHandler.securityPolicy.asymmetricSignatureSize }
+    
+    private var sequenceNumber = UInt32(1)
+    
+    public func resetSequenceNumber() {
+        sequenceNumber = 1000
+    }
+
+    public func nextSequenceNumber() -> UInt32 {
+        sequenceNumber += 1
+        return sequenceNumber
+    }
 }

@@ -103,8 +103,7 @@ public class ZenOPCUA {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
-        handler.sessionActive = nil
-        handler.resetMessageID()
+        handler.resetAll()
 
         channel.flush()
         return channel.close(mode: .all).map { () -> () in
@@ -201,7 +200,6 @@ public class ZenOPCUA {
         let body = CloseSessionRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
-            sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,
@@ -226,7 +224,6 @@ public class ZenOPCUA {
         let body = BrowseRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
-            sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,
@@ -253,7 +250,6 @@ public class ZenOPCUA {
         let body = ReadRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
-            sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,
@@ -280,7 +276,6 @@ public class ZenOPCUA {
         let body = WriteRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
-            sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,
@@ -307,7 +302,6 @@ public class ZenOPCUA {
         let body = CreateSubscriptionRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
-            sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,
@@ -338,7 +332,6 @@ public class ZenOPCUA {
         let body = CreateMonitoredItemsRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
-            sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,
@@ -368,7 +361,6 @@ public class ZenOPCUA {
         let body = DeleteSubscriptionsRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
-            sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,
@@ -395,7 +387,6 @@ public class ZenOPCUA {
         let body = PublishRequest(
             secureChannelId: session.secureChannelId,
             tokenId: session.tokenId,
-            sequenceNumber: requestId,
             requestId: requestId,
             requestHandle: requestId,
             authenticationToken: session.authenticationToken,

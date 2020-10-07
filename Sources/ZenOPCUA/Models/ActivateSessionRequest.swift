@@ -34,7 +34,6 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     }
     
     init(
-        sequenceNumber: UInt32,
         requestId: UInt32,
         session: CreateSessionResponse,
         userIdentityInfo: UserIdentityInfo
@@ -45,7 +44,6 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
         super.init()
         self.secureChannelId = session.secureChannelId
         self.tokenId = session.tokenId
-        self.sequenceNumber = sequenceNumber
         self.requestId = requestId
     }
 }
