@@ -7,7 +7,6 @@
 
 import Foundation
 import NIO
-import Security
 //import CryptorRSA
 #if os(Linux)
 import Crypto
@@ -152,37 +151,37 @@ class SecurityPolicy {
         //serverPublicKey = CryptorRSA.PublicKey(with: key)
     }
 
-    func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
-        let priKeyECData = dataFromPEM(data: data)
-
-        let keyDict: [CFString: Any] = [
-            kSecAttrKeyType: kSecAttrKeyTypeRSA,
-            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-            kSecAttrKeySizeInBits: 2048,
-            kSecImportExportPassphrase as CFString: password,
-            kSecReturnPersistentRef: false
-        ]
-        var error: Unmanaged<CFError>?
-        let secKey = SecKeyCreateWithData(priKeyECData as CFData, keyDict as CFDictionary, &error)
-        return secKey
-    }
+//    func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
+//        let priKeyECData = dataFromPEM(data: data)
+//
+//        let keyDict: [CFString: Any] = [
+//            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+//            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
+//            kSecAttrKeySizeInBits: 2048,
+//            kSecImportExportPassphrase as CFString: password,
+//            kSecReturnPersistentRef: false
+//        ]
+//        var error: Unmanaged<CFError>?
+//        let secKey = SecKeyCreateWithData(priKeyECData as CFData, keyDict as CFDictionary, &error)
+//        return secKey
+//    }
 
     
-    func publicKeyFromData(certificate: Data) -> SecKey? {
-        var publicKey: SecKey?
-        var trust: SecTrust?
-
-        guard let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData) else { return nil }
-
-        let policy = SecPolicyCreateBasicX509()
-        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
-
-        if status == errSecSuccess, let trust = trust {
-            publicKey = SecTrustCopyPublicKey(trust)!
-        }
-
-        return publicKey
-    }
+//    func publicKeyFromData(certificate: Data) -> SecKey? {
+//        var publicKey: SecKey?
+//        var trust: SecTrust?
+//
+//        guard let cert = SecCertificateCreateWithData(kCFAllocatorDefault, certificate as CFData) else { return nil }
+//
+//        let policy = SecPolicyCreateBasicX509()
+//        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
+//
+//        if status == errSecSuccess, let trust = trust {
+//            publicKey = SecTrustCopyPublicKey(trust)!
+//        }
+//
+//        return publicKey
+//    }
     
     fileprivate func dataFromPEM(pemString: String) -> Data {
         let rows = pemString.split(separator: "\n")
@@ -213,51 +212,51 @@ class SecurityPolicy {
     }
 
     var remoteAsymmetricSignatureSize: Int {
-        guard let serverPublicKey = publicKeyFromData(certificate: remoteCertificate) else { return 0 }
-
-        switch asymmetricSignatureAlgorithm {
-        case .rsaSha1, .rsaSha256, .rsaSha256Pss:
-            return (getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8
-        default:
+//        guard let serverPublicKey = publicKeyFromData(certificate: remoteCertificate) else { return 0 }
+//
+//        switch asymmetricSignatureAlgorithm {
+//        case .rsaSha1, .rsaSha256, .rsaSha256Pss:
+//            return (getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8
+//        default:
             return 0
-        }
+//        }
     }
 
     var asymmetricSignatureSize: Int {
-        guard let clientPublicKey = publicKeyFromData(certificate: localCertificate) else { return 0 }
-
-        switch asymmetricSignatureAlgorithm {
-        case .rsaSha1, .rsaSha256, .rsaSha256Pss:
-            return (getAsymmetricKeyLength(publicKey: clientPublicKey) + 7) / 8
-        default:
+//        guard let clientPublicKey = publicKeyFromData(certificate: localCertificate) else { return 0 }
+//
+//        switch asymmetricSignatureAlgorithm {
+//        case .rsaSha1, .rsaSha256, .rsaSha256Pss:
+//            return (getAsymmetricKeyLength(publicKey: clientPublicKey) + 7) / 8
+//        default:
             return 0
-        }
+//        }
     }
 
     var asymmetricCipherTextBlockSize: Int {
-        guard let serverPublicKey = publicKeyFromData(certificate: remoteCertificate) else { return 1 }
-
-        switch (asymmetricEncryptionAlgorithm) {
-        case .rsa15, .rsaOaepSha1, .rsaOaepSha256:
-            return (getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8
-        default:
+//        guard let serverPublicKey = publicKeyFromData(certificate: remoteCertificate) else { return 1 }
+//
+//        switch (asymmetricEncryptionAlgorithm) {
+//        case .rsa15, .rsaOaepSha1, .rsaOaepSha256:
+//            return (getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8
+//        default:
             return 1
-        }
+//        }
     }
     
     var asymmetricPlainTextBlockSize: Int {
-        guard let serverPublicKey = publicKeyFromData(certificate: remoteCertificate) else { return 1 }
-
-        switch (asymmetricEncryptionAlgorithm) {
-        case .rsa15:
-            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 11
-        case .rsaOaepSha1:
-            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 42
-        case .rsaOaepSha256:
-            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 66
-        default:
+//        guard let serverPublicKey = publicKeyFromData(certificate: remoteCertificate) else { return 1 }
+//
+//        switch (asymmetricEncryptionAlgorithm) {
+//        case .rsa15:
+//            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 11
+//        case .rsaOaepSha1:
+//            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 42
+//        case .rsaOaepSha256:
+//            return ((getAsymmetricKeyLength(publicKey: serverPublicKey) + 7) / 8) - 66
+//        default:
             return 1
-        }
+//        }
     }
     
     var symmetricBlockSize: Int {
@@ -374,124 +373,132 @@ class SecurityPolicy {
     /* Asymmetric */
 
     func signAsymmetric(data: Data) throws -> Data {
-        let algorithm: SecKeyAlgorithm
-        switch asymmetricSignatureAlgorithm {
-        case .rsaSha1:
-            algorithm = .rsaSignatureMessagePKCS1v15SHA1
-        case .rsaSha256:
-            algorithm = .rsaSignatureMessagePKCS1v15SHA256
-        default:
-            algorithm = .rsaSignatureMessagePSSSHA256
-        }
-
-        let clientPrivateKey = privateKeyFromData(data: localPrivateKey)!
-
-        guard SecKeyIsAlgorithmSupported(clientPrivateKey, .sign, algorithm) else {
-            throw OPCUAError.generic("unsupported sign algorithm")
-        }
-
-        var error: Unmanaged<CFError>?
-        guard let signature = SecKeyCreateSignature(clientPrivateKey,
-                                                    algorithm,
-                                                    data as CFData,
-                                                    &error) as Data? else {
-                                                        throw error!.takeRetainedValue() as Error
-        }
-
-        return signature
-
-//        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: localPrivateKey)
-//        let signature = try privateKey.signature(for: data)
-//        return signature.rawRepresentation
+//        let algorithm: SecKeyAlgorithm
+//        switch asymmetricSignatureAlgorithm {
+//        case .rsaSha1:
+//            algorithm = .rsaSignatureMessagePKCS1v15SHA1
+//        case .rsaSha256:
+//            algorithm = .rsaSignatureMessagePKCS1v15SHA256
+//        default:
+//            algorithm = .rsaSignatureMessagePSSSHA256
+//        }
+//
+//        let clientPrivateKey = privateKeyFromData(data: localPrivateKey)!
+//
+//        guard SecKeyIsAlgorithmSupported(clientPrivateKey, .sign, algorithm) else {
+//            throw OPCUAError.generic("unsupported sign algorithm")
+//        }
+//
+//        var error: Unmanaged<CFError>?
+//        guard let signature = SecKeyCreateSignature(clientPrivateKey,
+//                                                    algorithm,
+//                                                    data as CFData,
+//                                                    &error) as Data? else {
+//                                                        throw error!.takeRetainedValue() as Error
+//        }
+//
+//        return signature
+//
+////        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: localPrivateKey)
+////        let signature = try privateKey.signature(for: data)
+////        return signature.rawRepresentation
+        
+        return data
     }
     
     func signVerifyAsymmetric(signature: Data, data: Data) -> Bool {
-        let algorithm: SecKeyAlgorithm
-        switch asymmetricSignatureAlgorithm {
-        case .rsaSha1:
-            algorithm = .rsaSignatureMessagePKCS1v15SHA1
-        case .rsaSha256:
-            algorithm = .rsaSignatureMessagePKCS1v15SHA256
-        default:
-            algorithm = .rsaSignatureMessagePSSSHA256
-        }
-
-        let clientPublicKey = publicKeyFromData(certificate: localCertificate)!
-
-        guard SecKeyIsAlgorithmSupported(clientPublicKey, .verify, algorithm) else {
-            print("unsupported verify algorithm")
-            return false
-        }
-
-        var error: Unmanaged<CFError>?
-        guard SecKeyVerifySignature(clientPublicKey,
-                                    algorithm,
-                                    data as CFData,
-                                    signature as CFData,
-                                    &error) else {
-                                        print(error!.takeRetainedValue() as Error)
-                                        return false
-                                    }
-        return true
-
-//        do {
-//            let publicKey = try P256.Signing.PublicKey(rawRepresentation: remoteCertificate)
-//            let sign = try P256.Signing.ECDSASignature(rawRepresentation: signature)
-//            return publicKey.isValidSignature(sign, for: data)
-//        } catch {
-//            print("signVerifyAsymmetric: \(error)")
+//        let algorithm: SecKeyAlgorithm
+//        switch asymmetricSignatureAlgorithm {
+//        case .rsaSha1:
+//            algorithm = .rsaSignatureMessagePKCS1v15SHA1
+//        case .rsaSha256:
+//            algorithm = .rsaSignatureMessagePKCS1v15SHA256
+//        default:
+//            algorithm = .rsaSignatureMessagePSSSHA256
+//        }
+//
+//        let clientPublicKey = publicKeyFromData(certificate: localCertificate)!
+//
+//        guard SecKeyIsAlgorithmSupported(clientPublicKey, .verify, algorithm) else {
+//            print("unsupported verify algorithm")
 //            return false
 //        }
+//
+//        var error: Unmanaged<CFError>?
+//        guard SecKeyVerifySignature(clientPublicKey,
+//                                    algorithm,
+//                                    data as CFData,
+//                                    signature as CFData,
+//                                    &error) else {
+//                                        print(error!.takeRetainedValue() as Error)
+//                                        return false
+//                                    }
+//        return true
+//
+////        do {
+////            let publicKey = try P256.Signing.PublicKey(rawRepresentation: remoteCertificate)
+////            let sign = try P256.Signing.ECDSASignature(rawRepresentation: signature)
+////            return publicKey.isValidSignature(sign, for: data)
+////        } catch {
+////            print("signVerifyAsymmetric: \(error)")
+////            return false
+////        }
+        
+        return true
     }
     
     func cryptAsymmetric(data: [UInt8]) throws -> [UInt8] {
-        let algorithm: SecKeyAlgorithm
-        switch asymmetricEncryptionAlgorithm {
-        case .rsaOaepSha1:
-            algorithm = .rsaEncryptionOAEPSHA1
-        case .rsaOaepSha256:
-            algorithm = .rsaEncryptionOAEPSHA256
-        default:
-            algorithm = .rsaEncryptionPKCS1
-        }
-
-        let key = publicKeyFromData(certificate: remoteCertificate)!
-        var error: Unmanaged<CFError>?
-        guard let cipherText = SecKeyCreateEncryptedData(
-            key,
-            algorithm,
-            Data(data) as CFData,
-            &error) as Data? else {
-            throw error!.takeRetainedValue() as Error
-        }
-
-        return [UInt8](cipherText)
+//        let algorithm: SecKeyAlgorithm
+//        switch asymmetricEncryptionAlgorithm {
+//        case .rsaOaepSha1:
+//            algorithm = .rsaEncryptionOAEPSHA1
+//        case .rsaOaepSha256:
+//            algorithm = .rsaEncryptionOAEPSHA256
+//        default:
+//            algorithm = .rsaEncryptionPKCS1
+//        }
+//
+//        let key = publicKeyFromData(certificate: remoteCertificate)!
+//        var error: Unmanaged<CFError>?
+//        guard let cipherText = SecKeyCreateEncryptedData(
+//            key,
+//            algorithm,
+//            Data(data) as CFData,
+//            &error) as Data? else {
+//            throw error!.takeRetainedValue() as Error
+//        }
+//
+//        return [UInt8](cipherText)
+//
+//        //let savedKey = key.withUnsafeBytes {Data(Array($0)).base64EncodedString()}
         
-        //let savedKey = key.withUnsafeBytes {Data(Array($0)).base64EncodedString()}
+        return data
     }
         
     func decryptAsymmetric(data: [UInt8]) throws -> [UInt8] {
-        let algorithm: SecKeyAlgorithm
-        switch asymmetricEncryptionAlgorithm {
-        case .rsaOaepSha1:
-            algorithm = .rsaEncryptionOAEPSHA1
-        case .rsaOaepSha256:
-            algorithm = .rsaEncryptionOAEPSHA256
-        default:
-            algorithm = .rsaEncryptionPKCS1
-        }
-
-        let key = privateKeyFromData(data: localPrivateKey)!
-        var error: Unmanaged<CFError>?
-        guard let plainData = SecKeyCreateDecryptedData(
-            key,
-            algorithm,
-            Data(data) as CFData,
-            &error) as Data? else {
-            throw error!.takeRetainedValue() as Error
-        }
-
-        return [UInt8](plainData)
+//        let algorithm: SecKeyAlgorithm
+//        switch asymmetricEncryptionAlgorithm {
+//        case .rsaOaepSha1:
+//            algorithm = .rsaEncryptionOAEPSHA1
+//        case .rsaOaepSha256:
+//            algorithm = .rsaEncryptionOAEPSHA256
+//        default:
+//            algorithm = .rsaEncryptionPKCS1
+//        }
+//
+//        let key = privateKeyFromData(data: localPrivateKey)!
+//        var error: Unmanaged<CFError>?
+//        guard let plainData = SecKeyCreateDecryptedData(
+//            key,
+//            algorithm,
+//            Data(data) as CFData,
+//            &error) as Data? else {
+//            throw error!.takeRetainedValue() as Error
+//        }
+//
+//        return [UInt8](plainData)
+        
+        return data
     }
     
 
