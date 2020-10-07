@@ -106,13 +106,13 @@ class SecurityPolicy {
     }
 
     private static func generateNonce(_ lenght: Int) -> Data {
-        let nonce = NSMutableData(length: lenght)!
-        let result = SecRandomCopyBytes(kSecRandomDefault, nonce.length, nonce.mutableBytes)
-        if result == errSecSuccess {
-            return nonce as Data
-        } else {
+//        let nonce = NSMutableData(length: lenght)!
+//        let result = SecRandomCopyBytes(kSecRandomDefault, nonce.length, nonce.mutableBytes)
+//        if result == errSecSuccess {
+//            return nonce as Data
+//        } else {
             return Data(repeating: UInt8.random(in: 0...255), count: lenght)
-        }
+//        }
     }
 
     func loadLocalCertificate(certificate: String? = nil, privateKey: String? = nil) {
@@ -208,7 +208,8 @@ class SecurityPolicy {
     }
         
     func getAsymmetricKeyLength(publicKey: SecKey) -> Int {
-        return SecKeyGetBlockSize(publicKey) * 8
+//        return SecKeyGetBlockSize(publicKey) * 8
+        return 256 * 8
     }
 
     var remoteAsymmetricSignatureSize: Int {
