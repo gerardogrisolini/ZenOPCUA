@@ -189,7 +189,7 @@ public class ZenOPCUA {
     }
 
     private func closeSession(deleteSubscriptions: Bool) -> EventLoopFuture<Promisable> {
-        guard let session = handler.sessionActive else {
+        guard let authenticationToken = handler.authenticationToken else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
         
@@ -198,11 +198,11 @@ public class ZenOPCUA {
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = CloseSessionRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
+            secureChannelId: handler.secureChannelId,
+            tokenId: handler.tokenId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
+            authenticationToken: authenticationToken,
             deleteSubscriptions: deleteSubscriptions
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -213,7 +213,7 @@ public class ZenOPCUA {
     }
 
     public func browse(nodes: [BrowseDescription] = [BrowseDescription()]) -> EventLoopFuture<[BrowseResult]> {
-        guard let session = handler.sessionActive else {
+        guard let authenticationToken = handler.authenticationToken else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
@@ -222,11 +222,11 @@ public class ZenOPCUA {
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = BrowseRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
+            secureChannelId: handler.secureChannelId,
+            tokenId: handler.tokenId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
+            authenticationToken: authenticationToken,
             nodesToBrowse: nodes
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -239,7 +239,7 @@ public class ZenOPCUA {
     }
 
     public func read(nodes: [ReadValue]) -> EventLoopFuture<[DataValue]> {
-        guard let session = handler.sessionActive else {
+        guard let authenticationToken = handler.authenticationToken else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
@@ -248,11 +248,11 @@ public class ZenOPCUA {
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = ReadRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
+            secureChannelId: handler.secureChannelId,
+            tokenId: handler.tokenId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
+            authenticationToken: authenticationToken,
             nodesToRead: nodes
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -265,7 +265,7 @@ public class ZenOPCUA {
     }
 
     public func write(nodes: [WriteValue]) -> EventLoopFuture<[StatusCodes]> {
-        guard let session = handler.sessionActive else {
+        guard let authenticationToken = handler.authenticationToken else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
@@ -274,11 +274,11 @@ public class ZenOPCUA {
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = WriteRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
+            secureChannelId: handler.secureChannelId,
+            tokenId: handler.tokenId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
+            authenticationToken: authenticationToken,
             nodesToWrite: nodes
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -291,7 +291,7 @@ public class ZenOPCUA {
     }
 
     public func createSubscription(subscription: Subscription, startPublishing: Bool = true) -> EventLoopFuture<UInt32> {
-        guard let session = handler.sessionActive else {
+        guard let authenticationToken = handler.authenticationToken else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
@@ -300,11 +300,11 @@ public class ZenOPCUA {
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = CreateSubscriptionRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
+            secureChannelId: handler.secureChannelId,
+            tokenId: handler.tokenId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
+            authenticationToken: authenticationToken,
             subscription: subscription
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -321,7 +321,7 @@ public class ZenOPCUA {
     }
     
     public func createMonitoredItems(subscriptionId: UInt32, itemsToCreate: [MonitoredItemCreateRequest]) -> EventLoopFuture<[MonitoredItemCreateResult]> {
-        guard let session = handler.sessionActive else {
+        guard let authenticationToken = handler.authenticationToken else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
@@ -330,11 +330,11 @@ public class ZenOPCUA {
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = CreateMonitoredItemsRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
+            secureChannelId: handler.secureChannelId,
+            tokenId: handler.tokenId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
+            authenticationToken: authenticationToken,
             subscriptionId: subscriptionId,
             itemsToCreate: itemsToCreate
         )
@@ -348,7 +348,7 @@ public class ZenOPCUA {
     }
     
     public func deleteSubscriptions(subscriptionIds: [UInt32], stopPubliscing: Bool = true) -> EventLoopFuture<[StatusCodes]> {
-        guard let session = handler.sessionActive else {
+        guard let authenticationToken = handler.authenticationToken else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
@@ -359,11 +359,11 @@ public class ZenOPCUA {
 
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = DeleteSubscriptionsRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
+            secureChannelId: handler.secureChannelId,
+            tokenId: handler.tokenId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
+            authenticationToken: authenticationToken,
             subscriptionIds: subscriptionIds
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -376,7 +376,7 @@ public class ZenOPCUA {
     }
     
     public func publish(subscriptionIds: [UInt32] = []) -> EventLoopFuture<Void> {
-        guard let session = handler.sessionActive else {
+        guard let authenticationToken = handler.authenticationToken else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.sessionError)
         }
 
@@ -385,11 +385,11 @@ public class ZenOPCUA {
         
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = PublishRequest(
-            secureChannelId: session.secureChannelId,
-            tokenId: session.tokenId,
+            secureChannelId: handler.secureChannelId,
+            tokenId: handler.tokenId,
             requestId: requestId,
             requestHandle: requestId,
-            authenticationToken: session.authenticationToken,
+            authenticationToken: authenticationToken,
             subscriptionAcknowledgements: subscriptionIds
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -428,7 +428,7 @@ public class ZenOPCUA {
 
             let time = TimeAmount.milliseconds(milliseconds)
             self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time * 3, delay: time, { task -> EventLoopFuture<Void> in
-                if self.handler.sessionActive == nil {
+                if self.handler.authenticationToken == nil {
                     return self.stopPublishing()
                 }
                 return self.publish()

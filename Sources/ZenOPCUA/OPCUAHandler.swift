@@ -20,13 +20,12 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public typealias InboundIn = OPCUAFrame
     public typealias OutboundOut = OPCUAFrame
 
+    public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
+
     public var dataChanged: OPCUADataChanged? = nil
     public var handlerActivated: OPCUAHandlerChange? = nil
     public var handlerRemoved: OPCUAHandlerChange? = nil
     public var errorCaught: OPCUAErrorCaught? = nil
-
-    public var sessionActive: CreateSessionResponse? = nil
-    public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
     
     static var securityPolicy: SecurityPolicy = SecurityPolicy()
     static var messageSecurityMode: MessageSecurityMode = .none
@@ -34,6 +33,10 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     static var isAcknowledge: Bool = false
     static var isAcknowledgeSecure: Bool { messageSecurityMode != .none && securityPolicy.securityKeys == nil }
     
+    var tokenId: UInt32 = 0
+    var secureChannelId: UInt32 = 0
+    var authenticationToken: Node? = nil
+
     var endpointUrl: String = ""
     var applicationName: String = ""
     var username: String? = nil
@@ -41,7 +44,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     var certificate: String? = nil
     var privateKey: String? = nil
     var requestedLifetime: UInt32 = 0
-
+    
+    
     public init() {
     }
 
@@ -76,14 +80,15 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 return
             }
             
+            tokenId = response.securityToken.tokenId
+            secureChannelId = response.secureChannelId
+
             let time = TimeAmount.milliseconds(Int64(Double(response.securityToken.revisedLifetime) * 0.75))
             context.eventLoop.next().scheduleTask(in: time) { () -> () in
                 self.openSecureChannel(context: context)
             }
             
-            if let session = sessionActive {
-                session.tokenId = response.securityToken.tokenId
-            } else {
+            if authenticationToken == nil {
                 if response.serverNonce.count > 1 {
                     OPCUAHandler.securityPolicy.generateSecurityKeys(
                         serverNonce: response.serverNonce,
@@ -219,8 +224,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 OPCUAHandler.securityPolicy.loadLocalCertificate(certificate: certificate, privateKey: privateKey)
             }
         }
-
-        let secureChannelId = sessionActive?.secureChannelId ?? 0
         
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
         let body = OpenSecureChannelRequest(
@@ -241,7 +244,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let head = OPCUAFrameHead(messageType: .closeChannel, chunkType: .frame)
         let body = CloseSecureChannelRequest(
             secureChannelId: response.secureChannelId,
-            tokenId: response.tokenId,
+            tokenId: tokenId,
             requestId: nextMessageID(),
             requestHandle: response.requestId
         )
@@ -256,7 +259,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = GetEndpointsRequest(
             secureChannelId: response.secureChannelId,
-            tokenId: response.securityToken.tokenId,
+            tokenId: tokenId,
             requestId: nextMessageID(),
             requestHandle: response.requestId,
             endpointUrl: endpointUrl
@@ -283,7 +286,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             let head = OPCUAFrameHead(messageType: .closeChannel, chunkType: .frame)
             let body = CloseSecureChannelRequest(
                 secureChannelId: response.secureChannelId,
-                tokenId: response.tokenId,
+                tokenId: tokenId,
                 requestId: requestId,
                 requestHandle: response.requestId
             )
@@ -292,7 +295,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
             let body = CreateSessionRequest(
                 secureChannelId: response.secureChannelId,
-                tokenId: response.tokenId,
+                tokenId: tokenId,
                 requestId: requestId,
                 requestHandle: response.requestId,
                 serverUri: endpoint.server.applicationUri,
@@ -309,7 +312,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     }
 
     fileprivate func activateSession(context: ChannelHandlerContext, response: CreateSessionResponse) {
-        sessionActive = response
+        authenticationToken = response.authenticationToken
         
         print("Found \(response.serverEndpoints.count) endpoints")
         
@@ -369,7 +372,8 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     public func resetAll() {
         messageID = 0
-        sessionActive = nil
+        secureChannelId = 0
+        authenticationToken = nil
     }
 }
 
