@@ -7,6 +7,7 @@
 
 import Foundation
 import NIO
+import Security
 //import CryptorRSA
 #if os(Linux)
 import Crypto
