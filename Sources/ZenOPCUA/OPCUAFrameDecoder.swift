@@ -92,9 +92,14 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
     }
     
     private func decryptChunk(chunkBuffer: inout ByteBuffer) throws -> ByteBuffer {
+        let isEncryptionEnabled = OPCUAHandler.securityPolicy.isEncryptionEnabled
+        let isAsymmetric = OPCUAHandler.securityPolicy.isAsymmetric
+
         let cipherTextBlockSize = OPCUAHandler.securityPolicy.asymmetricCipherTextBlockSize
-        let header = OPCUAHandler.securityPolicy.isEncryptionEnabled
-            ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize
+        let header = isEncryptionEnabled
+            ? isAsymmetric
+                ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize
+                : SECURE_MESSAGE_HEADER_SIZE
             : 0
         
         chunkBuffer.moveReaderIndex(forwardBy: header)

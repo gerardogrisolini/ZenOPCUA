@@ -82,11 +82,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             
             tokenId = response.securityToken.tokenId
             secureChannelId = response.secureChannelId
-
-            let time = TimeAmount.milliseconds(Int64(Double(response.securityToken.revisedLifetime) * 0.75))
-            context.eventLoop.next().scheduleTask(in: time) { () -> () in
-                self.openSecureChannel(context: context)
-            }
+            requestedLifetime = response.securityToken.revisedLifetime
             
             if authenticationToken == nil {
                 if response.serverNonce.count > 1 {
@@ -97,6 +93,21 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 }
                 getEndpoints(context: context, response: response)
             }
+//            else {
+//                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+//                let body = CreateSessionRequest(
+//                    secureChannelId: secureChannelId,
+//                    tokenId: tokenId,
+//                    requestId: nextMessageID(),
+//                    requestHandle: response.requestId,
+//                    serverUri: "",
+//                    endpointUrl: endpointUrl,
+//                    applicationName: applicationName,
+//                    securityPolicy: OPCUAHandler.securityPolicy
+//                )
+//                let frame = OPCUAFrame(head: head, body: body.bytes)
+//                context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+//            }
         case .error:
             var error: Error
             let code = UInt32(bytes: frame.body[0...3])
@@ -224,7 +235,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 OPCUAHandler.securityPolicy.loadLocalCertificate(certificate: certificate, privateKey: privateKey)
             }
         }
-        
+
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
         let body = OpenSecureChannelRequest(
             messageSecurityMode: securityMode,
@@ -258,13 +269,14 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     fileprivate func getEndpoints(context: ChannelHandlerContext, response: OpenSecureChannelResponse) {
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = GetEndpointsRequest(
-            secureChannelId: response.secureChannelId,
+            secureChannelId: secureChannelId,
             tokenId: tokenId,
             requestId: nextMessageID(),
             requestHandle: response.requestId,
             endpointUrl: endpointUrl
         )
         let frame = OPCUAFrame(head: head, body: body.bytes)
+
         context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
     }
     
@@ -294,7 +306,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         } else {
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
             let body = CreateSessionRequest(
-                secureChannelId: response.secureChannelId,
+                secureChannelId: secureChannelId,
                 tokenId: tokenId,
                 requestId: requestId,
                 requestHandle: response.requestId,
@@ -356,6 +368,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             )
             let frame = OPCUAFrame(head: head, body: body.bytes)
             context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
+            
+            let time = TimeAmount.milliseconds(Int64(Double(requestedLifetime) * 0.75))
+            context.eventLoop.next().scheduleTask(in: time) { () -> () in
+                self.openSecureChannel(context: context)
+            }
         }
     }
     
