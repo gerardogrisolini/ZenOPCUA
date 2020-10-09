@@ -385,10 +385,6 @@ class SecurityPolicy {
         }
 
         return signature
-
-//        let privateKey = try P256.Signing.PrivateKey(rawRepresentation: localPrivateKey)
-//        let signature = try privateKey.signature(for: data)
-//        return signature.rawRepresentation
     }
     
     func signVerifyAsymmetric(signature: Data, data: Data) -> Bool {
@@ -419,15 +415,6 @@ class SecurityPolicy {
                                         return false
                                     }
         return true
-
-//        do {
-//            let publicKey = try P256.Signing.PublicKey(rawRepresentation: remoteCertificate)
-//            let sign = try P256.Signing.ECDSASignature(rawRepresentation: signature)
-//            return publicKey.isValidSignature(sign, for: data)
-//        } catch {
-//            print("signVerifyAsymmetric: \(error)")
-//            return false
-//        }
     }
     
     func cryptAsymmetric(data: [UInt8]) throws -> [UInt8] {
@@ -452,8 +439,6 @@ class SecurityPolicy {
         }
 
         return [UInt8](cipherText)
-
-        //let savedKey = key.withUnsafeBytes {Data(Array($0)).base64EncodedString()}
     }
         
     func decryptAsymmetric(data: [UInt8]) throws -> [UInt8] {
@@ -500,8 +485,8 @@ class SecurityPolicy {
     
     func signSymmetric(data: Data) -> Data {
         let symmetricKey = SymmetricKey(data: SHA256.hash(data: securityKeys!.clientKeys.signatureKey))
-        let data = HMAC<SHA256>.authenticationCode(for: data, using: symmetricKey)
-        return Data(data)
+        let signed = HMAC<SHA256>.authenticationCode(for: data, using: symmetricKey)
+        return Data(signed)
     }
 
     func signVerifySymmetric(signature: Data, data: Data) -> Bool {
