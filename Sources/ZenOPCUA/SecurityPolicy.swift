@@ -114,13 +114,11 @@ class SecurityPolicy {
 
     func loadLocalCertificate(certificate: String? = nil, privateKey: String? = nil) {
         if localCertificate.count == 0, let certificateFile = certificate, let privateKeyFile = privateKey {
-            if securityPolicyUri.securityPolicy != .none {
-                self.clientNonce.append(contentsOf: SecurityPolicy.generateNonce(32))
-            }
+            self.clientNonce.append(contentsOf: SecurityPolicy.generateNonce(32))
 
             do {
                 let certificateData = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
-                localCertificate = dataFromPEM(data: certificateData)
+                localCertificate = certificateData //dataFromPEM(data: certificateData)
                 localCertificateThumbprint = Data(Insecure.SHA1.hash(data: localCertificate))
             } catch {
                 print("localCertificateAndPublicKey: \(error)")

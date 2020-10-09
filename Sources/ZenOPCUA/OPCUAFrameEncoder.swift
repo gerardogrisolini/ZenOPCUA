@@ -95,7 +95,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 messageBuffer.moveReaderIndex(forwardBy: len)
                 len = header + bodySize - len - 4
                 chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: len)!)
-            case "MSG":
+            case "MSG", "CLO":
                 chunkBuffer.writeBytes(messageBuffer.getBytes(at: messageBuffer.readerIndex, length: 4)!)
                 chunkBuffer.writeBytes(nextSequenceNumber().bytes)
                 messageBuffer.moveReaderIndex(forwardBy: 8)

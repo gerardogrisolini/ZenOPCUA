@@ -77,7 +77,7 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
 
         if OPCUAHandler.securityPolicy.isSigningEnabled {
             //try verifyChunk(chunkBuffer: &buffer)
-            buffer.moveWriterIndex(to: buffer.writerIndex - OPCUAHandler.securityPolicy.remoteAsymmetricSignatureSize)
+            buffer.moveWriterIndex(to: buffer.writerIndex - signatureSize)
         }
 
         var head = OPCUAFrameHead()
@@ -160,5 +160,11 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled
             ? OPCUAHandler.securityPolicy.securityRemoteHeaderSize
             : 0
+    }
+    
+    var signatureSize: Int {
+        return OPCUAHandler.securityPolicy.isAsymmetricEncryptionEnabled
+            ? OPCUAHandler.securityPolicy.remoteAsymmetricSignatureSize
+            : OPCUAHandler.securityPolicy.symmetricSignatureSize
     }
 }

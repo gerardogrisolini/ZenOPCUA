@@ -23,9 +23,10 @@ class CloseSecureChannelRequest: MessageBase, OPCUAEncodable {
         secureChannelId: UInt32,
         tokenId: UInt32,
         requestId: UInt32,
-        requestHandle: UInt32
+        requestHandle: UInt32,
+        authenticationToken: Node
     ) {
-        self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: NodeId())
+        self.requestHeader = RequestHeader(requestHandle: requestHandle, authenticationToken: authenticationToken)
         super.init(bytes: [])
         self.secureChannelId = secureChannelId
         self.tokenId = tokenId
