@@ -7,13 +7,7 @@
 
 import Foundation
 import NIO
-//#if os(Linux)
 import Crypto
-//#else
-//import CryptoKit
-//#endif
-
-import CommonCrypto
 
 
 class SecurityPolicy {
