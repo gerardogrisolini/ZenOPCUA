@@ -15,7 +15,6 @@ import Crypto
 
 import CommonCrypto
 
-//public typealias KeyPair = (privateKey: CryptorRSA.PrivateKey, publicKey: CryptorRSA.PublicKey)
 
 class SecurityPolicy {
 //    var clientPrivateKey: SecKey!
