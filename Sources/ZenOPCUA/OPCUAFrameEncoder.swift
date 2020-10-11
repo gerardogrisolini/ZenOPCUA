@@ -21,16 +21,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         print(" --> \(frame.head)")
         #endif
         
-        //for frame in value.split() {
-            var byteBuffer = byteBufferAllocator.buffer(capacity: frame.body.count + 8)
-            byteBuffer.writeString("\(frame.head.messageType.rawValue)\(frame.head.chunkType.rawValue)")
-            byteBuffer.writeBytes(frame.head.messageSize.bytes)
-            byteBuffer.writeBytes(frame.body)
-            try signAndEncrypt(messageBuffer: &byteBuffer, out: &out)
-        //}
-    }
-    
-    func signAndEncrypt(messageBuffer: inout ByteBuffer, out: inout ByteBuffer) throws {
+        var messageBuffer = frame.buffer
         let isEncryptionEnabled = OPCUAHandler.securityPolicy.isEncryptionEnabled
         let isSignedEnabled = OPCUAHandler.securityPolicy.isSigningEnabled
         let isAsymmetric = OPCUAHandler.securityPolicy.isAsymmetric

@@ -539,12 +539,12 @@ class SecurityPolicy {
         _ offset: Int,
         _ length: Int) -> Data {
 
-        var required = offset + length
+        let required = offset + length
         var out = Data(repeating: 0, count: required)
-        var off = 0
-        var toCopy: Int
-        var a = Data(seed)
-        var tmp: Data
+//        var off = 0
+//        var toCopy: Int
+//        var a = Data(seed)
+//        var tmp: Data
         
         if keyDerivationAlgorithm == .pSha1 {
 //            let key = SymmetricKey(data: Insecure.SHA1.hash(data: secret))
