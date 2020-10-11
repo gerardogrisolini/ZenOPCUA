@@ -468,7 +468,7 @@ class SecurityPolicy {
 //        return [UInt8](encryptedData.ciphertext)
 
         let key = [UInt8](securityKeys!.serverKeys.encryptionKey)
-        let gcm = GCM(iv: [UInt8](securityKeys!.serverKeys.initializationVector), mode: .combined)
+        let gcm = GCM(iv: [UInt8](securityKeys!.serverKeys.initializationVector), mode: .detached)
         let aes = try AES(key: key, blockMode: gcm, padding: .noPadding)
         return try aes.encrypt(data)
     }
