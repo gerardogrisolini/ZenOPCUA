@@ -467,10 +467,15 @@ class SecurityPolicy {
 //        let encryptedData = try AES.GCM.seal(data, using: sk, nonce: iv, authenticating: Data())
 //        return [UInt8](encryptedData.ciphertext)
 
-        let key = [UInt8](securityKeys!.serverKeys.encryptionKey)
-        let gcm = GCM(iv: [UInt8](securityKeys!.serverKeys.initializationVector), mode: .detached)
-        let aes = try AES(key: key, blockMode: gcm, padding: .noPadding)
-        return try aes.encrypt(data)
+        let key = [UInt8](securityKeys!.clientKeys.encryptionKey)
+        let cbc = CBC(iv: [UInt8](securityKeys!.clientKeys.initializationVector))
+        let aes = try AES(key: key, blockMode: cbc, padding: .noPadding)
+        do {
+            return try aes.encrypt(data)
+        } catch {
+            print(error)
+            throw error
+        }
     }
 
     func decryptSymmetric(data: [UInt8]) throws -> [UInt8] {
@@ -480,9 +485,9 @@ class SecurityPolicy {
 //        let decryptedData = try AES.GCM.open(sealedBox, using: sk)
 //        return [UInt8](decryptedData)
 
-        let key = [UInt8](securityKeys!.clientKeys.encryptionKey)
-        let gcm = GCM(iv: [UInt8](securityKeys!.clientKeys.initializationVector), mode: .combined)
-        let aes = try AES(key: key, blockMode: gcm, padding: .noPadding)
+        let key = [UInt8](securityKeys!.serverKeys.encryptionKey)
+        let cbc = CBC(iv: [UInt8](securityKeys!.serverKeys.initializationVector))
+        let aes = try AES(key: key, blockMode: cbc, padding: .noPadding)
         return try aes.decrypt(data)
     }
     
@@ -540,11 +545,11 @@ class SecurityPolicy {
         _ length: Int) -> Data {
 
         let required = offset + length
-        var out = Data(repeating: 0, count: required)
+        var out = Data()
 //        var off = 0
 //        var toCopy: Int
 //        var a = Data(seed)
-//        var tmp: Data
+//        var tmp: [UInt8]
         
         if keyDerivationAlgorithm == .pSha1 {
 //            let key = SymmetricKey(data: Insecure.SHA1.hash(data: secret))
@@ -561,8 +566,9 @@ class SecurityPolicy {
 //                off += toCopy
 //                required -= toCopy
 //            }
-            let key = try! HKDF(password: secret.sha1(), salt: seed, variant: .sha1).calculate()
-            out.append(contentsOf: key)
+            var tmp = try! HKDF(password: secret.sha1(), salt: seed, keyLength: length, variant: .sha1).calculate()
+            tmp = try! HKDF(password: secret.sha1(), salt: tmp + seed, keyLength: length * 2, variant: .sha1).calculate()
+            out.append(contentsOf: tmp)
         } else {
 //            let key = SymmetricKey(data: SHA256.hash(data: secret))
 //            var mac = HMAC<SHA256>(key: key)
@@ -578,8 +584,20 @@ class SecurityPolicy {
 //                off += toCopy
 //                required -= toCopy
 //            }
-            let key = try! HKDF(password: secret.sha256(), salt: seed, variant: .sha256).calculate()
-            out.append(contentsOf: key)
+
+//            let mac = HMAC(key: secret, variant: .sha256)
+//            while required > 0 {
+//                var tmp = try! mac.authenticate(seed)
+//                tmp = try! mac.authenticate(tmp + seed)
+//                out.append(contentsOf: tmp)
+//                required -= tmp.count
+//            }
+
+            let tmp = try! HKDF(password: secret, salt: seed, keyLength: required, variant: .sha256).calculate()
+            out.append(contentsOf: tmp)
+
+//            let tmp = try! PKCS5.PBKDF2(password: secret, salt: seed, iterations: 2, keyLength: required, variant: .sha256).calculate()
+//            out.append(contentsOf: tmp)
         }
 
         return out[offset..<offset+length]

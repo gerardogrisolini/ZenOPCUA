@@ -188,14 +188,14 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
         : OPCUAHandler.securityPolicy.symmetricSignatureSize
     }
     
-    private var sequenceNumber = UInt32(1)
+    private static var sequenceNumber = UInt32(1)
     
-    public func resetSequenceNumber() {
-        sequenceNumber = 1000
+    public static func resetSequenceNumber() {
+        OPCUAFrameEncoder.sequenceNumber = 1
     }
 
     public func nextSequenceNumber() -> UInt32 {
-        sequenceNumber += 1
-        return sequenceNumber
+        OPCUAFrameEncoder.sequenceNumber += 1
+        return OPCUAFrameEncoder.sequenceNumber
     }
 }

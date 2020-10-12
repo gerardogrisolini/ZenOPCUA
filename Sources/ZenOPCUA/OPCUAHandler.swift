@@ -281,17 +281,15 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
 
         if OPCUAHandler.isAcknowledgeSecure {
             OPCUAHandler.securityPolicy.loadRemoteCertificate(data: endpoint.serverCertificate)
-
             let head = OPCUAFrameHead(messageType: .closeChannel, chunkType: .frame)
             let body = CloseSecureChannelRequest(
                 secureChannelId: secureChannelId,
                 tokenId: tokenId,
                 requestId: requestId,
-                requestHandle: requestId,
+                requestHandle: response.requestId,
                 authenticationToken: authenticationToken ?? NodeId()
             )
             frame = OPCUAFrame(head: head, body: body.bytes)
-            //openSecureChannel(context: context)
         } else {
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
             let body = CreateSessionRequest(
@@ -379,6 +377,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
         messageID = 0
         secureChannelId = 0
         authenticationToken = nil
+        OPCUAFrameEncoder.resetSequenceNumber()
     }
 }
 
