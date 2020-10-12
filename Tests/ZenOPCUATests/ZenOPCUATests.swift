@@ -14,22 +14,22 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-        let opcua = ZenOPCUA(
-            eventLoopGroup: eventLoopGroup,
-//            endpointUrl: "opc.tcp://concentratoreviet.ddns.net:4842",
-            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-            messageSecurityMode: .none,
-            securityPolicy: .none
-        )
-
 //        let opcua = ZenOPCUA(
 //            eventLoopGroup: eventLoopGroup,
+////            endpointUrl: "opc.tcp://concentratoreviet.ddns.net:4842",
 //            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-//            messageSecurityMode: .signAndEncrypt,
-//            securityPolicy: .basic256Sha256,
-//            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.der",
-//            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
+//            messageSecurityMode: .none,
+//            securityPolicy: .none
 //        )
+
+        let opcua = ZenOPCUA(
+            eventLoopGroup: eventLoopGroup,
+            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
+            messageSecurityMode: .signAndEncrypt,
+            securityPolicy: .basic256Sha256,
+            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.der",
+            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
+        )
         
         opcua.onHandlerActivated = {
             print("Client activated")
@@ -52,17 +52,18 @@ final class ZenOPCUATests: XCTestCase {
         }
 
         do {
-            try opcua.connect(reconnect: false, sessionLifetime: 60000).wait()
+            try opcua.connect(reconnect: false).wait()
+            sleep(1)
             
-            let root: [BrowseDescription] = [
-                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253))
-            ]
-            let nodes = try opcua.browse(nodes: root).wait()
-            for item in nodes {
-                item.references.forEach { ref in
-                    print("\(ref.displayName.text): \(ref.nodeId)")
-                }
-            }
+//            let root: [BrowseDescription] = [
+//                BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253))
+//            ]
+//            let nodes = try opcua.browse(nodes: root).wait()
+//            for item in nodes {
+//                item.references.forEach { ref in
+//                    print("\(ref.displayName.text): \(ref.nodeId)")
+//                }
+//            }
             
 //            let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
 //            deleted.forEach { result in
