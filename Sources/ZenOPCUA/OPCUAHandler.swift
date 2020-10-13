@@ -356,7 +356,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             context.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
             
             let time = TimeAmount.milliseconds(Int64(Double(requestedLifetime) * 0.75))
-            context.eventLoop.next().scheduleTask(in: time) { () -> () in
+            context.eventLoop.next().scheduleRepeatedTask(initialDelay: time, delay: time, notifying: nil) { task in
                 self.openSecureChannel(context: context)
             }
         }
