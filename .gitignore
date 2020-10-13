@@ -5,6 +5,7 @@
 /*.xcodeproj
 xcuserdata/
 *.crt
+*.der
 *.key
 Package.resolved
 
