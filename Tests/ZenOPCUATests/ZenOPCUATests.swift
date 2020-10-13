@@ -14,22 +14,22 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-        let opcua = ZenOPCUA(
-            eventLoopGroup: eventLoopGroup,
-//            endpointUrl: "opc.tcp://concentratoreviet.ddns.net:4842",
-            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-            messageSecurityMode: .none,
-            securityPolicy: .none
-        )
-
 //        let opcua = ZenOPCUA(
 //            eventLoopGroup: eventLoopGroup,
+////            endpointUrl: "opc.tcp://concentratoreviet.ddns.net:4842",
 //            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-//            messageSecurityMode: .signAndEncrypt,
-//            securityPolicy: .basic256Sha256,
-//            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.der",
-//            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
+//            messageSecurityMode: .none,
+//            securityPolicy: .none
 //        )
+
+        let opcua = ZenOPCUA(
+            eventLoopGroup: eventLoopGroup,
+            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
+            messageSecurityMode: .signAndEncrypt,
+            securityPolicy: .basic256Sha256,
+            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.der",
+            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
+        )
         
         opcua.onHandlerActivated = {
             print("Client activated")
@@ -52,7 +52,7 @@ final class ZenOPCUATests: XCTestCase {
         }
 
         do {
-            try opcua.connect(reconnect: false, sessionLifetime: 5000).wait()
+            try opcua.connect(reconnect: false).wait()
             sleep(60)
             
 //            let root: [BrowseDescription] = [

@@ -54,8 +54,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 paddingSize = 0
             }
 
-            let plainTextContentSize = SEQUENCE_HEADER_SIZE + bodySize +
-                signatureSize + paddingSize + paddingOverhead
+            let plainTextContentSize = SEQUENCE_HEADER_SIZE + bodySize + signatureSize + paddingSize + paddingOverhead
 
             assert (!isEncryptionEnabled || plainTextContentSize % plainTextBlockSize == 0)
 
@@ -102,7 +101,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
             if isEncryptionEnabled {
                 writePadding(cipherTextBlockSize, paddingSize, &chunkBuffer)
                 #if DEBUG
-                print("padding: \(chunkSize) => \(chunkBuffer.readableBytes)")
+                print("padding: \(chunkBuffer.writerIndex)")
                 #endif
             }
 
@@ -111,7 +110,7 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 let signature = try OPCUAHandler.securityPolicy.sign(data: dataToSign)
                 chunkBuffer.writeBytes(signature)
                 #if DEBUG
-                print("sign: \(dataToSign.count) => \(chunkBuffer.readableBytes)")
+                print("sign: \(dataToSign.count) => \(chunkBuffer.writerIndex)")
                 #endif
             }
 
@@ -142,7 +141,11 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                 } else {
 
                     let dataToEncrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes)!
+                    print(UInt32(bytes: dataToEncrypt[0...3]))
                     let dataEncrypted = try OPCUAHandler.securityPolicy.cryptSymmetric(data: dataToEncrypt)
+                    print(UInt32(bytes: dataEncrypted[0...3]))
+                    let dataDencrypted = try OPCUAHandler.securityPolicy.decryptSymmetric(data: dataEncrypted)
+                    print(UInt32(bytes: dataDencrypted[0...3]))
 
                     assert (dataEncrypted.count == dataToEncrypt.count)
 
@@ -180,12 +183,16 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
 
     var cipherTextBlockSize: Int { OPCUAHandler.securityPolicy.asymmetricCipherTextBlockSize }
 
-    var plainTextBlockSize: Int { OPCUAHandler.securityPolicy.asymmetricPlainTextBlockSize }
+    var plainTextBlockSize: Int {
+        OPCUAHandler.securityPolicy.isAsymmetric
+            ? OPCUAHandler.securityPolicy.asymmetricPlainTextBlockSize
+            : OPCUAHandler.securityPolicy.symmetricBlockSize
+    }
 
     var signatureSize: Int {
         OPCUAHandler.securityPolicy.isAsymmetric
-        ? OPCUAHandler.securityPolicy.asymmetricSignatureSize
-        : OPCUAHandler.securityPolicy.symmetricSignatureSize
+            ? OPCUAHandler.securityPolicy.asymmetricSignatureSize
+            : OPCUAHandler.securityPolicy.symmetricSignatureSize
     }
     
     private static var sequenceNumber = UInt32(1)

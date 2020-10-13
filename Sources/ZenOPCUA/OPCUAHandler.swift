@@ -83,7 +83,7 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
             tokenId = response.securityToken.tokenId
             secureChannelId = response.secureChannelId
             requestedLifetime = response.securityToken.revisedLifetime
-            print("tokenId: \(tokenId) secureChannelId: \(secureChannelId) requestedLifetime: \(requestedLifetime)")
+            //print("tokenId: \(tokenId) secureChannelId: \(secureChannelId) requestedLifetime: \(requestedLifetime)")
             
             if authenticationToken == nil {
                 if response.serverNonce.count > 1 {
@@ -107,9 +107,6 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
                 error = OPCUAError.generic(code.description)
             }
             onErrorCaught(context: context, error: error)
-            promises.forEach { promise in
-                promise.value.fail(error)
-            }
         default:
             guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
             //print(method)
@@ -202,6 +199,11 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     public func handlerRemoved(context: ChannelHandlerContext) {
         guard let handlerRemoved = handlerRemoved else { return }
         handlerRemoved()
+
+        promises.forEach { promise in
+            promise.value.fail(OPCUAError.connectionError)
+        }
+        promises.removeAll()
     }
     
     public func onErrorCaught(context: ChannelHandlerContext, error: Error) {
