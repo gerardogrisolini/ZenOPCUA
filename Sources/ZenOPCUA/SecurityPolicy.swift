@@ -7,7 +7,7 @@
 
 import Foundation
 import NIO
-import CryptoKit
+//import CryptoKit
 import CryptoSwift
 
 class SecurityPolicy {
@@ -107,9 +107,10 @@ class SecurityPolicy {
             self.clientNonce.append(contentsOf: SecurityPolicy.generateNonce(32))
 
             do {
-                let certificateData = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
-                localCertificate = certificateData //dataFromPEM(data: certificateData)
-                localCertificateThumbprint = Data(Insecure.SHA1.hash(data: localCertificate)) //localCertificate.sha1()
+                localCertificate = try Data(contentsOf: URL(fileURLWithPath: certificateFile))
+                //localCertificate = dataFromPEM(data: localCertificate)
+                localCertificateThumbprint = localCertificate.sha1()
+                //localCertificateThumbprint = Data(Insecure.SHA1.hash(data: localCertificate))
             } catch {
                 print("localCertificateAndPublicKey: \(error)")
             }
@@ -123,8 +124,9 @@ class SecurityPolicy {
     }
 
     func loadRemoteCertificate(data: [UInt8]) {
-        remoteCertificate.append(contentsOf: data) //Data(OPCUAHandler.endpoint.serverCertificate)
-        remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: remoteCertificate)) //remoteCertificate.sha1()
+        remoteCertificate.append(contentsOf: data)
+        remoteCertificateThumbprint = remoteCertificate.sha1()
+        //remoteCertificateThumbprint = Data(Insecure.SHA1.hash(data: remoteCertificate))
     }
 
     func privateKeyFromData(data: Data, withPassword password: String = "") -> SecKey? {
@@ -538,29 +540,29 @@ class SecurityPolicy {
 
         var required = offset + length
         var out = [UInt8]()
-        var off = 0
-        var toCopy: Int
-        var a = Data(seed)
-        var tmp: Data
+//        var off = 0
+//        var toCopy: Int
+//        var a = Data(seed)
+//        var tmp: Data
         
         if keyDerivationAlgorithm == .pSha1 {
-            let key = SymmetricKey(data: Insecure.SHA1.hash(data: secret))
-            var mac = CryptoKit.HMAC<Insecure.SHA1>(key: key)
-            while required > 0 {
-                mac.update(data: a)
-                a = Data(mac.finalize())
-                mac = .init(key: key)
-                mac.update(data: a)
-                mac.update(data: seed)
-                tmp = Data(mac.finalize())
-                toCopy = min(required, tmp.count)
-                out.append(contentsOf: tmp[0..<toCopy])
-                off += toCopy
-                required -= toCopy
-            }
+//            let key = SymmetricKey(data: Insecure.SHA1.hash(data: secret))
+//            var mac = CryptoKit.HMAC<Insecure.SHA1>(key: key)
+//            while required > 0 {
+//                mac.update(data: a)
+//                a = Data(mac.finalize())
+//                mac = .init(key: key)
+//                mac.update(data: a)
+//                mac.update(data: seed)
+//                tmp = Data(mac.finalize())
+//                toCopy = min(required, tmp.count)
+//                out.append(contentsOf: tmp[0..<toCopy])
+//                off += toCopy
+//                required -= toCopy
+//            }
 
 //            var tmp = try! HKDF(password: secret.sha1(), salt: seed, keyLength: length, variant: .sha1).calculate()
-//            tmp = try! HKDF(password: secret.sha1(), salt: tmp + seed, keyLength: length * 2, variant: .sha1).calculate()
+//            tmp = try! HKDF(password: secret.sha1(), salt: tmp + seed, keyLength: required, variant: .sha1).calculate()
 //            out.append(contentsOf: tmp)
         } else {
 //            let key = SymmetricKey(data: secret)
@@ -578,19 +580,19 @@ class SecurityPolicy {
 //                required -= toCopy
 //            }
 
-//            let mac = HMAC(key: secret, variant: .sha256)
-//            while required > 0 {
-//                var tmp = try! mac.authenticate(seed)
-//                tmp = try! mac.authenticate(tmp + seed)
-//                out.append(contentsOf: tmp)
-//                required -= tmp.count
-//            }
+            let mac = HMAC(key: secret, variant: .sha256)
+            while required > 0 {
+                var tmp = try! mac.authenticate(seed)
+                tmp = try! mac.authenticate(tmp + seed)
+                out.append(contentsOf: tmp)
+                required -= tmp.count
+            }
 
 //            let tmp = try! HKDF(password: secret, salt: seed, keyLength: required, variant: .sha256).calculate()
 //            out.append(contentsOf: tmp)
 
-            let tmp = try! PKCS5.PBKDF2(password: secret, salt: seed, iterations: 2, keyLength: required, variant: .sha256).calculate()
-            out.append(contentsOf: tmp)
+//            let tmp = try! PKCS5.PBKDF2(password: secret, salt: seed, iterations: 2, keyLength: required, variant: .sha256).calculate()
+//            out.append(contentsOf: tmp)
         }
 
         return out[offset..<offset+length].map { $0 }
