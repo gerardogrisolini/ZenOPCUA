@@ -71,11 +71,11 @@ final class OPCUAFrameDecoder: ByteToMessageDecoder {
         guard let messageType = buffer.getString(at: buffer.readerIndex, length: 3),
               let type = MessageTypes(rawValue: messageType) else { return nil }
         
-        if OPCUAHandler.securityPolicy.isEncryptionEnabled {
+        if type != .error && OPCUAHandler.securityPolicy.isEncryptionEnabled {
             buffer = try decryptChunk(chunkBuffer: &buffer)
         }
 
-        if OPCUAHandler.securityPolicy.isSigningEnabled {
+        if type != .error && OPCUAHandler.securityPolicy.isSigningEnabled {
             //try verifyChunk(chunkBuffer: &buffer)
             buffer.moveWriterIndex(to: buffer.writerIndex - signatureSize)
         }

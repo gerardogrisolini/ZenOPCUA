@@ -144,8 +144,8 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
                     print(UInt32(bytes: dataToEncrypt[0...3]))
                     let dataEncrypted = try OPCUAHandler.securityPolicy.cryptSymmetric(data: dataToEncrypt)
                     print(UInt32(bytes: dataEncrypted[0...3]))
-                    let dataDencrypted = try OPCUAHandler.securityPolicy.decryptSymmetric(data: dataEncrypted)
-                    print(UInt32(bytes: dataDencrypted[0...3]))
+//                    let dataDencrypted = try OPCUAHandler.securityPolicy.decryptSymmetric(data: dataEncrypted)
+//                    print(UInt32(bytes: dataDencrypted[0...3]))
 
                     assert (dataEncrypted.count == dataToEncrypt.count)
 

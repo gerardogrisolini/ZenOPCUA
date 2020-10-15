@@ -3,6 +3,7 @@
 
 import PackageDescription
 
+
 let package = Package(
     name: "ZenOPCUA",
     platforms: [
@@ -13,13 +14,13 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.23.0"),
-        .package(url: "https://github.com/apple/swift-crypto.git", from: "1.1.2"),
+//        .package(url: "https://github.com/apple/swift-crypto.git", from: "1.1.2"),
         .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "1.3.2")
     ],
     targets: [
         .target(name: "ZenOPCUA", dependencies: [
             "NIO",
-            "Crypto",
+//            "Crypto",
             "CryptoSwift"
         ]),
         .testTarget(name: "ZenOPCUATests", dependencies: ["ZenOPCUA"])

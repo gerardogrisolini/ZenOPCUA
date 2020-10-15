@@ -7,7 +7,7 @@
 
 import Foundation
 import NIO
-//import CryptoKit
+//import Crypto
 import CryptoSwift
 
 class SecurityPolicy {
@@ -479,7 +479,7 @@ class SecurityPolicy {
 //        let sealedBox = try AES.GCM.SealedBox(nonce: iv, ciphertext: data, tag: Data())
 //        let decryptedData = try AES.GCM.open(sealedBox, using: sk)
 //        return [UInt8](decryptedData)
-
+        
         let key = securityKeys!.serverKeys.encryptionKey
         let cbc = CBC(iv: securityKeys!.serverKeys.initializationVector)
         let aes = try AES(key: key, blockMode: cbc, padding: .noPadding)
@@ -540,15 +540,15 @@ class SecurityPolicy {
 
         var required = offset + length
         var out = [UInt8]()
-//        var off = 0
-//        var toCopy: Int
+        var off = 0
+        var toCopy: Int
 //        var a = Data(seed)
 //        var tmp: Data
-        
+//        
         if keyDerivationAlgorithm == .pSha1 {
 //            let key = SymmetricKey(data: Insecure.SHA1.hash(data: secret))
-//            var mac = CryptoKit.HMAC<Insecure.SHA1>(key: key)
 //            while required > 0 {
+//                var mac = HMAC<Insecure.SHA1>(key: key)
 //                mac.update(data: a)
 //                a = Data(mac.finalize())
 //                mac = .init(key: key)
@@ -560,17 +560,13 @@ class SecurityPolicy {
 //                off += toCopy
 //                required -= toCopy
 //            }
-
-//            var tmp = try! HKDF(password: secret.sha1(), salt: seed, keyLength: length, variant: .sha1).calculate()
-//            tmp = try! HKDF(password: secret.sha1(), salt: tmp + seed, keyLength: required, variant: .sha1).calculate()
-//            out.append(contentsOf: tmp)
         } else {
-//            let key = SymmetricKey(data: secret)
+//            let key = SymmetricKey(data: SHA256.hash(data: secret))
 //            while required > 0 {
-//                var mac = CryptoKit.HMAC<SHA256>(key: key)
+//                var mac = HMAC<SHA256>(key: key)
 //                mac.update(data: a)
 //                a = Data(mac.finalize())
-//                mac = CryptoKit.HMAC<SHA256>(key: key)
+//                mac = .init(key: key)
 //                mac.update(data: a)
 //                mac.update(data: seed)
 //                tmp = Data(mac.finalize())
@@ -579,20 +575,17 @@ class SecurityPolicy {
 //                off += toCopy
 //                required -= toCopy
 //            }
-
-            let mac = HMAC(key: secret, variant: .sha256)
+            
             while required > 0 {
+                var  mac = HMAC(key: secret, variant: .sha256)
                 var tmp = try! mac.authenticate(seed)
+                mac = HMAC(key: secret, variant: .sha256)
                 tmp = try! mac.authenticate(tmp + seed)
-                out.append(contentsOf: tmp)
-                required -= tmp.count
+                toCopy = min(required, tmp.count)
+                out.append(contentsOf: tmp[0..<toCopy])
+                off += toCopy
+                required -= toCopy
             }
-
-//            let tmp = try! HKDF(password: secret, salt: seed, keyLength: required, variant: .sha256).calculate()
-//            out.append(contentsOf: tmp)
-
-//            let tmp = try! PKCS5.PBKDF2(password: secret, salt: seed, iterations: 2, keyLength: required, variant: .sha256).calculate()
-//            out.append(contentsOf: tmp)
         }
 
         return out[offset..<offset+length].map { $0 }
