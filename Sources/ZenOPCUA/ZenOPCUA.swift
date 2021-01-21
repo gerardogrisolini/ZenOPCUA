@@ -482,6 +482,8 @@ public class ZenOPCUA {
     }
 
     public func stopPublishing() -> EventLoopFuture<Void> {
+        guard channel != nil else { exit(0) }
+        
         let promise = eventLoopGroup.next().makePromise(of: Void.self)
         if let pub = publisher {
             pub.cancel(promise: promise)
