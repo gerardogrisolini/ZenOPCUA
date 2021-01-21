@@ -17,9 +17,9 @@ public final class OPCUAFrameEncoder: MessageToByteEncoder {
     let byteBufferAllocator = ByteBufferAllocator()
     
     public func encode(data frame: OPCUAFrame, out: inout ByteBuffer) throws {
-        #if DEBUG
-        print(" --> \(frame.head)")
-        #endif
+//        #if DEBUG
+//        print(" --> \(frame.head)")
+//        #endif
         
         var messageBuffer = frame.buffer
         let isEncryptionEnabled = OPCUAHandler.securityPolicy.isEncryptionEnabled

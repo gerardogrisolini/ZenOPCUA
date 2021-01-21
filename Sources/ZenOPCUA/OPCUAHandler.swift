@@ -65,9 +65,9 @@ final class OPCUAHandler: ChannelInboundHandler, RemovableChannelHandler {
     
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
-        #if DEBUG
-        print(" <-- \(frame.head)")
-        #endif
+//        #if DEBUG
+//        print(" <-- \(frame.head)")
+//        #endif
         
         switch frame.head.messageType {
         case .acknowledge:

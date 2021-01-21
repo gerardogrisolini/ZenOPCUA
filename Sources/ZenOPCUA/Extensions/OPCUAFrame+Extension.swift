@@ -12,7 +12,7 @@ extension OPCUAFrame {
         if head.messageSize > OPCUAHandler.bufferSize {
             var index = 0
             while index < head.messageSize {
-                print("\(index) < \(self.head.messageSize)")
+                //print("\(index) < \(self.head.messageSize)")
                 let part: OPCUAFrame
                 if (index + OPCUAHandler.bufferSize - 8) >= head.messageSize {
                     let body = self.body[index...].map { $0 }
