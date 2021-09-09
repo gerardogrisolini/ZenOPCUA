@@ -42,7 +42,13 @@ class ReadResponse: MessageBase, OPCUADecodable {
             for _ in 0..<count {
                 len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
-                if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
+				
+				let bytesCount = bytes.count
+				guard bytesCount > index, bytesCount >= index + len else {
+					return
+				}
+				
+				if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
