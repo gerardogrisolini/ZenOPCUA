@@ -14,22 +14,21 @@ final class ZenOPCUATests: XCTestCase {
     }
 
     func testExample() {
-//        let opcua = ZenOPCUA(
-//            eventLoopGroup: eventLoopGroup,
-////            endpointUrl: "opc.tcp://concentratoreviet.ddns.net:4842",
-//            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-//            messageSecurityMode: .none,
-//            securityPolicy: .none
-//        )
-
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
-            endpointUrl: "opc.tcp://MacBook-Pro-di-Gerardo.local:4842/OPCUA/SimulationServer",
-            messageSecurityMode: .signAndEncrypt,
-            securityPolicy: .basic256Sha256,
-            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.der",
-            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
+            endpointUrl: "opc.tcp://Gerardos-MBP.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
+            messageSecurityMode: .none,
+            securityPolicy: .none
         )
+
+//        let opcua = ZenOPCUA(
+//            eventLoopGroup: eventLoopGroup,
+//            endpointUrl: "opc.tcp://Gerardos-MBP.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
+//            messageSecurityMode: .signAndEncrypt,
+//            securityPolicy: .basic256Sha256,
+//            certificate: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/certificate.der",
+//            privateKey: "/Users/gerardo/Projects/Zen/ZenOPCUA/certificates/private-rsa.key"
+//        )
         
         opcua.onHandlerActivated = {
             print("Client activated")
@@ -117,26 +116,24 @@ final class ZenOPCUATests: XCTestCase {
 //                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
 //            }
 
-//            let reads = [
-//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
-//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Expression")),
-//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Random")),
-//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sawtooth")),
-//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sinusoid")),
-//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Square")),
-//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle"))
-//            ]
-            
+            let reads = [
+				ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle")),
+				ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Square")),
+                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
+                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Expression")),
+                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Random")),
+                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sawtooth")),
+                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sinusoid")),
+            ]
+
+			for i in 0..<1 {
+				let readed = try! opcua.read(nodes: reads).wait()
+				readed.forEach { dataValue in
+					print("dataValue sync(\(i): \(dataValue.variant.value) = \(dataValue.variant.type)")
+				}
+			}
+
 //            DispatchQueue.global().async {
-//                opcua.isBusy = true
-
-//                for i in 0...5 {
-//                    let readed = try! opcua.read(nodes: reads).wait()
-//                    readed.forEach { dataValue in
-//                        print("dataValue sync(\(i): \(dataValue.variant.value)")
-//                    }
-//                }
-
 //                var futures = [EventLoopFuture<[DataValue]>]()
 //                for _ in 0...100 {
 //                    futures.append(opcua.read(nodes: reads))
@@ -154,8 +151,6 @@ final class ZenOPCUATests: XCTestCase {
 //                readeds.whenFailure { error in
 //                    print("dataValue error = \(error)")
 //                }
-//
-//                opcua.isBusy = false
 //            }
             
 //            DispatchQueue.global().async {
@@ -179,7 +174,7 @@ final class ZenOPCUATests: XCTestCase {
 //                }
 //            }
 
-//            sleep(80)
+//            sleep(20)
 
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
         } catch {

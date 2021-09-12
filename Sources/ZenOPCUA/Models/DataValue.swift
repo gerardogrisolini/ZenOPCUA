@@ -57,10 +57,10 @@ public class DataValue: Promisable, OPCUAEncodable {
         case .int16, .uint16:
             variant.bytes = bytes[index...(index+1)].map { $0 }
             index += 2
-        case .int32, .uint32:
+        case .float, .int32, .uint32:
             variant.bytes = bytes[index..<(index+4)].map { $0 }
             index += 4
-        case .int64, .uint64, .double, .float, .datetime:
+        case .int64, .uint64, .double, .datetime:
             variant.bytes = bytes[index..<(index+8)].map { $0 }
             index += 8
         case .string, .byteString:
@@ -160,7 +160,12 @@ public struct Variant {
         bytes.append(contentsOf: value.bytes)
     }
 
-    public init(value: Double) {
+	public init(value: Float) {
+		type = DataType.float.rawValue
+		bytes.append(contentsOf: value.bytes)
+	}
+	
+	public init(value: Double) {
         type = DataType.double.rawValue
         bytes.append(contentsOf: value.bytes)
     }
@@ -190,8 +195,10 @@ public struct Variant {
                 return $0.load(as: UInt32.self)
             case .int32:
                 return $0.load(as: Int32.self)
-            case .double:
-                return $0.load(as: Double.self)
+            case .float:
+                return $0.load(as: Float.self)
+			case .double:
+				return $0.load(as: Double.self)
             case .string:
                 return String(bytes: $0, encoding: .utf8)!
             case .datetime:
