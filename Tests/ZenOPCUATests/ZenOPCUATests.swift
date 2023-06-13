@@ -16,7 +16,7 @@ final class ZenOPCUATests: XCTestCase {
     func testExample() {
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
-            endpointUrl: "opc.tcp://Gerardos-MBP.homenet.telecomitalia.it:53530/OPCUA/SimulationServer",
+            endpointUrl: "opc.tcp://Gerardos-MacBook-Pro.local:53530/OPCUA/SimulationServer",
             messageSecurityMode: .none,
             securityPolicy: .none
         )
@@ -116,22 +116,22 @@ final class ZenOPCUATests: XCTestCase {
 //                print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
 //            }
 
-            let reads = [
-				ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle")),
-				ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Square")),
-                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
-                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Expression")),
-                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Random")),
-                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sawtooth")),
-                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sinusoid")),
-            ]
-
-			for i in 0..<1 {
-				let readed = try! opcua.read(nodes: reads).wait()
-				readed.forEach { dataValue in
-					print("dataValue sync(\(i): \(dataValue.variant.value) = \(dataValue.variant.type)")
-				}
-			}
+//            let reads = [
+//				ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Triangle")),
+//				ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Square")),
+//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
+//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Expression")),
+//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Random")),
+//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sawtooth")),
+//                ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Sinusoid")),
+//            ]
+//
+//			for i in 0..<1 {
+//				let readed = try! opcua.read(nodes: reads).wait()
+//				readed.forEach { dataValue in
+//					print("dataValue sync(\(i): \(dataValue.variant.value) = \(dataValue.variant.type)")
+//				}
+//			}
 
 //            DispatchQueue.global().async {
 //                var futures = [EventLoopFuture<[DataValue]>]()
@@ -176,6 +176,12 @@ final class ZenOPCUATests: XCTestCase {
 
 //            sleep(20)
 
+
+            //let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 3, identifier: 1007))]
+            let reads = [ReadValue(nodeId: NodeIdString(nameSpace: 5, identifier: "DoubleArray"))]
+            let readed = try opcua.read(nodes: reads).wait()
+            print(readed.first?.variant.value ?? "nil")
+            
             XCTAssertNoThrow(try opcua.disconnect(deleteSubscriptions: true).wait())
         } catch {
             XCTFail("\(error)")

@@ -27,6 +27,8 @@ public enum DataType: UInt8 {
     case byteString = 15
     case xmlElement = 16
     
+    case arrayOfDouble = 139
+    
     case nodeId = 0x11
     case qualifiedName = 0x14
     case localizedText = 0x15
@@ -93,6 +95,15 @@ public class DataValue: Promisable, OPCUAEncodable {
             if len < UInt32.max {
                 variant.bytes += bytes[index..<(index+len.int)].map { $0 }
                 index += len.int
+            }
+        case .arrayOfDouble:
+            let len = UInt32(bytes: bytes[index..<(index+4)])
+            index += 4
+            if len < UInt32.max {
+                let arrayLenght = 8 * len.int
+                variant.bytes = [1, 139]
+                variant.bytes += bytes[index..<(index+arrayLenght)].map { $0 }
+                index += arrayLenght
             }
         }
         
@@ -179,34 +190,58 @@ public struct Variant {
         type = DataType.datetime.rawValue
         bytes.append(contentsOf: value.bytes)
     }
-    
+
+    public init(value: [Double]) {
+        type = DataType.arrayOfDouble.rawValue
+        bytes.append(contentsOf: value.bytes)
+    }
+
     public var value: Any {
-        return bytes.withUnsafeBytes {
-            switch DataType(rawValue: type) {
-            case .null:
-                return type
-            case .bool:
-                return $0.load(as: Bool.self)
-            case .uint16:
-                return $0.load(as: UInt16.self)
-            case .int16:
-                return $0.load(as: Int16.self)
-            case .uint32:
-                return $0.load(as: UInt32.self)
-            case .int32:
-                return $0.load(as: Int32.self)
-            case .float:
-                return $0.load(as: Float.self)
-			case .double:
-				return $0.load(as: Double.self)
-            case .string:
-                return String(bytes: $0, encoding: .utf8)!
-            case .datetime:
-                return $0.load(as: Int64.self).dateUtc
-            default:
-                return bytes
-            }
+        switch DataType(rawValue: type) {
+        case .null:
+            return type
+        case .bool:
+            return bytes.load() as Bool
+        case .uint16:
+            return bytes.load() as UInt16
+        case .int16:
+            return bytes.load() as Int16
+        case .uint32:
+            return bytes.load() as UInt32
+        case .int32:
+            return bytes.load() as Int32
+        case .float:
+            return bytes.load() as Float
+        case .double:
+            return bytes.load() as Double
+        case .string:
+            return bytes.withUnsafeBytes { String(bytes: $0, encoding: .utf8)! }
+        case .datetime:
+            return (bytes.load() as Int64).dateUtc
+        case .arrayOfDouble:
+            let data = bytes.suffix(from: 2)
+            let chunks = Array(data).chunked(into: 8)
+            return chunks.map { $0.load() as Double }
+        default:
+            return bytes
         }
     }
 }
 
+public extension ContiguousBytes {
+  func load<T>(_: T.Type = T.self) -> T {
+    withUnsafeBytes { $0.load(as: T.self) }
+  }
+
+  func load<Element>(_: [Element].Type = [Element].self) -> [Element] {
+    withUnsafeBytes { .init($0.bindMemory(to: Element.self)) }
+  }
+}
+
+extension Array<UInt8> {
+    func chunked(into size: Int) -> [[Element]] {
+        return stride(from: 0, to: count, by: size).map {
+            Array(self[$0 ..< Swift.min($0 + size, count)])
+        }
+    }
+}
