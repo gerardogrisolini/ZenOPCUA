@@ -5,7 +5,8 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
-class MessageBase {
+// Concurrency: treated as immutable after decoding; instances are not mutated across threads.
+class MessageBase: @unchecked Sendable {
     var secureChannelId: UInt32 = 0
     var tokenId: UInt32 = 0
     var sequenceNumber: UInt32 = 0

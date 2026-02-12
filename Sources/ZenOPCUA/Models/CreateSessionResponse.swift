@@ -7,7 +7,7 @@
 
 import Foundation
 
-class CreateSessionResponse: MessageBase {
+class CreateSessionResponse: MessageBase, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     let sessionId: Node

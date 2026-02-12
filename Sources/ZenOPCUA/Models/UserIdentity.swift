@@ -9,7 +9,7 @@ import Foundation
 
 protocol UserIdentityInfo: OPCUAEncodable {
     var policyId: String { get }
-    //var userTokenSignature: SignatureData { get set }
+    var userTokenSignature: SignatureData { get }
 }
 
 struct UserIdentityToken: OPCUAEncodable {
@@ -30,7 +30,9 @@ struct UserIdentityToken: OPCUAEncodable {
     }
 
     internal var bytes: [UInt8] {
-        return typeId.bytes + [encodingMask] + userIdentityInfo.bytes
+        let body = userIdentityInfo.bytes
+        let length = UInt32(body.count).bytes
+        return typeId.bytes + [encodingMask] + length + body
     }
 }
 
@@ -50,9 +52,7 @@ struct UserIdentityInfoAnonymous: UserIdentityInfo {
     }
     
     internal var bytes: [UInt8] {
-        let data = policyId.bytes
-        let count = UInt32(data.count).bytes
-        return count + data + userTokenSignature.bytes
+        return policyId.bytes
     }
 }
 
@@ -68,31 +68,41 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
         username: String,
         password: String,
         serverNonce: [UInt8],
+        serverCertificate: [UInt8],
         securityPolicyUri: String? = nil
     ) {
         self.policyId = policyId
         self.username = username
         self.encryptionAlgorithm = nil
-        
-        if let securityPolicyUri = securityPolicyUri {
-            let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
-            self.encryptionAlgorithm = securityPolicy.asymmetricEncryptionAlgorithm.rawValue.split(separator: ",").first?.description
-            do {
-                let dataToEncrypt = password.utf8.map { $0 } + serverNonce
-                self.password = try securityPolicy.cryptAsymmetric(data: dataToEncrypt)
-            } catch {
-                print(error)
-            }
+
+        guard let securityPolicyUri = securityPolicyUri,
+              !securityPolicyUri.isEmpty,
+              securityPolicyUri != SecurityPolicies.none.uri else {
+            self.password = password.utf8.map { $0 }
+            return
+        }
+
+        let securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicyUri)
+        if !serverCertificate.isEmpty {
+            securityPolicy.loadRemoteCertificate(data: serverCertificate)
+        }
+        self.encryptionAlgorithm = securityPolicy.asymmetricEncryptionAlgorithm.rawValue.split(separator: ",").first?.description
+        do {
+            let passwordBytes = password.utf8.map { $0 }
+            let payloadLength = UInt32(passwordBytes.count + serverNonce.count).bytes
+            let dataToEncrypt = payloadLength + passwordBytes + serverNonce
+            self.password = try securityPolicy.cryptAsymmetric(data: dataToEncrypt)
+        } catch {
+            print("UserIdentityInfoUserName: failed to encrypt password: \(error)")
         }
     }
     
     internal var bytes: [UInt8] {
         let len = UInt32(password.count).bytes
-        let data = policyId.bytes +
+        return policyId.bytes +
             username.bytes +
             len + password +
             encryptionAlgorithm.bytes
-        return UInt32(data.count).bytes + data + userTokenSignature.bytes
     }
 }
 
@@ -105,17 +115,18 @@ struct UserIdentityInfoX509: UserIdentityInfo {
         policyId: String,
         certificate: Data,
         serverCertificate: [UInt8],
-        serverNonce: [UInt8]
+        serverNonce: [UInt8],
+        securityPolicy: SecurityPolicy
     ) {
         self.policyId = policyId
         do {
             self.certificateData = [UInt8](certificate)
 
-            if OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm != .none {
+            if securityPolicy.asymmetricSignatureAlgorithm != .none {
                 let dataToSign = Data(serverCertificate + serverNonce)
-                let signature = try OPCUAHandler.securityPolicy.signAsymmetric(data: dataToSign)
+                let signature = try securityPolicy.signAsymmetric(data: dataToSign)
                 userTokenSignature = SignatureData(
-                    algorithm: OPCUAHandler.securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,
+                    algorithm: securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,
                     signature: [UInt8](signature)
                 )
             }
@@ -126,7 +137,6 @@ struct UserIdentityInfoX509: UserIdentityInfo {
 
     internal var bytes: [UInt8] {
         let len = UInt32(certificateData.count).bytes
-        let data = policyId.bytes + len + certificateData
-        return UInt32(data.count).bytes + data + userTokenSignature.bytes
+        return policyId.bytes + len + certificateData
     }
 }

@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 24/02/2020.
 //
 
-class WriteResponse: MessageBase, OPCUADecodable {
+class WriteResponse: MessageBase, OPCUADecodable, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var results: [StatusCodes] = []

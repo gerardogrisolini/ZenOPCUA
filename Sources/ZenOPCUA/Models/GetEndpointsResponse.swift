@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
-class GetEndpointsResponse: MessageBase, OPCUADecodable {
+class GetEndpointsResponse: MessageBase, OPCUADecodable, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var endpoints: [EndpointDescription]
@@ -34,12 +34,12 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             
             len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
-            item.server.applicationUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+            item.server.applicationUri = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
             
             index += len.int
             len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
-            item.server.productUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+            item.server.productUri = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
 
             index += len.int
             item.server.applicationName.encodingMask = bytes[index]
@@ -48,13 +48,13 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if item.server.applicationName.encodingMask == 0x03 && len < UInt32.max {
-                item.server.applicationName.locale = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                item.server.applicationName.locale = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                 index += len.int
                 len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
             }
             if len < UInt32.max {
-                item.server.applicationName.text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                item.server.applicationName.text = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                 index += len.int
             }
             
@@ -64,14 +64,14 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if len < UInt32.max {
-                item.server.gatewayServerUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                item.server.gatewayServerUri = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                 index += len.int
             }
             
             len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if len < UInt32.max {
-                item.server.discoveryProfileUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                item.server.discoveryProfileUri = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                 index += len.int
             }
 
@@ -82,7 +82,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                     len = UInt32(bytes: bytes[index..<(index+4)])
                     index += 4
                     if len < UInt32.max {
-                        let url = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                        let url = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                         item.server.discoveryUrls.append(url)
                         index += len.int
                     }
@@ -102,7 +102,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if len < UInt32.max {
-                item.securityPolicyUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                item.securityPolicyUri = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                 index += len.int
             }
 
@@ -115,7 +115,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                     len = UInt32(bytes: bytes[index..<(index+4)])
                     index += 4
                     if len < UInt32.max {
-                        identity.policyId = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                        identity.policyId = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                         index += len.int
                     }
 
@@ -125,21 +125,21 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
                     len = UInt32(bytes: bytes[index..<(index+4)])
                     index += 4
                     if len < UInt32.max {
-                        identity.issuedTokenType = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                        identity.issuedTokenType = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                         index += len.int
                     }
 
                     len = UInt32(bytes: bytes[index..<(index+4)])
                     index += 4
                     if len < UInt32.max {
-                        identity.issuerEndpointUrl = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                        identity.issuerEndpointUrl = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                         index += len.int
                     }
 
                     len = UInt32(bytes: bytes[index..<(index+4)])
                     index += 4
                     if len < UInt32.max {
-                        identity.securityPolicyUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                        identity.securityPolicyUri = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                         index += len.int
                     }
 
@@ -150,7 +150,7 @@ class GetEndpointsResponse: MessageBase, OPCUADecodable {
             len = UInt32(bytes: bytes[index..<(index+4)])
             index += 4
             if len < UInt32.max {
-                item.transportProfileUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+                item.transportProfileUri = String(decoding: bytes[index..<(index+len.int)], as: UTF8.self)
                 index += len.int
             }
 

@@ -8,24 +8,31 @@
 import Foundation
 import NIO
 
-public struct OPCUAFrameHead: Equatable {
+public struct OPCUAFrameHead: Equatable, Sendable {
     public var messageType: MessageTypes = .hello
     public var chunkType: ChunkTypes = .frame
     public var messageSize: UInt32 = 0
 }
 
-public struct OPCUAFrame: Equatable {
+public struct OPCUAFrame: Equatable, Sendable {
     public var head: OPCUAFrameHead
     public var body: [UInt8]
     
     public init(head: OPCUAFrameHead, body: [UInt8] = [UInt8]()) {
         self.head = head
         self.body = body
-        self.head.messageSize = UInt32(body.count) + 8
+        // Calculate message size safely, checking for overflow
+        let totalSize = body.count + 8
+        if totalSize > Int(UInt32.max) || totalSize < 0 {
+            self.head.messageSize = UInt32.max
+        } else {
+            self.head.messageSize = UInt32(totalSize)
+        }
     }
     
     var buffer: ByteBuffer {
-        var byteBuffer = ByteBufferAllocator().buffer(capacity: body.count + 8)
+        let capacity = max(0, body.count + 8)
+        var byteBuffer = ByteBufferAllocator().buffer(capacity: capacity)
         byteBuffer.writeString("\(head.messageType.rawValue)\(head.chunkType.rawValue)")
         byteBuffer.writeBytes(head.messageSize.bytes)
         byteBuffer.writeBytes(body)

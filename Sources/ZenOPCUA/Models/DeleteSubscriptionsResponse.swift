@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 26/02/2020.
 //
 
-class DeleteSubscriptionsResponse: MessageBase, OPCUADecodable {
+class DeleteSubscriptionsResponse: MessageBase, OPCUADecodable, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var results: [StatusCodes] = []

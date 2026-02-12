@@ -7,22 +7,22 @@
 
 extension OPCUAFrame {
 
-    func split() -> [OPCUAFrame] {
+    func split(bufferSize: Int = 8196) -> [OPCUAFrame] {
         var frames = [OPCUAFrame]()
-        if head.messageSize > OPCUAHandler.bufferSize {
+        if head.messageSize > bufferSize {
             var index = 0
             while index < head.messageSize {
                 //print("\(index) < \(self.head.messageSize)")
                 let part: OPCUAFrame
-                if (index + OPCUAHandler.bufferSize - 8) >= head.messageSize {
+                if (index + bufferSize - 8) >= head.messageSize {
                     let body = self.body[index...].map { $0 }
                     part = OPCUAFrame(head: head, body: body)
                 } else {
                     let head = OPCUAFrameHead(messageType: .message, chunkType: .part)
-                    let body = self.body[index..<(index + OPCUAHandler.bufferSize - 8)].map { $0 }
+                    let body = self.body[index..<(index + bufferSize - 8)].map { $0 }
                     part = OPCUAFrame(head: head, body: body)
                 }
-                index += OPCUAHandler.bufferSize - 8
+                index += bufferSize - 8
                 frames.append(part)
             }
         } else {

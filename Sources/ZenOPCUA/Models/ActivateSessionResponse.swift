@@ -5,11 +5,15 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
-public struct DiagnosticInfo {
+public struct DiagnosticInfo: Sendable {
     public var info: String
+
+    public init(info: String) {
+        self.info = info
+    }
 }
 
-class ActivateSessionResponse: MessageBase, OPCUADecodable {
+class ActivateSessionResponse: MessageBase, OPCUADecodable, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var serverNonce: [UInt8] = []

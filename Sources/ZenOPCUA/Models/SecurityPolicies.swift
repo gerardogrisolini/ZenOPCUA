@@ -6,7 +6,6 @@
 //
 
 public enum SecurityPolicies: String {
-    case invalid = "invalid"
     case none = "None"
     case basic256 = "Basic256"
     case basic256Sha256 = "Basic256Sha256"

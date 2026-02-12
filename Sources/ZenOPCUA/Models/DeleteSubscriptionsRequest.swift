@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 26/02/2020.
 //
 
-class DeleteSubscriptionsRequest: MessageBase, OPCUAEncodable {
+class DeleteSubscriptionsRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .deleteSubscriptionsRequest)
     let requestHeader: RequestHeader
     let subscriptionIds: [UInt8]

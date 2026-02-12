@@ -7,7 +7,7 @@
 
 import Foundation
 
-class BrowseRequest: MessageBase, OPCUAEncodable {
+class BrowseRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
 
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .browseRequest)
     let requestHeader: RequestHeader
@@ -57,13 +57,13 @@ struct ViewDescription: OPCUAEncodable {
     }
 }
 
-public enum BrowseDirection: UInt32 {
+public enum BrowseDirection: UInt32, Sendable {
     case forward = 0
     case inverse = 1
     case both = 2
 }
 
-public struct BrowseDescription: OPCUAEncodable {
+public struct BrowseDescription: OPCUAEncodable, Sendable {
     public let nodeId: Node
     public var browseDirection: BrowseDirection = .forward
     public var referenceTypeId: NodeId = NodeId()

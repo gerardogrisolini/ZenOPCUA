@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 26/02/2020.
 //
 
-class PublishRequest: MessageBase, OPCUAEncodable {
+class PublishRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .publishRequest)
     let requestHeader: RequestHeader
     let subscriptionAcknowledgements: [UInt8]

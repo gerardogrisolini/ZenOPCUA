@@ -8,7 +8,7 @@
 import Foundation
 
 
-public enum DataType: UInt8 {
+public enum DataType: UInt8, Sendable {
     case null = 0
     case bool = 1
     //case sbyte = 2
@@ -34,85 +34,100 @@ public enum DataType: UInt8 {
     case localizedText = 0x15
 }
 
-public class DataValue: Promisable, OPCUAEncodable {
+// Concurrency: treated as immutable after decoding; not thread-safe to mutate across tasks.
+public class DataValue: Promisable, OPCUAEncodable, @unchecked Sendable {
     public var encodingMask: UInt8 = 0x05
     public var variant: Variant
+    public var statusCode: StatusCodes = .UA_STATUSCODE_GOOD
     public var sourceTimestamp: Date = Date()
     public var serverTimestamp: Date = Date()
 
     public init(bytes: [UInt8], index: inout Int) {
         encodingMask = bytes[index]
-        variant = Variant(type: bytes[index+1])
-        index += 2
+        index += 1
+        variant = Variant(type: DataType.null.rawValue)
 
-        guard let dataType = DataType(rawValue: variant.type) else {
-            print("Error: Invalid variant \(variant.type) for DataType")
-            return
-        }
-        
-        switch dataType {
-        case .null:
-            break
-        case .bool, .byte:
-            variant.bytes.append(bytes[index])
+        if (encodingMask & 0x01) != 0 {
+            variant = Variant(type: bytes[index])
             index += 1
-        case .int16, .uint16:
-            variant.bytes = bytes[index...(index+1)].map { $0 }
-            index += 2
-        case .float, .int32, .uint32:
-            variant.bytes = bytes[index..<(index+4)].map { $0 }
-            index += 4
-        case .int64, .uint64, .double, .datetime:
-            variant.bytes = bytes[index..<(index+8)].map { $0 }
-            index += 8
-        case .string, .byteString:
-            let len = UInt32(bytes: bytes[index..<(index+4)])
-            index += 4
-            if len < UInt32.max {
-                variant.bytes = bytes[index..<(index+len.int)].map { $0 }
-                index += len.int
+
+            guard let dataType = DataType(rawValue: variant.type) else {
+                return
             }
-        case .guid:
-            variant.bytes = bytes[index..<(index+16)].map { $0 }
-            index += 16
-        case .nodeId:
-            let len = bytes[index] == 0x0 ? 2 : 4
-            variant.bytes = bytes[index..<(index+len)].map { $0 }
-            index += len
-        case .qualifiedName:
-            variant.bytes = bytes[index...index+1].map { $0 }
-            index += 2
-            let len = UInt32(bytes: bytes[index..<(index+4)])
-            index += 4
-            if len < UInt32.max {
-                variant.bytes += bytes[index..<(index+len.int)].map { $0 }
-                index += len.int
-            }
-        case .localizedText, .xmlElement:
-            variant.bytes = [bytes[index]]
-            let len = UInt32(bytes: bytes[index+1..<(index+5)])
-            index += 5
-            if len < UInt32.max {
-                variant.bytes += bytes[index..<(index+len.int)].map { $0 }
-                index += len.int
-            }
-        case .arrayOfDouble:
-            let len = UInt32(bytes: bytes[index..<(index+4)])
-            index += 4
-            if len < UInt32.max {
-                let arrayLenght = 8 * len.int
-                variant.bytes = [1, 139]
-                variant.bytes += bytes[index..<(index+arrayLenght)].map { $0 }
-                index += arrayLenght
+
+            switch dataType {
+            case .null:
+                break
+            case .bool, .byte:
+                variant.bytes.append(bytes[index])
+                index += 1
+            case .int16, .uint16:
+                variant.bytes = bytes[index...(index+1)].map { $0 }
+                index += 2
+            case .float, .int32, .uint32:
+                variant.bytes = bytes[index..<(index+4)].map { $0 }
+                index += 4
+            case .int64, .uint64, .double, .datetime:
+                variant.bytes = bytes[index..<(index+8)].map { $0 }
+                index += 8
+            case .string, .byteString:
+                let len = UInt32(bytes: bytes[index..<(index+4)])
+                index += 4
+                if len < UInt32.max {
+                    variant.bytes = bytes[index..<(index+len.int)].map { $0 }
+                    index += len.int
+                }
+            case .guid:
+                variant.bytes = bytes[index..<(index+16)].map { $0 }
+                index += 16
+            case .nodeId:
+                let len = bytes[index] == 0x0 ? 2 : 4
+                variant.bytes = bytes[index..<(index+len)].map { $0 }
+                index += len
+            case .qualifiedName:
+                variant.bytes = bytes[index...index+1].map { $0 }
+                index += 2
+                let len = UInt32(bytes: bytes[index..<(index+4)])
+                index += 4
+                if len < UInt32.max {
+                    variant.bytes += bytes[index..<(index+len.int)].map { $0 }
+                    index += len.int
+                }
+            case .localizedText, .xmlElement:
+                variant.bytes = [bytes[index]]
+                let len = UInt32(bytes: bytes[index+1..<(index+5)])
+                index += 5
+                if len < UInt32.max {
+                    variant.bytes += bytes[index..<(index+len.int)].map { $0 }
+                    index += len.int
+                }
+            case .arrayOfDouble:
+                let len = UInt32(bytes: bytes[index..<(index+4)])
+                index += 4
+                if len < UInt32.max {
+                    let arrayLenght = 8 * len.int
+                    variant.bytes = [1, 139]
+                    variant.bytes += bytes[index..<(index+arrayLenght)].map { $0 }
+                    index += arrayLenght
+                }
             }
         }
-        
-        if encodingMask == 0x0d || encodingMask == 0x05 {
+
+        if (encodingMask & 0x02) != 0 {
+            if let status = StatusCodes(rawValue: UInt32(bytes: bytes[index..<(index+4)])) {
+                statusCode = status
+            } else {
+                statusCode = .UA_STATUSCODE_BADUNEXPECTEDERROR
+            }
+            index += 4
+        }
+
+        if (encodingMask & 0x04) != 0 {
             sourceTimestamp = Int64(bytes: bytes[index..<(index+8)]).dateUtc
             index += 8
         }
-        
-        if encodingMask == 0x0d || encodingMask == 0x09 {
+
+        if (encodingMask & 0x08) != 0 {
             serverTimestamp = Int64(bytes: bytes[index..<(index+8)]).dateUtc
             index += 8
         }

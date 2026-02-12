@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 24/02/2020.
 //
 
-class WriteRequest: MessageBase, OPCUAEncodable {
+class WriteRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .writeRequest)
     let requestHeader: RequestHeader
     let nodesToWrite: [UInt8]
@@ -37,7 +37,7 @@ class WriteRequest: MessageBase, OPCUAEncodable {
     }
 }
 
-public struct WriteValue: OPCUAEncodable {
+public struct WriteValue: OPCUAEncodable, Sendable {
     public let nodeId: Node
     public let attributeId: UInt32
     public var indexRange: String? = nil

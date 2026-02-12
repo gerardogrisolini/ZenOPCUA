@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
-class CloseSecureChannelRequest: MessageBase, OPCUAEncodable {
+class CloseSecureChannelRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
 
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .closeSecureChannelRequest)
     let requestHeader: RequestHeader

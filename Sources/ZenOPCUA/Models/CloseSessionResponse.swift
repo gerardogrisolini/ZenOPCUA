@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 19/02/2020.
 //
 
-class CloseSessionResponse: MessageBase {
+class CloseSessionResponse: MessageBase, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     

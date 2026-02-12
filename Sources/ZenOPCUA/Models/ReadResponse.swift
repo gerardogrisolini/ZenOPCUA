@@ -5,12 +5,12 @@
 //  Created by Gerardo Grisolini on 20/02/2020.
 //
 
-class ReadResponse: MessageBase, OPCUADecodable {
+class ReadResponse: MessageBase, OPCUADecodable, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var results: [DataValue] = []
     var diagnosticInfos: [DiagnosticInfo] = []
-    
+
     required override init(bytes: [UInt8]) {
         typeId = NodeIdNumeric(method: .browseResponse)
         let part = bytes[20...43].map { $0 }
@@ -19,35 +19,41 @@ class ReadResponse: MessageBase, OPCUADecodable {
 
         var index = 44
         var len = UInt32(0)
-        
-        var count = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
+        func readUInt32() -> UInt32? {
+            guard index + 4 <= bytes.count else { return nil }
+            let value = UInt32(bytes: bytes[index..<(index + 4)])
+            index += 4
+            return value
+        }
+
+        guard let initialCount = readUInt32() else { return }
+        var count = initialCount
         if count < UInt32.max {
             for _ in 0..<count {
-                if bytes[index] == 0x02 {
-                    index += 1
-                    len = UInt32(bytes: bytes[index..<(index+4)])
-                    print("Error: \(len) - BadNodeIdUnknow")
-                    index += 4
-                } else {
-                    let data = DataValue(bytes: bytes, index: &index)
-                    results.append(data)
+                guard index < bytes.count else { return }
+                let data = DataValue(bytes: bytes, index: &index)
+                results.append(data)
+                if data.statusCode != .UA_STATUSCODE_GOOD {
+                    print("Warning: ReadResponse status code: \(data.statusCode)")
                 }
             }
         }
-        
-        count = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
+
+        guard let diagCount = readUInt32() else { return }
+        count = diagCount
         if count < UInt32.max {
             for _ in 0..<count {
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if len < UInt32.max { return }
-				if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
+                guard let length = readUInt32() else { return }
+                len = length
+                guard len < UInt32.max else { return }
+                guard index <= bytes.count else { return }
+                let maxLen = bytes.count - index
+                let len = min(maxLen, len.int)
+                if let text = String(bytes: bytes[index..<(index + len)], encoding: .utf8) {
                     let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
-                index += len.int
+                index += len
             }
         }
     }

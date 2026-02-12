@@ -27,16 +27,16 @@ public class OpenSecureChannelRequest: OPCUAEncodable {
             securityPolicyUri.bytes +
             senderCertificate +
             receiverCertificateThumbprint +
-            sequenceNumber.bytes
-        //print("header: \(header.count)")
+            sequenceNumber.bytes +
+            requestId.bytes
+
         let body = typeId.bytes +
             requestHeader.bytes +
             clientProtocolVersion.bytes +
             securityTokenRequestType.rawValue.bytes +
             messageSecurityMode.rawValue.bytes
-        //print("body: \(body.count + clientNonce.count + requestedLifetime.bytes.count)")
+
         return header +
-            requestId.bytes +
             body +
             clientNonce +
             requestedLifetime.bytes
@@ -49,32 +49,46 @@ public class OpenSecureChannelRequest: OPCUAEncodable {
         serverCertificate: Data,
         requestedLifetime: UInt32,
         requestId: UInt32,
-        secureChannelId: UInt32 = 0
+        secureChannelId: UInt32 = 0,
+        includeServerThumbprintInOpn: Bool = false
     ) {
-        print("Opened SecureChannel with SecurityPolicy \(securityPolicy.securityPolicyUri)")
-
         self.secureChannelId = secureChannelId
-        self.securityPolicyUri = securityPolicy.securityPolicyUri
+        // When messageSecurityMode is .none, securityPolicyUri MUST also be None
+        // according to OPC UA Part 6, Section 6.7.2
+        self.securityPolicyUri = messageSecurityMode == .none ? SecurityPolicies.none.uri : securityPolicy.securityPolicyUri
         self.requestId = requestId
         self.requestHeader = RequestHeader(requestHandle: 0)
         self.securityTokenRequestType = userTokenType
         self.requestedLifetime = requestedLifetime
         self.messageSecurityMode = messageSecurityMode
         
-        if serverCertificate.count == 0 {
-            self.clientNonce.append(contentsOf: UInt32.max.bytes)
-            self.senderCertificate.append(contentsOf: UInt32.max.bytes)
-            self.receiverCertificateThumbprint.append(contentsOf: UInt32.max.bytes)
-        } else if securityPolicy.localCertificate.count > 0 {
+        // When messageSecurityMode is .none, we must NOT send certificate/nonce
+        // even if we have a local certificate loaded
+        if messageSecurityMode != .none && securityPolicy.localCertificate.count > 0 {
+            // We have a local certificate, send it along with nonce
             self.senderCertificate.append(contentsOf: UInt32(securityPolicy.localCertificate.count).bytes)
             self.senderCertificate.append(contentsOf: securityPolicy.localCertificate)
 
             self.clientNonce.append(contentsOf: UInt32(securityPolicy.clientNonce.count).bytes)
             self.clientNonce.append(contentsOf: securityPolicy.clientNonce)
 
-            let thumbprint = securityPolicy.remoteCertificateThumbprint
-            self.receiverCertificateThumbprint.append(contentsOf: UInt32(thumbprint.count).bytes)
-            self.receiverCertificateThumbprint.append(contentsOf: thumbprint)
+            // According to OPC UA Part 6, Section 6.7.2:
+            // The receiverCertificateThumbprint in OpenSecureChannelRequest is always NULL.
+            // Some servers require the thumbprint anyway, so allow a compatibility override.
+            let shouldIncludeThumbprint = includeServerThumbprintInOpn
+                || securityPolicy.securityPolicyUri.securityPolicy == .aes256Sha256RsaPss
+            if shouldIncludeThumbprint,
+               securityPolicy.remoteCertificateThumbprint.count > 0 {
+                self.receiverCertificateThumbprint.append(contentsOf: UInt32(securityPolicy.remoteCertificateThumbprint.count).bytes)
+                self.receiverCertificateThumbprint.append(contentsOf: securityPolicy.remoteCertificateThumbprint)
+            } else {
+                self.receiverCertificateThumbprint.append(contentsOf: UInt32.max.bytes)
+            }
+        } else {
+            // No security - use placeholders
+            self.clientNonce.append(contentsOf: UInt32.max.bytes)
+            self.senderCertificate.append(contentsOf: UInt32.max.bytes)
+            self.receiverCertificateThumbprint.append(contentsOf: UInt32.max.bytes)
         }
     }
 }

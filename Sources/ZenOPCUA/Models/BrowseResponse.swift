@@ -7,7 +7,7 @@
 
 import Foundation
 
-class BrowseResponse: MessageBase {
+class BrowseResponse: MessageBase, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var results: [BrowseResult] = []
@@ -102,13 +102,13 @@ class BrowseResponse: MessageBase {
     }
 }
 
-public struct BrowseResult: Promisable {
+public struct BrowseResult: Promisable, Sendable {
     public var statusCode: StatusCodes
     public var continuationPoint: String? = nil
     public var references: [ReferenceDescription] = []
 }
 
-public struct ReferenceDescription {
+public struct ReferenceDescription: Sendable {
     public var referenceTypeId: NodeId = NodeId()
     public var isForward: Bool = true
     public var nodeId: Node = Node(.numeric)
@@ -118,7 +118,7 @@ public struct ReferenceDescription {
     public var typeDefinition: Node!
 }
 
-public struct QualifiedName: OPCUAEncodable {
+public struct QualifiedName: OPCUAEncodable, Sendable {
     public var id: UInt16 = 0
     public var name: String? = nil
 

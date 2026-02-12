@@ -23,6 +23,9 @@ struct ApplicationDescription: OPCUAEncodable {
 
     init(applicationName: String = "") {
         self.applicationName = LocalizedText(locale: "en-US", text: applicationName)
+        // Set applicationUri to match the certificate URI
+        // This must match the URI in the Subject Alternative Name of the certificate
+        self.applicationUri = "urn:Gerardo:ZenOPCUA:Client"
     }
     
     internal var bytes: [UInt8] {
@@ -37,7 +40,7 @@ struct ApplicationDescription: OPCUAEncodable {
     }
 }
 
-public struct LocalizedText: OPCUAEncodable {
+public struct LocalizedText: OPCUAEncodable, Sendable {
     public var encodingMask: UInt8 = 0x03
     public var locale: String = ""
     public var text: String = ""

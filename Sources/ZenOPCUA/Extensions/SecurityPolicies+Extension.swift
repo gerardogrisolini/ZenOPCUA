@@ -7,7 +7,6 @@
 
 extension SecurityPolicies {
     var uri: String {
-        if self == .invalid { return self.rawValue }
-        return "http://opcfoundation.org/UA/SecurityPolicy#\(self.rawValue)"
+        "http://opcfoundation.org/UA/SecurityPolicy#\(self.rawValue)"
     }
 }

@@ -7,7 +7,7 @@
 
 import Foundation
 
-class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable {
+class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     var results: [MonitoredItemCreateResult] = []
@@ -60,7 +60,7 @@ class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable {
     }
 }
 
-public struct MonitoredItemCreateResult: Promisable {
+public struct MonitoredItemCreateResult: Promisable, Sendable {
     public let statusCode: StatusCodes
     public var monitoredItemId: UInt32 = 0
     var revisedSamplingInterval: Double = 0

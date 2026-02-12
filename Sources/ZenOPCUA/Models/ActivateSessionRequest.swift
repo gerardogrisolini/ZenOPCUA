@@ -5,7 +5,9 @@
 //  Created by Gerardo Grisolini on 18/02/2020.
 //
 
-class ActivateSessionRequest: MessageBase, OPCUAEncodable {
+import Foundation
+
+class ActivateSessionRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
     
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .activateSessionRequest)
     let requestHeader: RequestHeader
@@ -13,6 +15,7 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
     var clientSoftwareCertificates: [[UInt8]] = []
     var localeIds: [String] = []
     let userIdentityToken: UserIdentityToken
+    let userTokenSignature: SignatureData
 
     internal var bytes: [UInt8] {
         let certificates = clientSoftwareCertificates.count == 0
@@ -30,20 +33,37 @@ class ActivateSessionRequest: MessageBase, OPCUAEncodable {
             clientSignature.bytes +
             certificates +
             ids +
-            userIdentityToken.bytes
+            userIdentityToken.bytes +
+            userTokenSignature.bytes
     }
     
     init(
         requestId: UInt32,
         session: CreateSessionResponse,
-        userIdentityInfo: UserIdentityInfo
+        userIdentityInfo: UserIdentityInfo,
+        securityPolicy: SecurityPolicy
     ) {
         self.requestHeader = RequestHeader(requestHandle: requestId, authenticationToken: session.authenticationToken)
-        //self.clientSignature = userIdentityInfo.userTokenSignature
         self.userIdentityToken = UserIdentityToken(userIdentityInfo: userIdentityInfo)
+        self.userTokenSignature = userIdentityInfo.userTokenSignature
         super.init()
         self.secureChannelId = session.secureChannelId
         self.tokenId = session.tokenId
         self.requestId = requestId
+
+        if securityPolicy.asymmetricSignatureAlgorithm != .none,
+           session.serverCertificate.count > 0,
+           session.serverNonce.count > 0 {
+            do {
+                let dataToSign = Data(session.serverCertificate + session.serverNonce)
+                let signature = try securityPolicy.signAsymmetric(data: dataToSign)
+                self.clientSignature = SignatureData(
+                    algorithm: securityPolicy.asymmetricSignatureAlgorithm.rawValue.split(separator: ",").first?.description,
+                    signature: [UInt8](signature)
+                )
+            } catch {
+                print("ActivateSessionRequest: failed to sign clientSignature: \(error)")
+            }
+        }
     }
 }

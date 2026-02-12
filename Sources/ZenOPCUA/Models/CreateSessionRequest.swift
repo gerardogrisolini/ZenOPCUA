@@ -7,7 +7,7 @@
 
 import Foundation
 
-class CreateSessionRequest: MessageBase, OPCUAEncodable {
+class CreateSessionRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .createSessionRequest)
     let requestHeader: RequestHeader
     let clientDescription: ApplicationDescription

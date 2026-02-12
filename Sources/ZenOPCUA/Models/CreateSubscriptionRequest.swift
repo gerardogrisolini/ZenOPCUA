@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 25/02/2020.
 //
 
-public struct Subscription: OPCUAEncodable {
+public struct Subscription: OPCUAEncodable, Sendable {
     public let requestedPubliscingInterval: Double
     public var requestedLifetimeCount: UInt32
     public var requesteMaxKeepAliveCount: UInt32
@@ -39,7 +39,7 @@ public struct Subscription: OPCUAEncodable {
     }
 }
 
-class CreateSubscriptionRequest: MessageBase, OPCUAEncodable {
+class CreateSubscriptionRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .createSubscriptionRequest)
     let requestHeader: RequestHeader
     let subscription: Subscription

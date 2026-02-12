@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
-class GetEndpointsRequest: MessageBase, OPCUAEncodable {
+class GetEndpointsRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
 
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .getEndpointsRequest)
     let requestHeader: RequestHeader

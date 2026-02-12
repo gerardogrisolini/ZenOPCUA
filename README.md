@@ -1,104 +1,192 @@
 # ZenOPCUA
 
-### Getting Started
+ZenOPCUA e' un client OPC UA scritto in Swift con backend SwiftNIO. Supporta browsing, read/write, subscription e sicurezza (sign/encrypt) con API sia EventLoopFuture che async/await.
 
-#### Adding a dependencies clause to your Package.swift
+## Caratteristiche
 
-```
+- Connessione OPC UA completa con sessione e reconnect
+- Browse dell'address space
+- Read/Write di nodi
+- Subscriptions e MonitoredItems
+- Security policy e message security mode (sign/encrypt)
+- API EventLoopFuture + async/await
+
+## Installazione (Swift Package Manager)
+
+```swift
 dependencies: [
     .package(url: "https://github.com/gerardogrisolini/ZenOPCUA.git", from: "1.0.0")
 ]
 ```
 
-#### Make client
-```
+## Uso rapido
+
+### Creazione client
+
+```swift
 import NIO
 import ZenOPCUA
 
 let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: System.coreCount)
-defer { try! eventLoopGroup.syncShutdownGracefully() }
+defer { try? eventLoopGroup.syncShutdownGracefully() }
 
-let opcua = ZenOPCUA(
-    endpoint: "opc.tcp://MacBook-Pro-di-Gerardo.local:53530/OPCUA/SimulationServer",
-    reconnect: false,
-    eventLoopGroup: eventLoopGroup
+let client = ZenOPCUA(
+    eventLoopGroup: eventLoopGroup,
+    endpointUrl: "opc.tcp://localhost:4840",
+    applicationName: "ZenOPCUAClient",
+    messageSecurityMode: .none,
+    securityPolicy: .none
 )
 
-opcua.onHandlerRemoved = {
-    print("OPCUA Client disconnected")
+client.onHandlerActivated = {
+    print("Client attivato")
 }
-opcua.onErrorCaught = { error in
-    print(error)
+client.onHandlerRemoved = {
+    print("Client disconnesso")
 }
-
+client.onErrorCaught = { error in
+    print("Errore: \(error)")
+}
 ```
 
-#### Connect to server
-```
-try opcua.connect().wait()
+### Connessione
+
+```swift
+try client.connect(reconnect: false).wait()
 ```
 
-#### Browse
-```
-let items = try opcua.browse().wait()
-for item in items {
-    item.references.forEach { ref in
+### Browse
+
+```swift
+let root = [BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253))]
+let results = try client.browse(nodes: root).wait()
+for result in results {
+    result.references.forEach { ref in
         print("\(ref.displayName.text): \(ref.nodeId)")
     }
 }
 ```
 
-#### Read value
-```
-let reads = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))]
-let readed = try opcua.read(nodes: reads).wait()
-print(readed.first?.variant.value ?? "nil")
+### Read
+
+```swift
+let reads = [
+    ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))
+]
+let values = try client.read(nodes: reads).wait()
+values.forEach { value in
+    print(value.variant.value)
+}
 ```
 
-#### Write value
-```
+Nota: i read con status diverso da `UA_STATUSCODE_GOOD` non vengono restituiti.
+In console viene stampato l'errore con il NodeId corrispondente.
+
+### Write
+
+```swift
 let writes: [WriteValue] = [
     WriteValue(
         nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel"),
         value: DataValue(variant: Variant(value: Double(21.0)))
     )
 ]
-let writed = try opcua.write(nodes: writes).wait()
-print(writed.first!)
+let statuses = try client.write(nodes: writes).wait()
+print(statuses)
 ```
 
-#### Subscribe and MonitoredItems
-```
-let items: [ReadValue] = [
-    ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258), monitoredId: 1),
-    ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter"), monitoredId: 2),
-    ReadValue(nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel"), monitoredId: 3)
-]
+### Subscription + MonitoredItems
 
-opcua.onDataChanged = { data in
-    data.forEach { dataChange in
+```swift
+let subscription = Subscription(
+    requestedPubliscingInterval: 1000,
+    requestedLifetimeCount: 1000,
+    requesteMaxKeepAliveCount: 12,
+    maxNotificationsPerPublish: 0,
+    publishingEnabled: true
+)
+
+client.onDataChanged = { dataChanges in
+    dataChanges.forEach { dataChange in
         dataChange.dataChangeNotification.monitoredItems.forEach { item in
-            if let node = items.first(where: { $0.monitoredId == item.monitoredId }) {
-                print("\(node.nodeId): \(item.value.variant.value)")
-            }
+            print("Handle \(item.clientHandle): \(item.value.variant.value)")
         }
     }
 }
 
-let subId = try opcua.createSubscription(requestedPubliscingInterval: 500).wait()
-let results = try opcua.createMonitoredItems(subscriptionId: subId, itemsToCreate: items).wait()
+let subscriptionId = try client.createSubscription(subscription: subscription, startPublishing: true).wait()
+let itemsToCreate: [MonitoredItemCreateRequest] = [
+    MonitoredItemCreateRequest(
+        itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
+        requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
+    ),
+    MonitoredItemCreateRequest(
+        itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 3, identifier: 1002)),
+        requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 250)
+    )
+]
+
+let results = try client.createMonitoredItems(subscriptionId: subscriptionId, itemsToCreate: itemsToCreate).wait()
 results.forEach { result in
     print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
 }
-
-let deleted = try opcua.deleteSubscriptions(subscriptionIds: [subId]).wait()
-deleted.forEach { result in
-    print("deleteSubscription: \(result)")
-}
 ```
 
+### Disconnect
 
-#### Disconnect client
+```swift
+try client.disconnect(deleteSubscriptions: true).wait()
 ```
-try OPCUA.disconnect().wait()
+
+## Async/Await
+
+Tutte le API principali hanno l'equivalente async/await.
+
+```swift
+import NIO
+import ZenOPCUA
+
+let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+defer { try? eventLoopGroup.syncShutdownGracefully() }
+
+let client = ZenOPCUA(
+    eventLoopGroup: eventLoopGroup,
+    endpointUrl: "opc.tcp://localhost:4840"
+)
+
+try await client.connect()
+
+let nodes = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))]
+let results = try await client.read(nodes: nodes)
+print("Letti: \(results.count)")
+
+try await client.disconnect()
+```
+
+## Sicurezza
+
+Per usare la sicurezza:
+
+```swift
+let client = ZenOPCUA(
+    eventLoopGroup: eventLoopGroup,
+    endpointUrl: "opc.tcp://localhost:4840",
+    messageSecurityMode: .signAndEncrypt,
+    securityPolicy: .basic256Sha256,
+    certificate: "/path/to/client-cert.pem",
+    privateKey: "/path/to/client-key.pem",
+    includeServerThumbprintInOpn: true
+)
+```
+
+## Note su errori di Read
+
+- Se il server risponde con `BadNodeIdUnknown` o simili, il valore **non** viene restituito.
+- In console viene stampato: `Read error: <StatusCode> for node <NodeId>`.
+- Le diagnostiche del server vengono stampate come `Read diagnostic: ...` quando disponibili.
+
+## Test
+
+```bash
+swift test
 ```

@@ -7,7 +7,7 @@
 
 import Foundation
 
-class PublishResponse: MessageBase, OPCUADecodable {
+class PublishResponse: MessageBase, OPCUADecodable, @unchecked Sendable {
     let typeId: NodeIdNumeric
     var responseHeader: ResponseHeader
     let subscriptionId: UInt32
@@ -126,22 +126,22 @@ public struct NotificationMessage {
     public var notificationData: [DataChange] = []
 }
 
-public struct DataChange {
+public struct DataChange: Sendable {
     public var typeId: Node = NodeId()
     public var encodingMask: UInt8 = 0x00
     public var dataChangeNotification: DataChangeNotification = DataChangeNotification()
 }
 
-public struct DataChangeNotification {
+public struct DataChangeNotification: Sendable {
     public var monitoredItems: [MonitoredItemNotification] = []
     public var diagnosticInfos: [DiagnosticInfo] = []
 }
 
-public struct MonitoredItemNotification {
+public struct MonitoredItemNotification: Sendable {
     public var clientHandle: UInt32
     public var value: DataValue
 }
 
 public struct StatusChangeNotification {
-    
+
 }

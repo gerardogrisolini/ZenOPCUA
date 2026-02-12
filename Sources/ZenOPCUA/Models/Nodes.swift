@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 17/02/2020.
 //
 
-public enum Methods: UInt16 {
+public enum Methods: UInt16, Sendable {
     case serviceFault = 397
     case anonymousIdentityToken = 321
     case userNameIdentityToken = 324
@@ -37,7 +37,7 @@ public enum Methods: UInt16 {
     case publishResponse = 829
 }
 
-public enum Nodes: UInt8 {
+public enum Nodes: UInt8, Sendable {
     case base = 0x00
     case numeric = 0x01
     case long = 0x02
@@ -50,7 +50,8 @@ public enum Nodes: UInt8 {
     case stringExt = 0x43
 }
 
-public class Node: OPCUAEncodable {
+// Concurrency: nodes are treated as immutable after creation; not thread-safe to mutate across tasks.
+public class Node: OPCUAEncodable, @unchecked Sendable {
     public var encodingMask: Nodes
     internal var bytes: [UInt8] { return [] }
 
@@ -59,7 +60,7 @@ public class Node: OPCUAEncodable {
     }
 }
 
-public class NodeId: Node {
+public class NodeId: Node, @unchecked Sendable {
     public var identifier: UInt8 = 0x00
 
     init() {
@@ -76,7 +77,7 @@ public class NodeId: Node {
      }
 }
 
-public class NodeIdNumeric: Node {
+public class NodeIdNumeric: Node, @unchecked Sendable {
     public var nameSpace: UInt8 = 0
     public var identifier: UInt16
 
@@ -96,7 +97,7 @@ public class NodeIdNumeric: Node {
     }
 }
 
-public class NodeIdLong: Node {
+public class NodeIdLong: Node, @unchecked Sendable {
     public var nameSpace: UInt16 = 0
     public var identifier: UInt32
 
@@ -116,7 +117,7 @@ public class NodeIdLong: Node {
     }
 }
 
-public class NodeIdString: Node {
+public class NodeIdString: Node, @unchecked Sendable {
     public var nameSpace: UInt16 = 1
     public var identifier: String
 
@@ -131,7 +132,7 @@ public class NodeIdString: Node {
     }
 }
 
-public class NodeIdGuid: Node {
+public class NodeIdGuid: Node, @unchecked Sendable {
     public var nameSpace: UInt16 = 1
     public var identifier: [UInt8]
 
@@ -146,7 +147,7 @@ public class NodeIdGuid: Node {
     }
 }
 
-public class NodeIdByteString: Node {
+public class NodeIdByteString: Node, @unchecked Sendable {
     public var nameSpace: UInt16 = 1
     public var identifier: [UInt8]
 
@@ -162,7 +163,7 @@ public class NodeIdByteString: Node {
     }
 }
 
-public class NodeIdExt: Node {
+public class NodeIdExt: Node, @unchecked Sendable {
     public let identifier: UInt8
     public let serverIndex: UInt32
 
@@ -177,7 +178,7 @@ public class NodeIdExt: Node {
     }
 }
 
-public class NodeIdNumericExt: Node {
+public class NodeIdNumericExt: Node, @unchecked Sendable {
     public let nameSpace: UInt8
     public let identifier: UInt16
     public let serverIndex: UInt32
@@ -194,7 +195,7 @@ public class NodeIdNumericExt: Node {
     }
 }
 
-public class NodeIdStringExt: Node {
+public class NodeIdStringExt: Node, @unchecked Sendable {
     public let nameSpace: UInt16
     public let identifier: String
     public let serverIndex: UInt32

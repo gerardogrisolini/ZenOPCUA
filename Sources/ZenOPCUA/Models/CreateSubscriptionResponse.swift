@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 25/02/2020.
 //
 
-class CreateSubscriptionResponse: MessageBase, OPCUADecodable, Promisable {
+class CreateSubscriptionResponse: MessageBase, OPCUADecodable, Promisable, @unchecked Sendable {
     let typeId: NodeIdNumeric
     let responseHeader: ResponseHeader
     let subscriptionId: UInt32

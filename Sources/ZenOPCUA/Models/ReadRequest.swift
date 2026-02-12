@@ -12,7 +12,7 @@ public enum TimestampsToReturn: UInt32 {
     case neither = 3
 }
 
-class ReadRequest: MessageBase, OPCUAEncodable {
+class ReadRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .readRequest)
     let requestHeader: RequestHeader
     let maxAge: Double = 0
@@ -48,7 +48,7 @@ class ReadRequest: MessageBase, OPCUAEncodable {
     }
 }
 
-public struct ReadValue: OPCUAEncodable {
+public struct ReadValue: OPCUAEncodable, Sendable {
     public let nodeId: Node
     public let attributeId: UInt32
     public var indexRange: String? = nil

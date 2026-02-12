@@ -8,5 +8,10 @@
 extension UInt32: Promisable { }
 
 extension UInt32 {
-    var int: Int { return Int(self) }
+    var int: Int { 
+        guard self <= Int.max else {
+        return 0
+        }
+        return Int(self) 
+    }
 }

@@ -5,7 +5,7 @@
 //  Created by Gerardo Grisolini on 25/02/2020.
 //
 
-class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
+class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable, @unchecked Sendable {
     let typeId: NodeIdNumeric = NodeIdNumeric(method: .createMonitoredItemsRequest)
     let requestHeader: RequestHeader
     let subscriptionId: UInt32
@@ -49,13 +49,13 @@ class CreateMonitoredItemsRequest: MessageBase, OPCUAEncodable {
  *  reporting: The item being monitored is sampled and evaluated, and Notifications are generated and queued. Notification reporting is enabled.
  */
 
-public enum MonitorigMode: UInt32 {
+public enum MonitorigMode: UInt32, Sendable {
     case disabled = 0
     case sampling = 1
     case reporting = 2
 }
 
-public struct MonitoredItemCreateRequest: OPCUAEncodable {
+public struct MonitoredItemCreateRequest: OPCUAEncodable, Sendable {
     public let itemToMonitor: ReadValue
     public let monitorigMode: MonitorigMode
     public let requestedParameters: MonitoringParameters
@@ -81,7 +81,7 @@ public struct MonitoredItemCreateRequest: OPCUAEncodable {
  * discardOldest: A boolean parameter that specifies the discard policy when the queue is full and a new Notification is to be enqueued.
  */
 
-public struct MonitoringParameters: OPCUAEncodable {
+public struct MonitoringParameters: OPCUAEncodable, Sendable {
     public let clientHandle: UInt32
     public let samplingInterval: Double
     public var filter: Filter = Filter()
@@ -102,7 +102,7 @@ public struct MonitoringParameters: OPCUAEncodable {
     }
 }
 
-public struct Filter: OPCUAEncodable {
+public struct Filter: OPCUAEncodable, Sendable {
     public var typeId: Node = NodeId()
     public var encodingMask: UInt8 = 0x00
 
