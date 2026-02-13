@@ -95,9 +95,15 @@ final class OPCUAFrameDecoder {
         guard let messageType = buffer.getString(at: buffer.readerIndex, length: 3),
               let type = MessageTypes(rawValue: messageType) else { return nil }
         
-        // Hello, Acknowledge, and Error messages are NEVER encrypted, regardless of security settings
-        let shouldDecrypt = state.securityPolicy.isEncryptionEnabled 
-            && type != .hello 
+        // Hello, Acknowledge, and Error messages are NEVER encrypted, regardless of security settings.
+        // Interop: allow encrypted traffic in Sign mode when thumbprint is included.
+        let signCompatibilityDecrypt =
+            state.messageSecurityMode == .sign &&
+            state.includeServerThumbprintInOpn &&
+            state.hasRemoteCertificate
+
+        let shouldDecrypt = (state.securityPolicy.isEncryptionEnabled || signCompatibilityDecrypt)
+            && type != .hello
             && type != .acknowledge
             && type != .error
         
@@ -146,13 +152,18 @@ final class OPCUAFrameDecoder {
     }
     
     private func decryptChunk(chunkBuffer: inout ByteBuffer) throws -> ByteBuffer {
-        let isEncryptionEnabled = state.securityPolicy.isEncryptionEnabled
+        let messageType = chunkBuffer.getString(at: chunkBuffer.readerIndex, length: 3) ?? ""
+        let isSignCompatibilityEncrypted =
+            state.messageSecurityMode == .sign &&
+            state.includeServerThumbprintInOpn &&
+            state.hasRemoteCertificate
+
+        let isEncryptionEnabled = state.securityPolicy.isEncryptionEnabled || isSignCompatibilityEncrypted
         let isAsymmetric = state.securityPolicy.isAsymmetric
 
         let cipherTextBlockSize = isAsymmetric 
             ? state.securityPolicy.asymmetricCipherTextBlockSize
             : state.securityPolicy.symmetricBlockSize
-        let messageType = chunkBuffer.getString(at: chunkBuffer.readerIndex, length: 3) ?? ""
         // For symmetric MSG/CLO, header includes: messageType(3) + chunkType(1) + size(4) + channelId(4) + tokenId(4) = 16
         // For asymmetric OPN, header includes: messageType(3) + chunkType(1) + size(4) + channelId(4) + securityHeader
         let header = isEncryptionEnabled

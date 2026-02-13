@@ -56,11 +56,18 @@ final class OPCUAFrameEncoder {
             // Even if messageSecurityMode is .signAndEncrypt, we can't encrypt without keys
             if frame.head.messageType == .openChannel {
                 // OpenSecureChannelRequest uses asymmetric security.
-                // Encrypt OPN when SignAndEncrypt is requested and the server cert is known.
-                isEncryptionEnabled = secMode == .signAndEncrypt && state.hasRemoteCertificate
+                // Compatibility path: some servers require encrypted OPN also in Sign mode
+                // when receiverCertificateThumbprint is present.
+                isEncryptionEnabled =
+                    (secMode == .signAndEncrypt ||
+                     (secMode == .sign && state.includeServerThumbprintInOpn))
+                    && state.hasRemoteCertificate
             } else {
                 // MSG/CLO messages require symmetric keys for encryption
-                isEncryptionEnabled = secMode == .signAndEncrypt && state.hasSymmetricKeys
+                isEncryptionEnabled =
+                    (secMode == .signAndEncrypt ||
+                     (secMode == .sign && state.includeServerThumbprintInOpn))
+                    && state.hasSymmetricKeys
             }
             
             if isAsymmetric {

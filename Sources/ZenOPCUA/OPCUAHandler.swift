@@ -305,6 +305,12 @@ final class OPCUAHandler: @unchecked Sendable {
         let securityMode: MessageSecurityMode
         if state.isAcknowledgeSecure {
             securityMode = .none
+        } else if state.messageSecurityMode == .sign,
+                  state.includeServerThumbprintInOpn,
+                  state.hasRemoteCertificate {
+            // Compatibility path for Sign + thumbprint servers:
+            // they may require encrypted secure-channel traffic after OPN.
+            securityMode = .signAndEncrypt
         } else {
             securityMode = state.messageSecurityMode
         }

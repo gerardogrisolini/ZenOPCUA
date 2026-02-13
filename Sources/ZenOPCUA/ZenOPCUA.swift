@@ -95,19 +95,25 @@ public final class ZenOPCUA: @unchecked Sendable {
         messageSecurityMode: MessageSecurityMode = .none,
         securityPolicy: SecurityPolicies = .none,
         certificate: String? = nil,
-        privateKey: String? = nil,
-        includeServerThumbprintInOpn: Bool = true
+        privateKey: String? = nil
     ) {
         self.eventLoopGroup = eventLoopGroup
         let state = OPCUAConnectionState()
         state.messageSecurityMode = messageSecurityMode
         state.securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
         state.securityPolicy.connectionState = state
-        state.includeServerThumbprintInOpn = includeServerThumbprintInOpn
+        // Interop policy:
+        // - SignAndEncrypt: always include thumbprint in OPN.
+        // - Sign: include thumbprint when using certificate-based secure channel.
+        state.includeServerThumbprintInOpn = (messageSecurityMode == .signAndEncrypt)
 
         // Load certificate immediately after creating security policy if using security
         if messageSecurityMode != .none {
             state.securityPolicy.loadLocalCertificate(certificate: certificate, privateKey: privateKey)
+        }
+
+        if messageSecurityMode == .sign && !state.securityPolicy.localCertificate.isEmpty {
+            state.includeServerThumbprintInOpn = true
         }
 
         self.state = state
