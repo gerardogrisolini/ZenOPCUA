@@ -174,8 +174,7 @@ let client = ZenOPCUA(
     messageSecurityMode: .signAndEncrypt,
     securityPolicy: .basic256Sha256,
     certificate: "/path/to/client-cert.pem",
-    privateKey: "/path/to/client-key.pem",
-    includeServerThumbprintInOpn: true
+    privateKey: "/path/to/client-key.pem"
 )
 ```
 

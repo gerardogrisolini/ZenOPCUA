@@ -17,13 +17,12 @@ final class ZenOPCUATests: XCTestCase {
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
             endpointUrl: "opc.tcp://Gerardos-MacBook-Pro.local:53530/OPCUA/SimulationServer", //"opc.tcp://opcuaserver.com:48010",
-//            messageSecurityMode: .none,
-//            securityPolicy: .none,
-            messageSecurityMode: .signAndEncrypt,
-            securityPolicy: .basic256Sha256,
-            certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-cert.pem",
-            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-key-rsa.pem",
-            includeServerThumbprintInOpn: true
+            messageSecurityMode: .none,
+            securityPolicy: .none,
+//            messageSecurityMode: .signAndEncrypt,
+//            securityPolicy: .basic256Sha256,
+//            certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-cert.pem",
+//            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-key-rsa.pem"
         )
 
         opcua.onHandlerActivated = {
@@ -141,8 +140,7 @@ final class ZenOPCUATests: XCTestCase {
             messageSecurityMode: .signAndEncrypt,
             securityPolicy: .basic256Sha256,
             certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-cert.pem",
-            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-key-rsa.pem",
-            includeServerThumbprintInOpn: true
+            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-key-rsa.pem"
         )
 
         opcua.onHandlerActivated = {
@@ -255,6 +253,29 @@ final class ZenOPCUATests: XCTestCase {
         try await opcua.disconnect(deleteSubscriptions: true)
     }
 
+    func testConnectionWithSing() async throws {
+        let opcua = ZenOPCUA(
+            eventLoopGroup: eventLoopGroup,
+            endpointUrl: "opc.tcp://Gerardos-MacBook-Pro.local:53530/OPCUA/SimulationServer",
+            messageSecurityMode: .sign,
+            securityPolicy: .basic256Sha256,
+            certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-cert.pem",
+            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-key-rsa.pem"
+        )
+
+        try await opcua.connect(reconnect: false)
+        let root: [BrowseDescription] = [
+            BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253))
+        ]
+        let nodes = try await opcua.browse(nodes: root)
+        for item in nodes {
+            item.references.forEach { ref in
+                print("\(ref.displayName.text): \(ref.nodeId)")
+            }
+        }
+        try await opcua.disconnect(deleteSubscriptions: false)
+    }
+
     func testConnectionWithUsernamePassword() async throws {
         let opcua = ZenOPCUA(
             eventLoopGroup: eventLoopGroup,
@@ -283,6 +304,7 @@ final class ZenOPCUATests: XCTestCase {
     static let allTests = [
         ("testConnection", testConnection),
         ("testConnectionAsync", testConnectionAsync),
+        ("testConnectionWithSing", testConnectionWithSing),
         ("testConnectionWithUsernamePassword", testConnectionWithUsernamePassword)
     ]
 }
