@@ -21,9 +21,6 @@ final class OPCUAHandler: @unchecked Sendable {
     typealias FrameSender = @Sendable (OPCUAFrame) -> Void
 
     public var promises = Dictionary<UInt32, EventLoopPromise<Promisable>>()
-//    public var readRequests = Dictionary<UInt32, [ReadValue]>()
-//    public var lastReadRequestId: UInt32? = nil
-
     public var dataChanged: OPCUADataChanged? = nil
     public var handlerActivated: OPCUAHandlerChange? = nil
     public var handlerRemoved: OPCUAHandlerChange? = nil
@@ -62,7 +59,7 @@ final class OPCUAHandler: @unchecked Sendable {
         sendHello()
     }
     
-    fileprivate func sendHello() {
+    private func sendHello() {
         let head = OPCUAFrameHead(messageType: .hello, chunkType: .frame)
         let body = Hello(endpointUrl: endpointUrl)
         let frame = OPCUAFrame(head: head, body: body.bytes)
@@ -326,7 +323,7 @@ final class OPCUAHandler: @unchecked Sendable {
         send(frame)
     }
 
-    fileprivate func closeSecureChannel(response: CloseSessionResponse) {
+    private func closeSecureChannel(response: CloseSessionResponse) {
         let head = OPCUAFrameHead(messageType: .closeChannel, chunkType: .frame)
         let body = CloseSecureChannelRequest(
             secureChannelId: secureChannelId,
@@ -342,7 +339,7 @@ final class OPCUAHandler: @unchecked Sendable {
         promises[requestId]?.succeed(Empty())
     }
 
-    fileprivate func getEndpoints(response: OpenSecureChannelResponse) {
+    private func getEndpoints(response: OpenSecureChannelResponse) {
         let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
         let body = GetEndpointsRequest(
             secureChannelId: secureChannelId,
@@ -372,7 +369,7 @@ final class OPCUAHandler: @unchecked Sendable {
         return true
     }
 
-    fileprivate func createSession(response: GetEndpointsResponse) -> Bool {
+    private func createSession(response: GetEndpointsResponse) -> Bool {
         let needsSecureUpgrade = state.isAcknowledgeSecure
 
         guard let endpoint = response
@@ -431,7 +428,7 @@ final class OPCUAHandler: @unchecked Sendable {
         return true
     }
 
-    fileprivate func activateSession(response: CreateSessionResponse) {
+    private func activateSession(response: CreateSessionResponse) {
         authenticationToken = response.authenticationToken
 
         guard verifyServerCertificateThumbprint(response.serverCertificate, context: "CreateSessionResponse") else {

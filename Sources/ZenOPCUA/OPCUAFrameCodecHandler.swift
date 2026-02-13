@@ -2,7 +2,7 @@
 //  OPCUAFrameCodecHandler.swift
 //
 //
-//  Created by Codex on 11/02/2026.
+//  Created by Gerardo Grisolini on 11/02/2026.
 //
 
 import NIO

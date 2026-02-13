@@ -125,11 +125,7 @@ final class OPCUAFrameDecoder {
             && type != .error
         
         if shouldDecrypt {
-            #if DEBUG
-            #endif
             buffer = try decryptChunk(chunkBuffer: &buffer)
-            #if DEBUG
-            #endif
         }
 
         // Only remove signature if signing is enabled AND we have remote certificate
@@ -141,8 +137,6 @@ final class OPCUAFrameDecoder {
             && type != .error
         
         if shouldRemoveSignature {
-            #if DEBUG
-            #endif
             //try verifyChunk(chunkBuffer: &buffer)
             // Ensure we don't move writerIndex to a negative value
             if buffer.writerIndex >= signatureSize {

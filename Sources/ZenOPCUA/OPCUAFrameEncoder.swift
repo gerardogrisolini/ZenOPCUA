@@ -302,15 +302,6 @@ final class OPCUAFrameEncoder {
                 let dataToSign = Data(chunkBuffer.getBytes(at: signStartPos, length: chunkBuffer.writerIndex - signStartPos)!)
                 let signature = try state.securityPolicy.sign(data: dataToSign)
                 chunkBuffer.writeBytes(signature)
-
-                #if false
-                let localVerify: Bool
-                if isAsymmetric {
-                    localVerify = state.securityPolicy.signVerify(signature: signature, data: dataToSign)
-                } else {
-                    localVerify = state.securityPolicy.signVerifySymmetricLocal(signature: signature, data: dataToSign)
-                }
-                #endif
             }
 
 
@@ -425,9 +416,6 @@ final class OPCUAFrameEncoder {
             return totalSize
         }
         
-        #if false
-        #endif
-        
         if certLength == UInt32.max {
             totalSize += 4  // Placeholder
             offset += 4
@@ -438,14 +426,9 @@ final class OPCUAFrameEncoder {
         
         // Read receiverCertificateThumbprint length
         guard let thumbLength = buffer.getInteger(at: offset, endianness: .little, as: UInt32.self) else {
-            #if false
-            #endif
             return totalSize
         }
-        
-        #if false
-        #endif
-        
+
         if thumbLength == UInt32.max {
             totalSize += 4  // Placeholder
         } else {
