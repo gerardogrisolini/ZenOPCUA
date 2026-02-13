@@ -18,11 +18,7 @@ final class ZenOPCUATests: XCTestCase {
             eventLoopGroup: eventLoopGroup,
             endpointUrl: "opc.tcp://Gerardos-MacBook-Pro.local:53530/OPCUA/SimulationServer", //"opc.tcp://opcuaserver.com:48010",
             messageSecurityMode: .none,
-            securityPolicy: .none,
-//            messageSecurityMode: .signAndEncrypt,
-//            securityPolicy: .basic256Sha256,
-//            certificate: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-cert.pem",
-//            privateKey: "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-key-rsa.pem"
+            securityPolicy: .none
         )
 
         opcua.onHandlerActivated = {
@@ -123,14 +119,15 @@ final class ZenOPCUATests: XCTestCase {
         }
         
         // Write
-        opcua.write(nodes: [
+        let writed = try opcua.write(nodes: [
             WriteValue(
                 nodeId: NodeIdNumeric(nameSpace: 2, identifier: 20222),
                 value: DataValue(variant: Variant(value: Int32(1)))
             )
-        ]).whenSuccess { writed in
-            print("writed: 1")
-        }
+        ]).wait()
+        print("writed: \(writed.count)")
+
+        try opcua.disconnect(deleteSubscriptions: true).wait()
     }
     
     func testConnectionAsync() async throws {

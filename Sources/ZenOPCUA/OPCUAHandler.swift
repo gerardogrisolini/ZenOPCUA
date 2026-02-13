@@ -33,6 +33,7 @@ final class OPCUAHandler: @unchecked Sendable {
     var tokenId: UInt32 = 0
     var secureChannelId: UInt32 = 0
     var authenticationToken: Node? = nil
+    private var secureChannelRenewTask: RepeatedTask? = nil
 
     var endpointUrl: String = ""
     var applicationName: String = ""
@@ -463,7 +464,11 @@ final class OPCUAHandler: @unchecked Sendable {
 
             let time = TimeAmount.milliseconds(Int64(Double(requestedLifetime) * 0.75))
             guard let eventLoop = eventLoop else { return }
-            eventLoop.scheduleRepeatedTask(initialDelay: time, delay: time, notifying: nil) { [weak self] _ in
+            if let task = secureChannelRenewTask {
+                task.cancel()
+                secureChannelRenewTask = nil
+            }
+            secureChannelRenewTask = eventLoop.scheduleRepeatedTask(initialDelay: time, delay: time, notifying: nil) { [weak self] _ in
                 guard let self = self else { return }
                 self.openSecureChannel()
             }
@@ -500,6 +505,10 @@ final class OPCUAHandler: @unchecked Sendable {
     }
     
     public func resetAll() {
+        if let task = secureChannelRenewTask {
+            task.cancel()
+            secureChannelRenewTask = nil
+        }
         messageID = 0
         secureChannelId = 0
         authenticationToken = nil
