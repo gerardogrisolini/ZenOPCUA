@@ -9,7 +9,7 @@ extension String {
     var securityPolicy: SecurityPolicies {
         if let index = self.lastIndex(of: "#") {
             let algorithm = self[self.index(after: index)...]
-            return SecurityPolicies(rawValue: algorithm.description)!
+            return SecurityPolicies(rawValue: algorithm.description) ?? .none
         }
         return .none
     }
@@ -24,6 +24,7 @@ extension String: OPCUAEncodable {
 
 extension Optional where Wrapped == String {
     internal var bytes: [UInt8] {
-        self == nil ? UInt32.max.bytes : self!.bytes
+        guard let value = self else { return UInt32.max.bytes }
+        return value.bytes
     }
 }

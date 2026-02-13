@@ -9,7 +9,7 @@ extension FixedWidthInteger {
     
     init<I>(littleEndianBytes iterator: inout I) where I: IteratorProtocol, I.Element == UInt8 {
         self = stride(from: 0, to: Self.bitWidth, by: 8).reduce(into: 0) {
-          $0 |= Self(truncatingIfNeeded: iterator.next()!) &<< $1
+          $0 |= Self(truncatingIfNeeded: iterator.next() ?? 0) &<< $1
         }
     }
 

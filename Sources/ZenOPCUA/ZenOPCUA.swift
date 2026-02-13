@@ -304,7 +304,7 @@ public final class ZenOPCUA: @unchecked Sendable {
                 onHandlerRemoved()
             }
             
-            if state.reconnect && !state.isAcknowledge || state.isUpgradingToSecure {
+            if (state.reconnect && !state.isAcknowledge) || state.isUpgradingToSecure {
                 self.stop().whenComplete { [weak self, state] _ in
                     guard let self = self else { return }
                     let delay: TimeAmount = (!state.isUpgradingToSecure && !state.isAcknowledge) ? .seconds(3) : .zero
@@ -434,9 +434,12 @@ public final class ZenOPCUA: @unchecked Sendable {
             
             self.writeSyncronized(frame, eventLoop: eventLoop)
             
-            return promise.futureResult.map { value -> [BrowseResult] in
+            return promise.futureResult.flatMapThrowing { value -> [BrowseResult] in
                 timeout.cancel()
-                return value as! [BrowseResult]
+                guard let results = value as? [BrowseResult] else {
+                    throw OPCUAError.generic("Invalid BrowseResponse payload type")
+                }
+                return results
             }
         }
     }
@@ -476,9 +479,12 @@ public final class ZenOPCUA: @unchecked Sendable {
 
             self.writeSyncronized(frame, eventLoop: eventLoop)
 
-            return promise.futureResult.map { value -> [DataValue] in
+            return promise.futureResult.flatMapThrowing { value -> [DataValue] in
                 timeout.cancel()
-                return value as! [DataValue]
+                guard let results = value as? [DataValue] else {
+                    throw OPCUAError.generic("Invalid ReadResponse payload type")
+                }
+                return results
             }
         }
     }
@@ -518,9 +524,12 @@ public final class ZenOPCUA: @unchecked Sendable {
             
             self.writeSyncronized(frame, eventLoop: eventLoop)
             
-            return promise.futureResult.map { value -> [StatusCodes] in
+            return promise.futureResult.flatMapThrowing { value -> [StatusCodes] in
                 timeout.cancel()
-                return value as! [StatusCodes]
+                guard let results = value as? [StatusCodes] else {
+                    throw OPCUAError.generic("Invalid WriteResponse payload type")
+                }
+                return results
             }
         }
     }
@@ -562,9 +571,11 @@ public final class ZenOPCUA: @unchecked Sendable {
             
             self.writeSyncronized(frame, eventLoop: eventLoop)
             
-            return promise.futureResult.map { value -> UInt32 in
+            return promise.futureResult.flatMapThrowing { value -> UInt32 in
                 timeout.cancel()
-                let sub = value as! CreateSubscriptionResponse
+                guard let sub = value as? CreateSubscriptionResponse else {
+                    throw OPCUAError.generic("Invalid CreateSubscriptionResponse payload type")
+                }
                 if startPublishing {
                     self.startPublishing(milliseconds: Int64(sub.revisedPubliscingInterval)).whenComplete { _ in }
                 }
@@ -611,9 +622,12 @@ public final class ZenOPCUA: @unchecked Sendable {
             
             self.writeSyncronized(frame, eventLoop: eventLoop)
             
-            return promise.futureResult.map { value -> [MonitoredItemCreateResult] in
+            return promise.futureResult.flatMapThrowing { value -> [MonitoredItemCreateResult] in
                 timeout.cancel()
-                return value as! [MonitoredItemCreateResult]
+                guard let results = value as? [MonitoredItemCreateResult] else {
+                    throw OPCUAError.generic("Invalid CreateMonitoredItemsResponse payload type")
+                }
+                return results
             }
         }
     }
@@ -657,9 +671,12 @@ public final class ZenOPCUA: @unchecked Sendable {
             
             self.writeSyncronized(frame, eventLoop: eventLoop)
             
-            return promise.futureResult.map { value -> [StatusCodes] in
+            return promise.futureResult.flatMapThrowing { value -> [StatusCodes] in
                 timeout.cancel()
-                return value as! [StatusCodes]
+                guard let results = value as? [StatusCodes] else {
+                    throw OPCUAError.generic("Invalid DeleteSubscriptionsResponse payload type")
+                }
+                return results
             }
         }
     }

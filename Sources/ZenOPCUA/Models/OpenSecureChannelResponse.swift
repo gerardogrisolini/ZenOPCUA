@@ -30,7 +30,8 @@ class OpenSecureChannelResponse: MessageBase, OPCUADecodable, @unchecked Sendabl
         index += 4
         
         guard bytes.count >= index + len.int else { return }
-        securityPolicyUri = String(bytes: bytes[index..<index+len.int], encoding: .utf8)!
+        guard let policy = String(bytes: bytes[index..<index+len.int], encoding: .utf8) else { return }
+        securityPolicyUri = policy
         index += len.int
 
         guard bytes.count >= index + 4 else { return }

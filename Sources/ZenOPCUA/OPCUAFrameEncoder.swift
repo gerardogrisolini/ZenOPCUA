@@ -56,17 +56,15 @@ final class OPCUAFrameEncoder {
             // Even if messageSecurityMode is .signAndEncrypt, we can't encrypt without keys
             if frame.head.messageType == .openChannel {
                 // OpenSecureChannelRequest uses asymmetric security.
-                // Compatibility path: some servers require encrypted OPN also in Sign mode
-                // when receiverCertificateThumbprint is present.
                 isEncryptionEnabled =
                     (secMode == .signAndEncrypt ||
-                     (secMode == .sign && state.includeServerThumbprintInOpn))
+                     state.useSignThumbprintCompatibilityEncryption)
                     && state.hasRemoteCertificate
             } else {
                 // MSG/CLO messages require symmetric keys for encryption
                 isEncryptionEnabled =
                     (secMode == .signAndEncrypt ||
-                     (secMode == .sign && state.includeServerThumbprintInOpn))
+                     state.useSignThumbprintCompatibilityEncryption)
                     && state.hasSymmetricKeys
             }
             
@@ -125,10 +123,10 @@ final class OPCUAFrameEncoder {
                 actualSecurityHeaderSize = calculatedSize
                 header = 4 + actualSecurityHeaderSize + 4
             } else {
-                // Failed to read security header, use fallback based on first connection flag
-                let fallbackSize = state.isFirstConnection ? 59 : 1115
-                actualSecurityHeaderSize = fallbackSize
-                header = 4 + fallbackSize + 4
+                // Failed to parse from buffer: derive from active security policy.
+                let derivedSize = max(0, state.securityPolicy.securityHeaderSize)
+                actualSecurityHeaderSize = derivedSize
+                header = 4 + derivedSize + 4
             }
 
         } else {
@@ -458,37 +456,22 @@ final class OPCUAFrameEncoder {
     }
     
     var securityHeaderSize: Int { 
-        // Calculate without accessing remoteCertificate to avoid crash
-        // This is used in other calculations where we need an estimate
-        if state.isFirstConnection {
-            // First connection with .none security: policyUri + 2 placeholders
-            // "http://opcfoundation.org/UA/SecurityPolicy#None" = 47 chars
-            return 4 + 47 + 4 + 4  // = 59 bytes
-        } else {
-            // Subsequent connection with actual security
-            // "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256" = 57 chars
-            // Certificate 1166 bytes, receiverCertificateThumbprint is always NULL (4 bytes placeholder)
-            return 4 + 57 + 4 + 1166 + 4  // = 1235 bytes
-        }
+        max(0, state.securityPolicy.securityHeaderSize)
     }
 
     var cipherTextBlockSize: Int { 
-        // Asymmetric (RSA-2048 with OAEP-SHA256): 256 bytes
-        // Symmetric (AES-256-CBC): 16 bytes
         if state.hasSymmetricKeys {
-            return 16  // AES-256-CBC block size
+            return max(1, state.securityPolicy.symmetricBlockSize)
         } else {
-            return 256  // RSA-2048 ciphertext size
+            return max(1, state.securityPolicy.asymmetricCipherTextBlockSize)
         }
     }
 
     var plainTextBlockSize: Int { 
-        // Asymmetric (RSA-2048 with OAEP-SHA256): 256 - 66 = 190 bytes
-        // Symmetric (AES-256-CBC): 16 bytes (same as ciphertext for symmetric)
         if state.hasSymmetricKeys {
-            return 16  // AES-256-CBC block size
+            return max(1, state.securityPolicy.symmetricBlockSize)
         } else {
-            return 190  // RSA-2048 plaintext capacity
+            return max(1, state.securityPolicy.asymmetricPlainTextBlockSize)
         }
     }
 }

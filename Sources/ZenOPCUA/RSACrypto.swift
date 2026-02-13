@@ -41,28 +41,34 @@ enum RSACrypto {
         let box: NIOLockedValueBox<T>
     }
 
-    private static let localKeysBox = LockedBox(box: NIOLockedValueBox(KeyPair()))
-    private static let remoteKeysBox = LockedBox(box: NIOLockedValueBox(KeyPair()))
-    private static let securityKeysBox = LockedBox(box: NIOLockedValueBox<SecurityKeys?>(nil))
+    final class RuntimeContext: @unchecked Sendable {
+        private let localKeysBox = LockedBox(box: NIOLockedValueBox(KeyPair()))
+        private let remoteKeysBox = LockedBox(box: NIOLockedValueBox(KeyPair()))
+        private let securityKeysBox = LockedBox(box: NIOLockedValueBox<SecurityKeys?>(nil))
 
-    static func withLocalKeys<T>(_ body: (inout KeyPair) throws -> T) rethrows -> T {
-        try localKeysBox.box.withLockedValue { keys in
-            try body(&keys)
+        func withLocalKeys<T>(_ body: (inout KeyPair) throws -> T) rethrows -> T {
+            try localKeysBox.box.withLockedValue { keys in
+                try body(&keys)
+            }
         }
-    }
 
-    static func withRemoteKeys<T>(_ body: (inout KeyPair) throws -> T) rethrows -> T {
-        try remoteKeysBox.box.withLockedValue { keys in
-            try body(&keys)
+        func withRemoteKeys<T>(_ body: (inout KeyPair) throws -> T) rethrows -> T {
+            try remoteKeysBox.box.withLockedValue { keys in
+                try body(&keys)
+            }
         }
-    }
 
-    static func getSecurityKeys() -> SecurityKeys? {
-        securityKeysBox.box.withLockedValue { $0 }
-    }
+        func getSecurityKeys() -> SecurityKeys? {
+            securityKeysBox.box.withLockedValue { $0 }
+        }
 
-    static func setSecurityKeys(_ keys: SecurityKeys?) {
-        securityKeysBox.box.withLockedValue { $0 = keys }
+        func setSecurityKeys(_ keys: SecurityKeys?) {
+            securityKeysBox.box.withLockedValue { $0 = keys }
+        }
+
+        func resetSessionKeys() {
+            setSecurityKeys(nil)
+        }
     }
     
     // MARK: - RSA Key Management
@@ -191,7 +197,7 @@ enum RSACrypto {
         symmetricEncryptionKeySize: Int,
         symmetricBlockSize: Int,
         keyDerivationAlgorithm: SecurityAlgorithm
-    ) {
+    ) -> SecurityKeys {
         let clientSignatureKey = createPShaKey(
             secret: serverNonce,
             seed: clientNonce,
@@ -235,8 +241,7 @@ enum RSACrypto {
             algorithm: keyDerivationAlgorithm
         )
         
-        setSecurityKeys(
-            SecurityKeys(
+        return SecurityKeys(
             clientKeys: SecretKeys(
                 signatureKey: clientSignatureKey,
                 encryptionKey: clientEncryptionKey,
@@ -246,7 +251,6 @@ enum RSACrypto {
                 signatureKey: serverSignatureKey,
                 encryptionKey: serverEncryptionKey,
                 initializationVector: serverInitializationVector
-            )
             )
         )
     }

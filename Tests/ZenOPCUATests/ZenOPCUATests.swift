@@ -10,7 +10,7 @@ final class ZenOPCUATests: XCTestCase {
     }
     
     override func tearDown() {
-        try! eventLoopGroup.syncShutdownGracefully()
+        try? eventLoopGroup.syncShutdownGracefully()
     }
 
     func testConnection() throws {
@@ -116,7 +116,7 @@ final class ZenOPCUATests: XCTestCase {
         ]
 
         for i in 0..<1 {
-            let readed = try! opcua.read(nodes: reads).wait()
+            let readed = try opcua.read(nodes: reads).wait()
             readed.forEach { dataValue in
                 print("dataValue sync(\(i): \(dataValue.variant.value) = \(dataValue.variant.type))")
             }

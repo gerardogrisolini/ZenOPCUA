@@ -100,7 +100,7 @@ final class OPCUAHandler: @unchecked Sendable {
             requestedLifetime = securityToken.revisedLifetime
             if authenticationToken == nil {
                 if response.serverNonce.count > 1 {
-                    RSACrypto.generateSecurityKeys(
+                    let securityKeys = RSACrypto.generateSecurityKeys(
                         serverNonce: response.serverNonce,
                         clientNonce: state.securityPolicy.clientNonce,
                         symmetricSignatureKeySize: state.securityPolicy.symmetricSignatureKeySize,
@@ -108,6 +108,7 @@ final class OPCUAHandler: @unchecked Sendable {
                         symmetricBlockSize: state.securityPolicy.symmetricBlockSize,
                         keyDerivationAlgorithm: state.securityPolicy.keyDerivationAlgorithm
                     )
+                    state.cryptoContext.setSecurityKeys(securityKeys)
                     state.hasSymmetricKeys = true  // Mark that we now have symmetric keys
                 } else {
                 }
@@ -300,22 +301,6 @@ final class OPCUAHandler: @unchecked Sendable {
     }
     
     private func openSecureChannel() {
-        // If we want security but don't have the server certificate yet,
-        // first open a non-secure channel to get the endpoints
-        let securityMode: MessageSecurityMode
-        if state.isAcknowledgeSecure {
-            securityMode = .none
-        } else if state.messageSecurityMode == .sign,
-                  state.includeServerThumbprintInOpn,
-                  state.hasRemoteCertificate {
-            // Compatibility path for Sign + thumbprint servers:
-            // they may require encrypted secure-channel traffic after OPN.
-            securityMode = .signAndEncrypt
-        } else {
-            securityMode = state.messageSecurityMode
-        }
-
-
         let head = OPCUAFrameHead(messageType: .openChannel, chunkType: .frame)
         let requestSecureChannelId: UInt32
         let requestTokenType: SecurityTokenRequestType
@@ -327,7 +312,7 @@ final class OPCUAHandler: @unchecked Sendable {
             requestTokenType = secureChannelId > 0 ? .renew : .issue
         }
         let body = OpenSecureChannelRequest(
-            messageSecurityMode: securityMode,
+            messageSecurityMode: state.effectiveOpenSecureChannelMode,
             securityPolicy: state.securityPolicy,
             userTokenType: requestTokenType,
             serverCertificate: state.securityPolicy.remoteCertificate,
@@ -526,6 +511,7 @@ final class OPCUAHandler: @unchecked Sendable {
         if !state.hasRemoteCertificate {
             state.isFirstConnection = true
         }
+        state.cryptoContext.resetSessionKeys()
         state.hasSymmetricKeys = false  // Reset symmetric keys flag
         state.opnThumbprintRetryDone = false
         state.resetSequenceNumber()

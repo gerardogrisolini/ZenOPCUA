@@ -14,49 +14,79 @@ class CreateMonitoredItemsResponse: MessageBase, OPCUADecodable, @unchecked Send
     var diagnosticInfos: [DiagnosticInfo] = []
     
     required override init(bytes: [UInt8]) {
-        typeId = NodeIdNumeric(method: .createSubscriptionResponse)
-        let part = bytes[20...43].map { $0 }
-        responseHeader = ResponseHeader(bytes: part)
+        typeId = NodeIdNumeric(method: .createMonitoredItemsResponse)
+        if bytes.count >= 44 {
+            let part = bytes[20...43].map { $0 }
+            responseHeader = ResponseHeader(bytes: part)
+        } else {
+            responseHeader = ResponseHeader(bytes: [UInt8](repeating: 0, count: 24))
+        }
         
         var index = 44
+        
+        func readUInt32Safe() -> UInt32? {
+            guard index + 4 <= bytes.count else { return nil }
+            let value = UInt32(bytes: bytes[index..<(index + 4)])
+            index += 4
+            return value
+        }
 
-        var count = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
+        func readByteSafe() -> UInt8? {
+            guard index < bytes.count else { return nil }
+            let value = bytes[index]
+            index += 1
+            return value
+        }
+
+        func readStringSafe() -> String? {
+            guard let len = readUInt32Safe(), len != UInt32.max else { return nil }
+            let count = len.int
+            guard index + count <= bytes.count else { return nil }
+            let value = String(bytes: bytes[index..<(index + count)], encoding: .utf8)
+            index += count
+            return value
+        }
+
+        guard let initialCount = readUInt32Safe() else {
+            super.init(bytes: bytes.count >= 16 ? bytes[0...15].map { $0 } : [])
+            return
+        }
+        var count = initialCount
         if count < UInt32.max {
             for _ in 0..<count {
-                let statusCode = StatusCodes(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
-                index += 4
+                guard let rawStatus = readUInt32Safe() else { break }
+                let statusCode = StatusCodes(rawValue: rawStatus) ?? .UA_STATUSCODE_BADDATAENCODINGINVALID
                 var result = MonitoredItemCreateResult(statusCode: statusCode)
-                result.monitoredItemId = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
+                guard let monitoredItemId = readUInt32Safe() else { break }
+                result.monitoredItemId = monitoredItemId
+                guard index + 8 <= bytes.count else { break }
                 result.revisedSamplingInterval = Double(bytes: bytes[index..<(index+8)].map { $0 })
                 index += 8
-                result.revisedQueueSize = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
+                guard let revisedQueueSize = readUInt32Safe() else { break }
+                result.revisedQueueSize = revisedQueueSize
                 
                 result.filterResult.typeId = Nodes.node(index: &index, bytes: bytes)
-                result.filterResult.encodingMask = bytes[index]
-                index += 1
+                result.filterResult.encodingMask = readByteSafe() ?? 0
                 
                 results.append(result)
             }
         }
         
-        count = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
+        guard let diagCount = readUInt32Safe() else {
+            super.init(bytes: bytes.count >= 16 ? bytes[0...15].map { $0 } : [])
+            return
+        }
+        count = diagCount
         if count < UInt32.max {
             for _ in 0..<count {
-                let len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
+                if let text = readStringSafe() {
                     let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
-                index += len.int
             }
         }
 
-        super.init(bytes: bytes[0...15].map { $0 })
+        super.init(bytes: bytes.count >= 16 ? bytes[0...15].map { $0 } : [])
     }
 }
 

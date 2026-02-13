@@ -12,6 +12,7 @@ import NIO
 class SecurityPolicy: @unchecked Sendable {
 
     weak var connectionState: OPCUAConnectionState?
+    private let localCryptoContext = RSACrypto.RuntimeContext()
     var clientNonce: [UInt8] = []
     var localPrivateKey: Data = Data()
     var localCertificate: Data = Data()
@@ -243,8 +244,6 @@ class SecurityPolicy: @unchecked Sendable {
             return 24
         case .basic256Sha256, .aes128Sha256RsaOaep, .aes256Sha256RsaPss:
             return 32
-        default:
-            return 0
         }
     }
     
@@ -256,8 +255,6 @@ class SecurityPolicy: @unchecked Sendable {
             return 16
         case .basic256, .basic256Sha256, .aes256Sha256RsaPss:
             return 32
-        default:
-            return 0
         }
     }
     
@@ -287,7 +284,11 @@ class SecurityPolicy: @unchecked Sendable {
             && localCertificate.count > 0 
             && remoteCertificate.count > 0  // Need remote cert to encrypt
     }
-    var isAsymmetric: Bool { RSACrypto.getSecurityKeys() == nil }
+    var isAsymmetric: Bool { runtimeCryptoContext.getSecurityKeys() == nil }
+
+    private var runtimeCryptoContext: RSACrypto.RuntimeContext {
+        connectionState?.cryptoContext ?? localCryptoContext
+    }
     
     /* Common */
 
@@ -302,7 +303,7 @@ class SecurityPolicy: @unchecked Sendable {
     /* Asymmetric */
 
     func signAsymmetric(data: Data) throws -> Data {
-        let privateKey = try RSACrypto.withLocalKeys { keys in
+        let privateKey = try runtimeCryptoContext.withLocalKeys { keys in
             if let cached = keys.signingPrivateKey {
                 return cached
             }
@@ -326,7 +327,7 @@ class SecurityPolicy: @unchecked Sendable {
     
     func signVerifyAsymmetric(signature: Data, data: Data) -> Bool {
         do {
-            let publicKey = try RSACrypto.withLocalKeys { keys in
+            let publicKey = try runtimeCryptoContext.withLocalKeys { keys in
                 if let cached = keys.signingPublicKey {
                     return cached
                 }
@@ -351,7 +352,7 @@ class SecurityPolicy: @unchecked Sendable {
     }
     
     func cryptAsymmetric(data: [UInt8]) throws -> [UInt8] {
-        let publicKey = try RSACrypto.withRemoteKeys { keys in
+        let publicKey = try runtimeCryptoContext.withRemoteKeys { keys in
             if let cached = keys.publicKey {
                 return cached
             }
@@ -374,7 +375,7 @@ class SecurityPolicy: @unchecked Sendable {
 
         
     func decryptAsymmetric(data: [UInt8]) throws -> [UInt8] {
-        let privateKey = try RSACrypto.withLocalKeys { keys in
+        let privateKey = try runtimeCryptoContext.withLocalKeys { keys in
             if let cached = keys.privateKey {
                 return cached
             }
@@ -400,7 +401,7 @@ class SecurityPolicy: @unchecked Sendable {
 
     func cryptSymmetric(data: [UInt8]) throws -> [UInt8] {
         // Client encrypts outgoing messages with clientKeys
-        guard let keys = RSACrypto.getSecurityKeys() else {
+        guard let keys = runtimeCryptoContext.getSecurityKeys() else {
             throw OPCUAError.generic("Missing symmetric keys")
         }
         let key = keys.clientKeys.encryptionKey
@@ -415,7 +416,7 @@ class SecurityPolicy: @unchecked Sendable {
     }
 
     func decryptSymmetric(data: [UInt8]) throws -> [UInt8] {
-        guard let keys = RSACrypto.getSecurityKeys() else {
+        guard let keys = runtimeCryptoContext.getSecurityKeys() else {
             throw OPCUAError.generic("Missing symmetric keys")
         }
         let key = keys.serverKeys.encryptionKey
@@ -430,7 +431,7 @@ class SecurityPolicy: @unchecked Sendable {
     }
     
     func signSymmetric(data: Data) -> Data {
-        guard let keys = RSACrypto.getSecurityKeys() else {
+        guard let keys = runtimeCryptoContext.getSecurityKeys() else {
             return Data()
         }
         let key = keys.clientKeys.signatureKey
@@ -446,7 +447,7 @@ class SecurityPolicy: @unchecked Sendable {
     }
 
     func signVerifySymmetric(signature: Data, data: Data) -> Bool {
-        guard let keys = RSACrypto.getSecurityKeys() else {
+        guard let keys = runtimeCryptoContext.getSecurityKeys() else {
             return false
         }
         let key = keys.serverKeys.signatureKey
@@ -462,7 +463,7 @@ class SecurityPolicy: @unchecked Sendable {
     }
 
     func signVerifySymmetricLocal(signature: Data, data: Data) -> Bool {
-        guard let keys = RSACrypto.getSecurityKeys() else {
+        guard let keys = runtimeCryptoContext.getSecurityKeys() else {
             return false
         }
         let key = keys.clientKeys.signatureKey

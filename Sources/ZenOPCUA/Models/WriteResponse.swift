@@ -13,32 +13,45 @@ class WriteResponse: MessageBase, OPCUADecodable, @unchecked Sendable {
     
     required override init(bytes: [UInt8]) {
         typeId = NodeIdNumeric(method: .writeResponse)
-        let part = bytes[20...43].map { $0 }
-        responseHeader = ResponseHeader(bytes: part)
-        super.init(bytes: bytes[0...15].map { $0 })
+        if bytes.count >= 44 {
+            let part = bytes[20...43].map { $0 }
+            responseHeader = ResponseHeader(bytes: part)
+        } else {
+            responseHeader = ResponseHeader(bytes: [UInt8](repeating: 0, count: 24))
+        }
+        super.init(bytes: bytes.count >= 16 ? bytes[0...15].map { $0 } : [])
 
         var index = 44
+        func readUInt32Safe() -> UInt32? {
+            guard index + 4 <= bytes.count else { return nil }
+            let value = UInt32(bytes: bytes[index..<(index + 4)])
+            index += 4
+            return value
+        }
+        func readStringSafe() -> String? {
+            guard let len = readUInt32Safe(), len != UInt32.max else { return nil }
+            let count = len.int
+            guard index + count <= bytes.count else { return nil }
+            let text = String(bytes: bytes[index..<(index + count)], encoding: .utf8)
+            index += count
+            return text
+        }
         
-        var count = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
+        var count = readUInt32Safe() ?? 0
         for _ in 0..<count {
-            if let status = StatusCodes(rawValue: UInt32(bytes: bytes[index..<(index+4)])) {
+            guard let rawStatus = readUInt32Safe() else { break }
+            if let status = StatusCodes(rawValue: rawStatus) {
                 results.append(status)
             }
-            index += 4
         }
 
-        count = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
+        count = readUInt32Safe() ?? 0
         if count < UInt32.max {
             for _ in 0..<count {
-                let len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if let text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8) {
+                if let text = readStringSafe() {
                     let info = DiagnosticInfo(info: text)
                     diagnosticInfos.append(info)
                 }
-                index += len.int
             }
         }
     }

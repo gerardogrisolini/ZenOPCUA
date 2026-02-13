@@ -108,7 +108,7 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
 
 struct UserIdentityInfoX509: UserIdentityInfo {
     let policyId: String
-    let certificateData: [UInt8]
+    var certificateData: [UInt8] = []
     var userTokenSignature: SignatureData = SignatureData()
 
     init(
@@ -131,7 +131,9 @@ struct UserIdentityInfoX509: UserIdentityInfo {
                 )
             }
         } catch {
-            fatalError(error.localizedDescription)
+            self.certificateData = [UInt8](certificate)
+            self.userTokenSignature = SignatureData()
+            print("UserIdentityInfoX509: failed to build user token signature: \(error)")
         }
     }
 

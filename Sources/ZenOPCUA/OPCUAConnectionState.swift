@@ -2,6 +2,7 @@ import Foundation
 
 // Concurrency: confined to the channel's EventLoop.
 final class OPCUAConnectionState: @unchecked Sendable {
+    let cryptoContext: RSACrypto.RuntimeContext
     var securityPolicy: SecurityPolicy
     var messageSecurityMode: MessageSecurityMode
     var bufferSize: Int
@@ -19,8 +20,25 @@ final class OPCUAConnectionState: @unchecked Sendable {
     var isAcknowledgeSecure: Bool {
         messageSecurityMode != .none && securityPolicy.remoteCertificate.count == 0
     }
+
+    // Some servers require encrypted secure-channel traffic when Sign mode is used
+    // with a non-null receiver certificate thumbprint in OPN.
+    var useSignThumbprintCompatibilityEncryption: Bool {
+        messageSecurityMode == .sign && includeServerThumbprintInOpn && hasRemoteCertificate
+    }
+
+    var effectiveOpenSecureChannelMode: MessageSecurityMode {
+        if isAcknowledgeSecure {
+            return .none
+        }
+        if useSignThumbprintCompatibilityEncryption {
+            return .signAndEncrypt
+        }
+        return messageSecurityMode
+    }
     
     init(
+        cryptoContext: RSACrypto.RuntimeContext = RSACrypto.RuntimeContext(),
         securityPolicy: SecurityPolicy = SecurityPolicy(),
         messageSecurityMode: MessageSecurityMode = .none,
         bufferSize: Int = 8196,
@@ -33,6 +51,7 @@ final class OPCUAConnectionState: @unchecked Sendable {
         expectedServerThumbprint: Data? = nil,
         opnThumbprintRetryDone: Bool = false
     ) {
+        self.cryptoContext = cryptoContext
         self.securityPolicy = securityPolicy
         self.messageSecurityMode = messageSecurityMode
         self.bufferSize = bufferSize

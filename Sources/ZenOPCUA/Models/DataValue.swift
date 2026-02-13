@@ -230,7 +230,7 @@ public struct Variant {
         case .double:
             return bytes.load() as Double
         case .string:
-            return bytes.withUnsafeBytes { String(bytes: $0, encoding: .utf8)! }
+            return bytes.withUnsafeBytes { String(bytes: $0, encoding: .utf8) ?? "" }
         case .datetime:
             return (bytes.load() as Int64).dateUtc
         case .arrayOfDouble:

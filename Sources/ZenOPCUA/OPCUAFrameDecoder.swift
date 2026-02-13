@@ -42,28 +42,39 @@ final class OPCUAFrameDecoder {
             return nil
         }
 
-        let lenght = UInt32(bytes: buffer.getBytes(at: buffer.readerIndex + 4, length: 4)!).int
+        guard let lengthBytes = buffer.getBytes(at: buffer.readerIndex + 4, length: 4) else {
+            return nil
+        }
+        let lenght = UInt32(bytes: lengthBytes).int
+        guard lenght > 0 else { return nil }
         guard buffer.readableBytes >= lenght else {
             return nil
         }
         //print("\(buffer.readableBytes) >= \(lenght)")
         
-        if let chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!), chunkType == .part {
+        if let chunkTypeRaw = buffer.getString(at: buffer.readerIndex + 3, length: 1),
+           let chunkType = ChunkTypes(rawValue: chunkTypeRaw),
+           chunkType == .part {
             let count = buffer.readableBytes / lenght
 
             if parts == nil {
                 parts = byteBufferAllocator.buffer(capacity: count * lenght)
-                parts!.writeBytes(buffer.getBytes(at: 0, length: 24)!)
+                guard let headerBytes = buffer.getBytes(at: buffer.readerIndex, length: 24) else {
+                    return nil
+                }
+                parts!.writeBytes(headerBytes)
             }
 
             for _ in 0..<count {
-                let b = buffer.getBytes(at: buffer.readerIndex, length: lenght)!
-                parts!.writeBytes(b[24...])
+                guard let b = buffer.getBytes(at: buffer.readerIndex, length: lenght), b.count >= 24 else {
+                    return nil
+                }
+                parts!.writeBytes(Array(b[24...]))
                 buffer.moveReaderIndex(forwardBy: lenght)
             }
 
             if let chunkType = buffer.getString(at: buffer.readerIndex + 3, length: 1) {
-                guard ChunkTypes(rawValue: chunkType)! == .frame else { return nil }
+                guard let nextType = ChunkTypes(rawValue: chunkType), nextType == .frame else { return nil }
             } else {
                 return nil
             }
@@ -71,16 +82,25 @@ final class OPCUAFrameDecoder {
 
         if var f = parts {
             if buffer.readableBytes > 24 {
-                f.writeBytes(buffer.getBytes(at: buffer.readerIndex + 24, length: buffer.readableBytes - 24)!)
+                guard let bodyBytes = buffer.getBytes(at: buffer.readerIndex + 24, length: buffer.readableBytes - 24) else {
+                    return nil
+                }
+                f.writeBytes(bodyBytes)
                 buffer.moveReaderIndex(forwardBy: buffer.readableBytes)
             }
             buffer.clear()
-            buffer.writeBytes(f.getBytes(at: 0, length: 4)!)
+            guard let messageTypeAndChunk = f.getBytes(at: 0, length: 4) else {
+                return nil
+            }
+            buffer.writeBytes(messageTypeAndChunk)
             buffer.writeBytes(UInt32(f.writerIndex).bytes)
             // Ensure we don't try to read negative length
             let dataLength = max(0, f.writerIndex - 8)
             if dataLength > 0 {
-                buffer.writeBytes(f.getBytes(at: 8, length: dataLength)!)
+                guard let dataBytes = f.getBytes(at: 8, length: dataLength) else {
+                    return nil
+                }
+                buffer.writeBytes(dataBytes)
             }
             parts = nil
         }
@@ -97,10 +117,7 @@ final class OPCUAFrameDecoder {
         
         // Hello, Acknowledge, and Error messages are NEVER encrypted, regardless of security settings.
         // Interop: allow encrypted traffic in Sign mode when thumbprint is included.
-        let signCompatibilityDecrypt =
-            state.messageSecurityMode == .sign &&
-            state.includeServerThumbprintInOpn &&
-            state.hasRemoteCertificate
+        let signCompatibilityDecrypt = state.useSignThumbprintCompatibilityEncryption
 
         let shouldDecrypt = (state.securityPolicy.isEncryptionEnabled || signCompatibilityDecrypt)
             && type != .hello
@@ -136,7 +153,11 @@ final class OPCUAFrameDecoder {
 
         var head = OPCUAFrameHead()
         head.messageType = type
-        head.chunkType = ChunkTypes(rawValue: buffer.getString(at: buffer.readerIndex + 3, length: 1)!)!
+        guard let chunkTypeRaw = buffer.getString(at: buffer.readerIndex + 3, length: 1),
+              let chunkType = ChunkTypes(rawValue: chunkTypeRaw) else {
+            return nil
+        }
+        head.chunkType = chunkType
         
         head.messageSize = UInt32(buffer.writerIndex)
         
@@ -153,10 +174,7 @@ final class OPCUAFrameDecoder {
     
     private func decryptChunk(chunkBuffer: inout ByteBuffer) throws -> ByteBuffer {
         let messageType = chunkBuffer.getString(at: chunkBuffer.readerIndex, length: 3) ?? ""
-        let isSignCompatibilityEncrypted =
-            state.messageSecurityMode == .sign &&
-            state.includeServerThumbprintInOpn &&
-            state.hasRemoteCertificate
+        let isSignCompatibilityEncrypted = state.useSignThumbprintCompatibilityEncryption
 
         let isEncryptionEnabled = state.securityPolicy.isEncryptionEnabled || isSignCompatibilityEncrypted
         let isAsymmetric = state.securityPolicy.isAsymmetric
@@ -196,7 +214,9 @@ final class OPCUAFrameDecoder {
                 }
 
                 for _ in 0..<blockCount {
-                    let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: cipherTextBlockSize)!
+                    guard let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: cipherTextBlockSize) else {
+                        throw OPCUAError.generic("Cannot read asymmetric encrypted block")
+                    }
                     chunkBuffer.moveReaderIndex(forwardBy: cipherTextBlockSize)
                     let bytes = try state.securityPolicy.decryptAsymmetric(data: dataToDencrypt)
                     plainTextBuffer.writeBytes(bytes)
@@ -208,7 +228,9 @@ final class OPCUAFrameDecoder {
             
             } else {
                 
-                let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes)!
+                guard let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: chunkBuffer.readableBytes) else {
+                    throw OPCUAError.generic("Cannot read symmetric encrypted block")
+                }
                 let bytes = try state.securityPolicy.decryptSymmetric(data: dataToDencrypt)
                 chunkBuffer.moveReaderIndex(to: 0)
                 chunkBuffer.moveWriterIndex(to: header)
@@ -266,8 +288,12 @@ final class OPCUAFrameDecoder {
         }
         
         let len = chunkBuffer.writerIndex - signatureSize
-        let data = Data(chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: len)!)
-        let signature = Data(chunkBuffer.getBytes(at: chunkBuffer.readerIndex + len, length: signatureSize)!)
+        guard let dataBytes = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: len),
+              let signatureBytes = chunkBuffer.getBytes(at: chunkBuffer.readerIndex + len, length: signatureSize) else {
+            throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADSECURITYCHECKSFAILED, reason: "Cannot read signature payload")
+        }
+        let data = Data(dataBytes)
+        let signature = Data(signatureBytes)
         
         if !(state.securityPolicy.signVerify(signature: signature, data: data)) {
             throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADUSERSIGNATUREINVALID)
