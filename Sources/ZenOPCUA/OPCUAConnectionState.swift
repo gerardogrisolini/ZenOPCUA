@@ -11,6 +11,8 @@ final class OPCUAConnectionState: @unchecked Sendable {
     var isFirstConnection: Bool
     var hasSymmetricKeys: Bool
     var includeServerThumbprintInOpn: Bool
+    var expectedServerThumbprint: Data?
+    var opnThumbprintRetryDone: Bool
     var sequenceNumber = UInt32(1)
     var reconnect: Bool = false
     
@@ -27,7 +29,9 @@ final class OPCUAConnectionState: @unchecked Sendable {
         hasRemoteCertificate: Bool = false,
         isFirstConnection: Bool = true,
         hasSymmetricKeys: Bool = false,
-        includeServerThumbprintInOpn: Bool = false
+        includeServerThumbprintInOpn: Bool = false,
+        expectedServerThumbprint: Data? = nil,
+        opnThumbprintRetryDone: Bool = false
     ) {
         self.securityPolicy = securityPolicy
         self.messageSecurityMode = messageSecurityMode
@@ -38,6 +42,8 @@ final class OPCUAConnectionState: @unchecked Sendable {
         self.isFirstConnection = isFirstConnection
         self.hasSymmetricKeys = hasSymmetricKeys
         self.includeServerThumbprintInOpn = includeServerThumbprintInOpn
+        self.expectedServerThumbprint = expectedServerThumbprint
+        self.opnThumbprintRetryDone = opnThumbprintRetryDone
         self.securityPolicy.connectionState = self
     }
     

@@ -86,12 +86,12 @@ final class OPCUAHandler: @unchecked Sendable {
                   let securityToken = response.securityToken else {
                 print("Failed to parse OpenSecureChannelResponse - frame.body.count=\(frame.body.count)")
                 let error = OPCUAError.generic("Failed to parse OpenSecureChannelResponse")
-                promises[0]?.fail(error)
+                failConnectIfPending(error)
                 return
             }
             
             guard responseHeader.serviceResult == .UA_STATUSCODE_GOOD else {
-                promises[0]!.fail(OPCUAError.code(responseHeader.serviceResult, reason: ""))
+                failConnectIfPending(OPCUAError.code(responseHeader.serviceResult, reason: ""))
                 return
             }
             
@@ -116,6 +116,18 @@ final class OPCUAHandler: @unchecked Sendable {
         case .error:
             var error: Error
             let code = UInt32(bytes: frame.body[0...3])
+            if let status = StatusCodes(rawValue: code),
+               (status == .UA_STATUSCODE_BADSECURITYCHECKSFAILED || status == .UA_STATUSCODE_BADUNEXPECTEDERROR),
+               state.messageSecurityMode == .sign,
+               !state.includeServerThumbprintInOpn,
+               !state.opnThumbprintRetryDone {
+                state.opnThumbprintRetryDone = true
+                state.includeServerThumbprintInOpn = true
+                state.resetSequenceNumber()
+                resetMessageID()
+                openSecureChannel()
+                return
+            }
             #if DEBUG
             print("ERROR MESSAGE RECEIVED:")
             print("  Status code: 0x\(String(format: "%08X", code)) (\(code))")
@@ -139,8 +151,11 @@ final class OPCUAHandler: @unchecked Sendable {
                 error = OPCUAError.generic(code.description)
             }
             onErrorCaught(error: error)
-            promises.forEach { promise in
-                promise.value.fail(error)
+            failConnectIfPending(error)
+            promises.forEach { key, promise in
+                if key != 0 {
+                    promise.fail(error)
+                }
             }
         default:
             guard let method = Methods(rawValue: UInt16(bytes: frame.body[18..<20])) else { return }
@@ -150,7 +165,7 @@ final class OPCUAHandler: @unchecked Sendable {
                 if !createSession(response: GetEndpointsResponse(bytes: frame.body)) {
                     state.reconnect = false
                     let error = OPCUAError.generic("No suitable UserTokenPolicy found for the possible endpoints")
-                    promises[0]!.fail(error)
+                    failConnectIfPending(error)
                     onErrorCaught(error: error)
                 }
             case .createSessionResponse:
@@ -158,7 +173,7 @@ final class OPCUAHandler: @unchecked Sendable {
                 if response.responseHeader.serviceResult != .UA_STATUSCODE_GOOD {
                     state.reconnect = false
                     let error = OPCUAError.code(response.responseHeader.serviceResult)
-                    promises[0]!.fail(error)
+                    failConnectIfPending(error)
                     onErrorCaught(error: error)
                 } else {
                     activateSession(response: response)
@@ -167,11 +182,11 @@ final class OPCUAHandler: @unchecked Sendable {
                 let response = ActivateSessionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
                     state.isAcknowledge = false
-                    promises[0]!.succeed(Empty())
+                    succeedConnectIfPending()
                     onHandlerActivated()
                 } else {
                     let error = OPCUAError.code(response.responseHeader.serviceResult)
-                    promises[0]!.fail(error)
+                    failConnectIfPending(error)
                     onErrorCaught(error: error)
                 }
             case .closeSessionResponse:
@@ -221,8 +236,8 @@ final class OPCUAHandler: @unchecked Sendable {
                 let error = OPCUAError.code(responseHeader.serviceResult)
                 if let promise = promises[responseHeader.requestHandle] {
                     promise.fail(error)
-                } else if let connectPromise = promises[0] {
-                    connectPromise.fail(error)
+                } else {
+                    failConnectIfPending(error)
                 }
                 onErrorCaught(error: error)
             default:
@@ -350,7 +365,25 @@ final class OPCUAHandler: @unchecked Sendable {
         send(frame)
     }
     
+    private func verifyServerCertificateThumbprint(_ certificate: [UInt8], context: String) -> Bool {
+        guard !certificate.isEmpty else { return true }
+        let thumbprint = RSACrypto.sha1(data: Data(certificate))
+        if let expected = state.expectedServerThumbprint, expected != thumbprint {
+            state.reconnect = false
+            let error = OPCUAError.generic("Server certificate mismatch (\(context))")
+            failConnectIfPending(error)
+            onErrorCaught(error: error)
+            return false
+        }
+        if state.expectedServerThumbprint == nil {
+            state.expectedServerThumbprint = thumbprint
+        }
+        return true
+    }
+
     fileprivate func createSession(response: GetEndpointsResponse) -> Bool {
+        let needsSecureUpgrade = state.isAcknowledgeSecure
+
         guard let endpoint = response
                 .endpoints
                 .first(where: {
@@ -358,15 +391,21 @@ final class OPCUAHandler: @unchecked Sendable {
                     && $0.securityPolicyUri == state.securityPolicy.securityPolicyUri
                 })
         else { return false }
-        
+
+        guard verifyServerCertificateThumbprint(endpoint.serverCertificate, context: "GetEndpoints") else {
+            return false
+        }
+
         let requestId = nextMessageID()
         let frame: OPCUAFrame
 
-        if state.isAcknowledgeSecure {
+        if needsSecureUpgrade {
             // Load the remote certificate but DON'T set isFirstConnection = false yet
             // We need to send CloseSecureChannelRequest as an unsigned message
             // because the current connection is still using SecurityPolicy#None
-            state.securityPolicy.loadRemoteCertificate(data: endpoint.serverCertificate)
+            if !endpoint.serverCertificate.isEmpty {
+                state.securityPolicy.loadRemoteCertificate(data: endpoint.serverCertificate)
+            }
             // Keep isFirstConnection = true so the CloseSecureChannel is sent unsigned
             
             state.isUpgradingToSecure = true
@@ -380,6 +419,9 @@ final class OPCUAHandler: @unchecked Sendable {
             )
             frame = OPCUAFrame(head: head, body: body.bytes)
         } else {
+            if !endpoint.serverCertificate.isEmpty && state.securityPolicy.remoteCertificate.isEmpty {
+                state.securityPolicy.loadRemoteCertificate(data: endpoint.serverCertificate)
+            }
             let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
             let body = CreateSessionRequest(
                 secureChannelId: secureChannelId,
@@ -400,15 +442,22 @@ final class OPCUAHandler: @unchecked Sendable {
 
     fileprivate func activateSession(response: CreateSessionResponse) {
         authenticationToken = response.authenticationToken
+
+        guard verifyServerCertificateThumbprint(response.serverCertificate, context: "CreateSessionResponse") else {
+            return
+        }
         
         if let endpoint = response.serverEndpoints.first(where: {
             $0.messageSecurityMode == state.messageSecurityMode && $0.endpointUrl.hasPrefix("opc.tcp")
         }) {
+            guard verifyServerCertificateThumbprint(endpoint.serverCertificate, context: "CreateSessionResponse endpoints") else {
+                return
+            }
             if let _ = username, let _ = password {
                 guard let userPolicy = endpoint.userIdentityTokens.first(where: { $0.tokenType == .userName }) else {
                     let error = OPCUAError.generic("No username UserTokenPolicy available for endpoint")
                     errorCaught?(error)
-                    promises[0]?.fail(error)
+                    failConnectIfPending(error)
                     return
                 }
                 sendActivateSession(response: response, userTokenPolicy: userPolicy)
@@ -430,6 +479,14 @@ final class OPCUAHandler: @unchecked Sendable {
                 guard let self = self else { return }
                 self.openSecureChannel()
             }
+        } else {
+            state.reconnect = false
+            let availableModes = response.serverEndpoints.map { String(describing: $0.messageSecurityMode) }.joined(separator: ",")
+            let error = OPCUAError.generic(
+                "No endpoint for requested security mode \(state.messageSecurityMode). Available modes: [\(availableModes)]"
+            )
+            failConnectIfPending(error)
+            onErrorCaught(error: error)
         }
     }
     
@@ -443,6 +500,16 @@ final class OPCUAHandler: @unchecked Sendable {
         messageID += 1
         return messageID
     }
+
+    func succeedConnectIfPending() {
+        guard let promise = promises.removeValue(forKey: 0) else { return }
+        promise.succeed(Empty())
+    }
+
+    func failConnectIfPending(_ error: Error) {
+        guard let promise = promises.removeValue(forKey: 0) else { return }
+        promise.fail(error)
+    }
     
     public func resetAll() {
         messageID = 0
@@ -454,6 +521,7 @@ final class OPCUAHandler: @unchecked Sendable {
             state.isFirstConnection = true
         }
         state.hasSymmetricKeys = false  // Reset symmetric keys flag
+        state.opnThumbprintRetryDone = false
         state.resetSequenceNumber()
     }
 

@@ -290,7 +290,9 @@ final class OPCUAFrameEncoder {
                         signStartPos = 0
                     }
                 } else {
-                    signStartPos = 8
+                    // OPN asymmetric signature in Sign-only mode covers the full chunk
+                    // (MessageHeader + SecurityHeader + SequenceHeader + Body).
+                    signStartPos = (messageTypeStr == "OPN") ? 0 : 8
                 }
                 let dataToSign = Data(chunkBuffer.getBytes(at: signStartPos, length: chunkBuffer.writerIndex - signStartPos)!)
                 let signature = try state.securityPolicy.sign(data: dataToSign)

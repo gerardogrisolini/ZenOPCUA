@@ -73,9 +73,10 @@ public class OpenSecureChannelRequest: OPCUAEncodable {
             self.clientNonce.append(contentsOf: securityPolicy.clientNonce)
 
             // According to OPC UA Part 6, Section 6.7.2:
-            // The receiverCertificateThumbprint in OpenSecureChannelRequest is always NULL.
-            // Some servers require the thumbprint anyway, so allow a compatibility override.
-            let shouldIncludeThumbprint = includeServerThumbprintInOpn
+            // The receiverCertificateThumbprint is NULL when the message is not encrypted.
+            // Some servers require it even for Sign-only; keep an explicit compatibility override.
+            let shouldIncludeThumbprint = messageSecurityMode == .signAndEncrypt
+                || includeServerThumbprintInOpn
                 || securityPolicy.securityPolicyUri.securityPolicy == .aes256Sha256RsaPss
             if shouldIncludeThumbprint,
                securityPolicy.remoteCertificateThumbprint.count > 0 {

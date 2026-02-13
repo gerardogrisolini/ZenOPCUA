@@ -59,7 +59,8 @@ class SecurityPolicy: @unchecked Sendable {
             self.symmetricSignatureAlgorithm = .hmacSha256
             self.symmetricEncryptionAlgorithm = .aes256
             self.asymmetricSignatureAlgorithm = .rsaSha256
-            self.asymmetricEncryptionAlgorithm = .rsaOaepSha256
+            // OPC UA Basic256Sha256 uses RSA-OAEP with SHA-1 for asymmetric encryption.
+            self.asymmetricEncryptionAlgorithm = .rsaOaepSha1
             self.asymmetricKeyWrapAlgorithm = .kwRsaOaep
             self.keyDerivationAlgorithm = .pSha256
             self.certificateSignatureAlgorithm = .sha256
@@ -150,9 +151,11 @@ class SecurityPolicy: @unchecked Sendable {
             // Placeholders: policyUri + UInt32.max + UInt32.max
             return 4 + policyUri + 4 + 4  // policyUri + 2 placeholders (4 bytes each)
         } else {
-            // For OPN messages: receiverCertificateThumbprint is normally NULL,
-            // but we allow an override for servers that require it.
-            let thumbprintLength = ((connectionState?.includeServerThumbprintInOpn ?? false)
+            // For OPN messages: thumbprint is NULL when not encrypted.
+            // Include it when encrypted or when compatibility override is enabled.
+            let isSignAndEncrypt = (connectionState?.messageSecurityMode ?? .none) == .signAndEncrypt
+            let includeThumbprintOverride = connectionState?.includeServerThumbprintInOpn ?? false
+            let thumbprintLength = (isSignAndEncrypt || includeThumbprintOverride
                 || securityPolicyUri.securityPolicy == .aes256Sha256RsaPss)
                 ? remoteCertificateThumbprint.count
                 : 0
@@ -319,6 +322,7 @@ class SecurityPolicy: @unchecked Sendable {
             throw OPCUAError.generic("Unsupported signature algorithm: \(asymmetricSignatureAlgorithm)")
         }
     }
+
     
     func signVerifyAsymmetric(signature: Data, data: Data) -> Bool {
         do {

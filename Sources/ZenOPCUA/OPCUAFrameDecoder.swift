@@ -152,14 +152,22 @@ final class OPCUAFrameDecoder {
         let cipherTextBlockSize = isAsymmetric 
             ? state.securityPolicy.asymmetricCipherTextBlockSize
             : state.securityPolicy.symmetricBlockSize
+        let messageType = chunkBuffer.getString(at: chunkBuffer.readerIndex, length: 3) ?? ""
         // For symmetric MSG/CLO, header includes: messageType(3) + chunkType(1) + size(4) + channelId(4) + tokenId(4) = 16
         // For asymmetric OPN, header includes: messageType(3) + chunkType(1) + size(4) + channelId(4) + securityHeader
         let header = isEncryptionEnabled
             ? isAsymmetric
-                ? SECURE_MESSAGE_HEADER_SIZE + securityHeaderSize
+                ? SECURE_MESSAGE_HEADER_SIZE + (
+                    messageType == "OPN"
+                        ? calculateSecurityHeaderSizeFromBuffer(chunkBuffer)
+                        : securityHeaderSize
+                )
                 : SECURE_MESSAGE_HEADER_SIZE + 4  // Add 4 for tokenId in MSG/CLO
             : 0
-        
+
+        guard chunkBuffer.readableBytes >= header else {
+            throw OPCUAError.generic("Encrypted chunk too small for header: readable=\(chunkBuffer.readableBytes), header=\(header), type=\(messageType)")
+        }
         chunkBuffer.moveReaderIndex(forwardBy: header)
         let blockCount = chunkBuffer.readableBytes / cipherTextBlockSize
         let plainTextBufferSize = cipherTextBlockSize * blockCount
@@ -170,8 +178,11 @@ final class OPCUAFrameDecoder {
 
         do {
             if state.securityPolicy.isAsymmetric {
-            
-                assert (chunkBuffer.readableBytes % cipherTextBlockSize == 0)
+                if chunkBuffer.readableBytes % cipherTextBlockSize != 0 {
+                    throw OPCUAError.generic(
+                        "Asymmetric decrypt alignment error: readable=\(chunkBuffer.readableBytes), block=\(cipherTextBlockSize), header=\(header), type=\(messageType)"
+                    )
+                }
 
                 for _ in 0..<blockCount {
                     let dataToDencrypt = chunkBuffer.getBytes(at: chunkBuffer.readerIndex, length: cipherTextBlockSize)!
@@ -196,6 +207,42 @@ final class OPCUAFrameDecoder {
         } catch {
             throw OPCUAError.code(StatusCodes.UA_STATUSCODE_BADSECURITYCHECKSFAILED, reason: error.localizedDescription)
         }
+    }
+
+    private func calculateSecurityHeaderSizeFromBuffer(_ buffer: ByteBuffer) -> Int {
+        var offset = buffer.readerIndex + 12 // MessageHeader + SecureChannelId
+        var total = 0
+
+        func readLength() -> UInt32? {
+            guard let value = buffer.getInteger(at: offset, endianness: .little, as: UInt32.self) else {
+                return nil
+            }
+            offset += 4
+            total += 4
+            return value
+        }
+
+        guard let policyLen = readLength() else { return 0 }
+        guard policyLen == UInt32.max || offset + Int(policyLen) <= buffer.readerIndex + buffer.readableBytes else { return 0 }
+        if policyLen != UInt32.max {
+            offset += Int(policyLen)
+            total += Int(policyLen)
+        }
+
+        guard let senderCertLen = readLength() else { return 0 }
+        guard senderCertLen == UInt32.max || offset + Int(senderCertLen) <= buffer.readerIndex + buffer.readableBytes else { return 0 }
+        if senderCertLen != UInt32.max {
+            offset += Int(senderCertLen)
+            total += Int(senderCertLen)
+        }
+
+        guard let thumbLen = readLength() else { return 0 }
+        guard thumbLen == UInt32.max || offset + Int(thumbLen) <= buffer.readerIndex + buffer.readableBytes else { return 0 }
+        if thumbLen != UInt32.max {
+            total += Int(thumbLen)
+        }
+
+        return total
     }
     
     public func verifyChunk(chunkBuffer: inout ByteBuffer) throws {

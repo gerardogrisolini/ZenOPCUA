@@ -312,10 +312,19 @@ public final class ZenOPCUA: @unchecked Sendable {
         
         return start()
             .flatMap { () -> EventLoopFuture<Void> in
-                if self.handler.promises.index(forKey: 0) == nil {
-                    self.handler.promises[0] = self.channel!.eventLoop.makePromise()
+                let connectPromise = self.channel!.eventLoop.makePromise(of: Promisable.self)
+                self.handler.promises[0] = connectPromise
+
+                let timeoutTask = self.channel!.eventLoop.scheduleTask(in: .seconds(20)) { [weak self] in
+                    guard let self = self else { return }
+                    self.handler.failConnectIfPending(OPCUAError.timeout)
                 }
-                return self.handler.promises[0]!.futureResult.map { item -> Void in
+
+                connectPromise.futureResult.whenComplete { _ in
+                    timeoutTask.cancel()
+                }
+
+                return connectPromise.futureResult.map { item -> Void in
                     ()
                 }
             }

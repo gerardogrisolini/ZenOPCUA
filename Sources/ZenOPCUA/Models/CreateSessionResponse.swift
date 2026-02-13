@@ -48,170 +48,106 @@ class CreateSessionResponse: MessageBase, @unchecked Sendable {
 
         super.init(bytes: bytes[0...15].map { $0 })
 
-        var count = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
-        if count < UInt32.max {
-            for _ in 0..<count {
-                let item = EndpointDescription()
-                var len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                item.endpointUrl = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                
-                index += len.int
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                item.server.applicationUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                
-                index += len.int
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                item.server.productUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
+        func readUInt32Safe() -> UInt32? {
+            guard index + 4 <= bytes.count else { return nil }
+            let value = UInt32(bytes: bytes[index..<(index + 4)])
+            index += 4
+            return value
+        }
 
-                index += len.int
-                item.server.applicationName.encodingMask = bytes[index]
-                index += 1
+        func readByteSafe() -> UInt8? {
+            guard index < bytes.count else { return nil }
+            let value = bytes[index]
+            index += 1
+            return value
+        }
 
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if item.server.applicationName.encodingMask == 0x03 && len < UInt32.max {
-                    item.server.applicationName.locale = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                    index += len.int
-                    len = UInt32(bytes: bytes[index..<(index+4)])
-                    index += 4
-                }
-                if len < UInt32.max {
-                    item.server.applicationName.text = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                    index += len.int
-                }
+        func readByteStringSafe() -> [UInt8]? {
+            guard let length = readUInt32Safe() else { return nil }
+            if length == UInt32.max { return nil }
+            let count = length.int
+            guard index + count <= bytes.count else { return nil }
+            let value = Array(bytes[index..<(index + count)])
+            index += count
+            return value
+        }
 
-                item.server.applicationType = ApplicationType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
-                index += 4
+        func readStringSafe() -> String? {
+            guard let value = readByteStringSafe() else { return nil }
+            return String(decoding: value, as: UTF8.self)
+        }
 
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if len < UInt32.max {
-                    item.server.gatewayServerUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                    index += len.int
-                }
-                
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if len < UInt32.max {
-                    item.server.discoveryProfileUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                    index += len.int
-                }
+        guard let endpointCount = readUInt32Safe(), endpointCount < UInt32.max else { return }
 
-                var innerCount = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if innerCount < UInt32.max {
-                    for _ in 0..<innerCount {
-                        len = UInt32(bytes: bytes[index..<(index+4)])
-                        index += 4
-                        if len < UInt32.max {
-                            let url = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                            item.server.discoveryUrls.append(url)
-                            index += len.int
-                        }
+        for _ in 0..<endpointCount {
+            let item = EndpointDescription()
+            item.endpointUrl = readStringSafe() ?? ""
+            item.server.applicationUri = readStringSafe() ?? ""
+            item.server.productUri = readStringSafe() ?? ""
+
+            item.server.applicationName.encodingMask = readByteSafe() ?? 0
+            if item.server.applicationName.encodingMask == 0x03 {
+                item.server.applicationName.locale = readStringSafe() ?? ""
+            }
+            item.server.applicationName.text = readStringSafe() ?? ""
+
+            if let rawType = readUInt32Safe(), let appType = ApplicationType(rawValue: rawType) {
+                item.server.applicationType = appType
+            } else {
+                item.server.applicationType = .server
+            }
+
+            item.server.gatewayServerUri = readStringSafe()
+            item.server.discoveryProfileUri = readStringSafe()
+
+            if let discoveryUrlCount = readUInt32Safe(), discoveryUrlCount < UInt32.max {
+                for _ in 0..<discoveryUrlCount {
+                    if let url = readStringSafe() {
+                        item.server.discoveryUrls.append(url)
                     }
                 }
-                
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if len < UInt32.max {
-                    item.serverCertificate = bytes[index..<(index+len.int)].map { $0 }
-                    index += len.int
-                }
-                
-                item.messageSecurityMode = MessageSecurityMode(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
-                index += 4
+            }
 
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if len < UInt32.max {
-                    item.securityPolicyUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                    index += len.int
-                }
+            item.serverCertificate = readByteStringSafe() ?? []
 
-                innerCount = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if innerCount < UInt32.max {
-                    for _ in 0..<innerCount {
-                        var identity = UserTokenPolicy()
-                        
-                        len = UInt32(bytes: bytes[index..<(index+4)])
-                        index += 4
-                        if len < UInt32.max {
-                            identity.policyId = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                            index += len.int
-                        }
+            if let rawMode = readUInt32Safe(), let mode = MessageSecurityMode(rawValue: rawMode) {
+                item.messageSecurityMode = mode
+            } else {
+                item.messageSecurityMode = .none
+            }
 
-                        identity.tokenType = UserTokenType(rawValue: UInt32(bytes: bytes[index..<(index+4)]))!
-                        index += 4
+            item.securityPolicyUri = readStringSafe() ?? ""
 
-                        len = UInt32(bytes: bytes[index..<(index+4)])
-                        index += 4
-                        if len < UInt32.max {
-                            identity.issuedTokenType = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                            index += len.int
-                        }
-
-                        len = UInt32(bytes: bytes[index..<(index+4)])
-                        index += 4
-                        if len < UInt32.max {
-                            identity.issuerEndpointUrl = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                            index += len.int
-                        }
-
-                        len = UInt32(bytes: bytes[index..<(index+4)])
-                        index += 4
-                        if len < UInt32.max {
-                            identity.securityPolicyUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                            index += len.int
-                        }
-
-                        item.userIdentityTokens.append(identity)
+            if let identityCount = readUInt32Safe(), identityCount < UInt32.max {
+                for _ in 0..<identityCount {
+                    var identity = UserTokenPolicy()
+                    identity.policyId = readStringSafe() ?? ""
+                    if let rawTokenType = readUInt32Safe(),
+                       let tokenType = UserTokenType(rawValue: rawTokenType) {
+                        identity.tokenType = tokenType
+                    } else {
+                        identity.tokenType = .anonymous
                     }
+                    identity.issuedTokenType = readStringSafe()
+                    identity.issuerEndpointUrl = readStringSafe()
+                    identity.securityPolicyUri = readStringSafe()
+                    item.userIdentityTokens.append(identity)
                 }
+            }
 
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                if len < UInt32.max {
-                    item.transportProfileUri = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-                    index += len.int
-                }
+            item.transportProfileUri = readStringSafe() ?? ""
+            item.securityLevel = readByteSafe() ?? 0
+            serverEndpoints.append(item)
+        }
 
-                item.securityLevel = bytes[index]
-                index += 1
-                
-                serverEndpoints.append(item)
+        if let softwareCertCount = readUInt32Safe(), softwareCertCount < UInt32.max {
+            for _ in 0..<softwareCertCount {
+                serverSoftwareCertificates.append(readByteStringSafe() ?? [])
             }
         }
-        
-        count = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
-        if count < UInt32.max {
-            for _ in 0..<count {
-                len = UInt32(bytes: bytes[index..<(index+4)])
-                index += 4
-                serverSoftwareCertificates.append(bytes[index..<(index+len.int)].map { $0 })
-                index += len.int
-            }
-        }
-        
-        len = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
-        if len < UInt32.max {
-            serverSignature.algorithm = String(bytes: bytes[index..<(index+len.int)], encoding: .utf8)!
-            index += len.int
-        }
 
-        len = UInt32(bytes: bytes[index..<(index+4)])
-        index += 4
-        if len < UInt32.max {
-            serverSignature.signature = bytes[index..<(index+len.int)].map { $0 }
-            index += len.int
-        }
-
-        maxRequestMessageSize = UInt32(bytes: bytes[index..<(index+4)])
+        serverSignature.algorithm = readStringSafe() ?? ""
+        serverSignature.signature = readByteStringSafe() ?? []
+        maxRequestMessageSize = readUInt32Safe() ?? 0
     }
 }
