@@ -8,24 +8,7 @@
 import Foundation
 @preconcurrency import NIOCore
 import NIO
-
-/// Errors that can occur during OPC UA operations.
-public enum OPCUAError : Error {
-    /// Connection to the OPC UA server failed or was lost.
-    case connectionError
-    
-    /// Session-related error (e.g., no active session).
-    case sessionError
-    
-    /// Operation timed out waiting for server response.
-    case timeout
-    
-    /// Server returned a specific status code with optional reason.
-    case code(_ status: StatusCodes, reason: String = "")
-    
-    /// Generic error with a descriptive message.
-    case generic(_ text: String)
-}
+import NIOConcurrencyHelpers
 
 /// OPC UA client implementation using SwiftNIO for asynchronous networking.
 ///
@@ -48,35 +31,79 @@ public enum OPCUAError : Error {
 /// try await client.connect(username: "user", password: "pass").get()
 ///
 /// // Read a node value
-/// let node = ReadValue(nodeId: NodeIdNumeric(nameSpace: 2, identifier: 1001))
+    /// let node = ReadValue(nodeValue: .numeric(nameSpace: 2, identifier: 1001))
 /// let values = try await client.read(nodes: [node]).get()
 ///
 /// // Disconnect
 /// try await client.disconnect().get()
 /// ```
 // Concurrency: public API may be called from any thread, but internal state is confined to the channel's EventLoop.
-public final class ZenOPCUA: @unchecked Sendable {
+public final class ZenOPCUA: Sendable {
     private let eventLoopGroup: EventLoopGroup
     private let state: OPCUAConnectionState
     private let handler: OPCUAHandler
-    private var channel: Channel? = nil
-    private var asyncChannel: NIOAsyncChannel<OPCUAFrame, OPCUAFrame>? = nil
-    private var asyncChannelTask: Task<Void, Never>? = nil
-    private var outboundContinuation: AsyncStream<OPCUAFrame>.Continuation? = nil
+    private let publishingRuntime = PublishingRuntime()
+    private let asyncChannelRuntime = AsyncChannelRuntime()
+    private let coordinatorSnapshotProvider: ConnectionCoordinatorSnapshotProvider
+    private let connectionCoordinator: ConnectionCoordinator
+    private let asyncObservers = AsyncObserverStore()
+    private let callbackRuntime = ClientCallbackRuntime()
+
+    private var coordinatorSnapshot: ConnectionCoordinatorSnapshot {
+        coordinatorSnapshotProvider.currentSnapshot
+    }
+
+    private var currentTransport: (channel: Channel, eventLoop: EventLoop)? {
+        let connectionSnapshot = coordinatorSnapshot
+        guard let channel = connectionSnapshot.currentChannel else {
+            return nil
+        }
+        return (channel: channel, eventLoop: channel.eventLoop)
+    }
+
+    private func performCoordinatorMutation(
+        on eventLoop: EventLoop? = nil,
+        _ operation: @escaping @Sendable (ConnectionCoordinator) async -> Void
+    ) -> EventLoopFuture<Void> {
+        let callbackLoop = eventLoop ?? eventLoopGroup.next()
+        let completion = callbackLoop.makePromise(of: Void.self)
+
+        Task {
+            await operation(connectionCoordinator)
+            callbackLoop.execute {
+                completion.succeed(())
+            }
+        }
+
+        return completion.futureResult
+    }
+
     
     /// Callback invoked when monitored items send data change notifications.
     /// Receives an array of `DataChange` objects containing the updated values.
-    public var onDataChanged: OPCUADataChanged? = nil
+    public var onDataChanged: OPCUADataChanged? {
+        get { callbackRuntime.currentOnDataChanged }
+        set { callbackRuntime.updateOnDataChanged(newValue) }
+    }
     
     /// Callback invoked when the channel handler is activated and the connection is established.
-    public var onHandlerActivated: OPCUAHandlerChange? = nil
+    public var onHandlerActivated: OPCUAHandlerChange? {
+        get { callbackRuntime.currentOnHandlerActivated }
+        set { callbackRuntime.updateOnHandlerActivated(newValue) }
+    }
     
     /// Callback invoked when the channel handler is removed, typically during disconnection or reconnection.
-    public var onHandlerRemoved: OPCUAHandlerChange? = nil
+    public var onHandlerRemoved: OPCUAHandlerChange? {
+        get { callbackRuntime.currentOnHandlerRemoved }
+        set { callbackRuntime.updateOnHandlerRemoved(newValue) }
+    }
     
     /// Callback invoked when an error occurs during communication with the OPC UA server.
     /// Receives an `Error` object describing the error condition.
-    public var onErrorCaught: OPCUAErrorCaught? = nil
+    public var onErrorCaught: OPCUAErrorCaught? {
+        get { callbackRuntime.currentOnErrorCaught }
+        set { callbackRuntime.updateOnErrorCaught(newValue) }
+    }
     
     /// Initializes a new OPC UA client instance.
     ///
@@ -100,8 +127,7 @@ public final class ZenOPCUA: @unchecked Sendable {
         self.eventLoopGroup = eventLoopGroup
         let state = OPCUAConnectionState()
         state.messageSecurityMode = messageSecurityMode
-        state.securityPolicy = SecurityPolicy(securityPolicyUri: securityPolicy.uri)
-        state.securityPolicy.connectionState = state
+        state.replaceSecurityPolicy(uri: securityPolicy.uri)
         // Interop policy:
         // - SignAndEncrypt: always include thumbprint in OPN.
         // - Sign: include thumbprint when using certificate-based secure channel.
@@ -109,15 +135,25 @@ public final class ZenOPCUA: @unchecked Sendable {
 
         // Load certificate immediately after creating security policy if using security
         if messageSecurityMode != .none {
-            state.securityPolicy.loadLocalCertificate(certificate: certificate, privateKey: privateKey)
+            state.loadLocalCertificate(certificate: certificate, privateKey: privateKey)
         }
 
-        if messageSecurityMode == .sign && !state.securityPolicy.localCertificate.isEmpty {
+        if messageSecurityMode == .sign && state.hasLocalCertificate {
             state.includeServerThumbprintInOpn = true
         }
 
+        let initialSnapshot = ConnectionCoordinator.buildInitialSnapshot()
+        let snapshotProvider = ConnectionCoordinatorSnapshotProvider(snapshot: initialSnapshot)
+        let connectionCoordinator = ConnectionCoordinator(snapshotProvider: snapshotProvider)
+
         self.state = state
-        self.handler = OPCUAHandler(state: state)
+        self.coordinatorSnapshotProvider = snapshotProvider
+        self.connectionCoordinator = connectionCoordinator
+        self.handler = OPCUAHandler(
+            state: state,
+            connectionCoordinator: connectionCoordinator,
+            snapshotProvider: snapshotProvider
+        )
         handler.endpointUrl = endpointUrl
         handler.applicationName = applicationName
         handler.certificate = certificate
@@ -147,6 +183,10 @@ public final class ZenOPCUA: @unchecked Sendable {
     
     @preconcurrency
     private func start() -> EventLoopFuture<Void> {
+        let connectionSnapshot = coordinatorSnapshot
+        guard connectionSnapshot.canStartTransport else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.generic("Invalid connection transition"))
+        }
         let server = getHostFromEndpoint()
 
         return ClientBootstrap(group: eventLoopGroup)
@@ -161,64 +201,87 @@ public final class ZenOPCUA: @unchecked Sendable {
                 self.initializeChannel(channel)
             }
             .connect(host: server.host, port: server.port)
-            .flatMapThrowing { channel -> Void in
-                self.channel = channel
-                let asyncChannel = try NIOAsyncChannel(
-                    wrappingChannelSynchronously: channel,
-                    configuration: .init(
-                        inboundType: OPCUAFrame.self,
-                        outboundType: OPCUAFrame.self
+            .flatMap { channel in
+                self.performCoordinatorMutation(on: channel.eventLoop) { coordinator in
+                    await coordinator.setChannel(channel)
+                }
+                .flatMapThrowing {
+                    let asyncChannel = try NIOAsyncChannel(
+                        wrappingChannelSynchronously: channel,
+                        configuration: .init(
+                            inboundType: OPCUAFrame.self,
+                            outboundType: OPCUAFrame.self
+                        )
                     )
-                )
-                self.asyncChannel = asyncChannel
-                self.startAsyncChannelLoop(asyncChannel)
+                    self.startAsyncChannelLoop(asyncChannel)
+                }
             }
             .flatMapError { error -> EventLoopFuture<Void> in
-                self.eventLoopGroup.next().makeFailedFuture(error)
+                self.performCoordinatorMutation { coordinator in
+                    await coordinator.markStartFailed()
+                }
+                .flatMap {
+                    self.eventLoopGroup.next().makeFailedFuture(error)
+                }
             }
     }
     
     private func stop() -> EventLoopFuture<Void> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
 
         handler.resetAll()
 
-        let eventLoop = channel.eventLoop
-        eventLoop.execute { [weak self] in
-            guard let self = self else { return }
-            self.outboundContinuation?.finish()
-            self.outboundContinuation = nil
-            self.asyncChannelTask?.cancel()
-            self.asyncChannelTask = nil
-            self.asyncChannel = nil
+        let channel = transport.channel
+        let eventLoop = transport.eventLoop
+        let shutdownPromise = eventLoop.makePromise(of: Void.self)
+        Task { [weak self] in
+            guard let self else {
+                eventLoop.execute {
+                    shutdownPromise.succeed(())
+                }
+                return
+            }
+
+            await self.asyncChannelRuntime.shutdown()
+            eventLoop.execute {
+                shutdownPromise.succeed(())
+            }
         }
 
-        channel.flush()
-        return channel.close(mode: .all).map { () -> () in
-            self.channel = nil
+        return shutdownPromise.futureResult.flatMap {
+            channel.flush()
+            return channel.close(mode: .all).flatMap {
+                self.performCoordinatorMutation(on: eventLoop) { coordinator in
+                    await coordinator.clearConnection()
+                }
+            }
         }
     }
 
     @preconcurrency
     private func initializeChannel(_ channel: Channel) -> EventLoopFuture<Void> {
-        channel.pipeline.addHandler(OPCUAFrameCodecHandler(state: self.state))
+        channel.pipeline.addHandler(
+            OPCUAFrameCodecHandler(
+                state: self.state,
+                snapshotProvider: self.coordinatorSnapshotProvider
+            )
+        )
     }
 
     private func startAsyncChannelLoop(_ asyncChannel: NIOAsyncChannel<OPCUAFrame, OPCUAFrame>) {
-        let outboundStream = AsyncStream<OPCUAFrame> { continuation in
-            self.outboundContinuation = continuation
-        }
         let eventLoop = asyncChannel.channel.eventLoop
+        let runtime = self.asyncChannelRuntime
 
-        asyncChannelTask = Task { [weak self] in
+        let task = Task { [weak self] in
             guard let self = self else { return }
+            let outboundStream = await runtime.prepareOutboundStream()
             do {
                 try await asyncChannel.executeThenClose { inbound, outbound in
                     let sendFrame: OPCUAHandler.FrameSender = { frame in
-                        eventLoop.execute { [weak self] in
-                            self?.outboundContinuation?.yield(frame)
+                        Task {
+                            _ = await runtime.write(frame)
                         }
                     }
 
@@ -252,6 +315,23 @@ public final class ZenOPCUA: @unchecked Sendable {
             eventLoop.execute { [weak self] in
                 self?.handler.notifyHandlerRemoved()
             }
+            await runtime.clearFinishedLoop()
+        }
+
+        Task {
+            await runtime.activate(task: task)
+        }
+    }
+
+    func notifyDataChangeObservers(_ changes: [DataChange]) {
+        Task {
+            await asyncObservers.yieldDataChanges(changes)
+        }
+    }
+
+    func notifyErrorObservers(_ error: Error) {
+        Task {
+            await asyncObservers.yieldError(error)
         }
     }
     
@@ -264,21 +344,25 @@ public final class ZenOPCUA: @unchecked Sendable {
     ///   - sessionLifetime: Session lifetime in milliseconds (default: 3600000 = 1 hour)
     /// - Returns: An EventLoopFuture that succeeds when the connection is established
     public func connect(username: String? = nil, password: String? = nil, reconnect: Bool = true, sessionLifetime: UInt32 = 3600000) -> EventLoopFuture<Void> {
-        state.reconnect = reconnect
-        state.isAcknowledge = true
-        
+        let connectionSnapshot = coordinatorSnapshot
+        guard connectionSnapshot.canBeginConnect else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.generic("Connection is already active or starting"))
+        }
         handler.username = username
         handler.password = password
         handler.requestedLifetime = sessionLifetime
 
-        handler.handlerActivated = onHandlerActivated
-        handler.dataChanged = onDataChanged
+        handler.handlerActivated = callbackRuntime.currentOnHandlerActivated
+        handler.dataChanged = { [weak self] changes in
+            guard let self = self else { return }
+            self.notifyDataChangeObservers(changes)
+            self.callbackRuntime.currentOnDataChanged?(changes)
+        }
         handler.errorCaught = { [weak self] error in
             guard let self = self else { return }
-            
-            if let onErrorCaught = self.onErrorCaught {
-                onErrorCaught(error)
-            }
+
+            self.notifyErrorObservers(error)
+            self.callbackRuntime.currentOnErrorCaught?(error)
             
             switch error {
             case OPCUAError.code(let code, _):
@@ -286,8 +370,12 @@ public final class ZenOPCUA: @unchecked Sendable {
                 case .UA_STATUSCODE_BADTOOMANYPUBLISHREQUESTS:
                     //let interval = self.milliseconds + 100
                     //let info = OPCUAError.generic("ZenOPCUA: changed publishing interval from \(self.milliseconds) to \(interval) milliseconds")
-                    self.onErrorCaught?(error)
-                    self.startPublishing(milliseconds: self.milliseconds).whenComplete { _ in }
+                    self.callbackRuntime.currentOnErrorCaught?(error)
+                    Task { [weak self] in
+                        guard let self = self else { return }
+                        let milliseconds = await self.publishingRuntime.currentMilliseconds()
+                        self.startPublishing(milliseconds: milliseconds).whenComplete { _ in }
+                    }
                 case .UA_STATUSCODE_BADTIMEOUT, .UA_STATUSCODE_BADNOSUBSCRIPTION:
                     self.stopPublishing().whenComplete { _ in }
                 default:
@@ -300,43 +388,69 @@ public final class ZenOPCUA: @unchecked Sendable {
         handler.handlerRemoved = { [weak self] in
             guard let self = self else { return }
             
-            if let onHandlerRemoved = self.onHandlerRemoved {
+            if let onHandlerRemoved = self.callbackRuntime.currentOnHandlerRemoved {
                 onHandlerRemoved()
             }
-            
-            if (state.reconnect && !state.isAcknowledge) || state.isUpgradingToSecure {
-                self.stop().whenComplete { [weak self, state] _ in
+
+            let connectionSnapshot = self.coordinatorSnapshot
+            if connectionSnapshot.shouldAttemptReconnect
+                && ((connectionSnapshot.lifecycleReconnectEnabled && !connectionSnapshot.lifecycleIsAcknowledging)
+                    || connectionSnapshot.lifecycleIsUpgradingToSecure) {
+                Task { [weak self] in
                     guard let self = self else { return }
-                    let delay: TimeAmount = (!state.isUpgradingToSecure && !state.isAcknowledge) ? .seconds(3) : .zero
-                    self.scheduleDelay(delay).whenComplete { _ in
-                        state.isUpgradingToSecure = false  // Reset flag after reconnection
-                        self.start().whenComplete { _ in }
+                    guard await self.connectionCoordinator.enterReconnectBackoff() else { return }
+                    self.stop().whenComplete { [weak self] _ in
+                        guard let self = self else { return }
+                        let delay: TimeAmount = (!connectionSnapshot.lifecycleIsUpgradingToSecure
+                            && !connectionSnapshot.lifecycleIsAcknowledging) ? .seconds(3) : .zero
+                        self.scheduleDelay(delay).whenComplete { [weak self] _ in
+                            guard let self = self else { return }
+                            Task { [weak self] in
+                                guard let self = self else { return }
+                                await self.connectionCoordinator.setUpgradingToSecure(false)
+                                guard await self.connectionCoordinator.resumeReconnectFromBackoff() else { return }
+                                self.start().whenComplete { _ in }
+                            }
+                        }
                     }
                 }
             }
         }
         
-        return start()
+        return performCoordinatorMutation { coordinator in
+            await coordinator.prepareForConnect()
+            await coordinator.setReconnectEnabled(reconnect)
+        }
+            .flatMap { self.start() }
             .flatMap { () -> EventLoopFuture<Void> in
-                let connectPromise = self.channel!.eventLoop.makePromise(of: Promisable.self)
-                self.handler.promises[0] = connectPromise
-
-                let timeoutTask = self.channel!.eventLoop.scheduleTask(in: .seconds(20)) { [weak self] in
-                    guard let self = self else { return }
-                    self.handler.failConnectIfPending(OPCUAError.timeout)
+                let connectionSnapshot = self.coordinatorSnapshot
+                guard let eventLoop = connectionSnapshot.currentEventLoop else {
+                    return self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
                 }
+                let connectPromise = eventLoop.makePromise(of: Promisable.self)
 
-                connectPromise.futureResult.whenComplete { _ in
-                    timeoutTask.cancel()
-                }
+                return self.handler.registerPromise(connectPromise, for: 0, on: eventLoop).flatMap {
+                    let timeoutTask = eventLoop.scheduleTask(in: .seconds(20)) { [weak self] in
+                        guard let self = self else { return }
+                        self.handler.failConnectIfPending(OPCUAError.timeout)
+                    }
 
-                return connectPromise.futureResult.map { item -> Void in
-                    ()
+                    connectPromise.futureResult.whenComplete { _ in
+                        timeoutTask.cancel()
+                    }
+
+                    return connectPromise.futureResult.map { _ -> Void in
+                        ()
+                    }
                 }
             }
-            .flatMapError { [state] error -> EventLoopFuture<Void> in
-                state.isAcknowledge = false
-                return self.eventLoopGroup.next().makeFailedFuture(error)
+            .flatMapError { error -> EventLoopFuture<Void> in
+                self.performCoordinatorMutation { coordinator in
+                    await coordinator.completeAcknowledge()
+                }
+                .flatMap {
+                    self.eventLoopGroup.next().makeFailedFuture(error)
+                }
             }
     }
     
@@ -345,10 +459,17 @@ public final class ZenOPCUA: @unchecked Sendable {
     /// - Parameter deleteSubscriptions: Whether to delete active subscriptions before disconnecting (default: true)
     /// - Returns: An EventLoopFuture that succeeds when disconnection is complete
     public func disconnect(deleteSubscriptions: Bool = true) -> EventLoopFuture<Void> {
-        state.reconnect = false
+        let connectionSnapshot = coordinatorSnapshot
+        guard connectionSnapshot.canBeginDisconnect else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.generic("Connection is not active"))
+        }
+        let disconnectPreparation = performCoordinatorMutation { coordinator in
+            await coordinator.prepareForDisconnect()
+            await coordinator.disableReconnect()
+        }
 
         if deleteSubscriptions {
-            return stopPublishing()
+            return disconnectPreparation.flatMap { self.stopPublishing() }
                 .flatMap { self.scheduleDelay(.seconds(1)) }
                 .flatMap { self.closeSession(deleteSubscriptions: deleteSubscriptions) }
                 .flatMap { _ -> EventLoopFuture<Void> in
@@ -356,45 +477,48 @@ public final class ZenOPCUA: @unchecked Sendable {
                 }
         }
 
-        return closeSession(deleteSubscriptions: deleteSubscriptions).flatMap { (_) -> EventLoopFuture<Void> in
+        return disconnectPreparation.flatMap {
+            self.closeSession(deleteSubscriptions: deleteSubscriptions)
+        }.flatMap { (_) -> EventLoopFuture<Void> in
             return self.stop()
         }
     }
 
     private func closeSession(deleteSubscriptions: Bool) -> EventLoopFuture<Promisable> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
         
         return eventLoop.flatSubmit {
-            guard let authenticationToken = self.handler.authenticationToken else {
+            guard let authenticationTokenValue = self.handler.authenticationTokenValue else {
                 return eventLoop.makeFailedFuture(OPCUAError.sessionError)
             }
             
             let requestId = self.handler.nextMessageID()
             let promise = eventLoop.makePromise(of: Promisable.self)
-            self.handler.promises[requestId] = promise
-            let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
-                self.handler.promises[requestId]?.fail(OPCUAError.timeout)
-            }
+            return self.handler.registerPromise(promise, for: requestId, on: eventLoop).flatMap {
+                let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
+                    self.handler.failPromiseIfPending(requestId, error: OPCUAError.timeout)
+                }
 
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = CloseSessionRequest(
-                secureChannelId: self.handler.secureChannelId,
-                tokenId: self.handler.tokenId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: authenticationToken,
-                deleteSubscriptions: deleteSubscriptions
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-            
-            self.writeSyncronized(frame, eventLoop: eventLoop)
-            
-            return promise.futureResult.map { item -> Promisable in
-                timeout.cancel()
-                return item
+                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+                let body = CloseSessionRequest(
+                    secureChannelId: self.handler.secureChannelId,
+                    tokenId: self.handler.tokenId,
+                    requestId: requestId,
+                    requestHandle: requestId,
+                    authenticationTokenValue: authenticationTokenValue,
+                    deleteSubscriptions: deleteSubscriptions
+                )
+                let frame = OPCUAFrame(head: head, body: body.bytes)
+                
+                self.writeSyncronized(frame, eventLoop: eventLoop)
+                
+                return promise.futureResult.map { item -> Promisable in
+                    timeout.cancel()
+                    return item
+                }
             }
         }
     }
@@ -403,45 +527,53 @@ public final class ZenOPCUA: @unchecked Sendable {
     ///
     /// - Parameter nodes: Array of nodes to browse (default: root node)
     /// - Returns: An EventLoopFuture containing an array of browse results with node information and references
-    public func browse(nodes: [BrowseDescription] = [BrowseDescription()]) -> EventLoopFuture<[BrowseResult]> {
-        guard let channel = channel else {
+    public func browse(nodes: [BrowseDescription] = [BrowseDescription(nodeValue: .base(identifier: 0x55))]) -> EventLoopFuture<[BrowseResult]> {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
 
         return eventLoop.flatSubmit {
-            guard let authenticationToken = self.handler.authenticationToken else {
+            guard let authenticationTokenValue = self.handler.authenticationTokenValue else {
                 return eventLoop.makeFailedFuture(OPCUAError.sessionError)
             }
 
             let requestId = self.handler.nextMessageID()
             let promise = eventLoop.makePromise(of: Promisable.self)
-            self.handler.promises[requestId] = promise
-            let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
-                self.handler.promises[requestId]?.fail(OPCUAError.timeout)
-            }
-            
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = BrowseRequest(
-                secureChannelId: self.handler.secureChannelId,
-                tokenId: self.handler.tokenId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: authenticationToken,
-                nodesToBrowse: nodes
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-            
-            self.writeSyncronized(frame, eventLoop: eventLoop)
-            
-            return promise.futureResult.flatMapThrowing { value -> [BrowseResult] in
-                timeout.cancel()
-                guard let results = value as? [BrowseResult] else {
-                    throw OPCUAError.generic("Invalid BrowseResponse payload type")
+            return self.handler.registerPromise(promise, for: requestId, on: eventLoop).flatMap {
+                let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
+                    self.handler.failPromiseIfPending(requestId, error: OPCUAError.timeout)
                 }
-                return results
+
+                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+                let body = BrowseRequest(
+                    secureChannelId: self.handler.secureChannelId,
+                    tokenId: self.handler.tokenId,
+                    requestId: requestId,
+                    requestHandle: requestId,
+                    authenticationTokenValue: authenticationTokenValue,
+                    nodesToBrowse: nodes
+                )
+                let frame = OPCUAFrame(head: head, body: body.bytes)
+                
+                self.writeSyncronized(frame, eventLoop: eventLoop)
+                
+                return promise.futureResult.flatMapThrowing { value -> [BrowseResult] in
+                    timeout.cancel()
+                    guard let results = value as? [BrowseResult] else {
+                        throw OPCUAError.generic("Invalid BrowseResponse payload type")
+                    }
+                    return results
+                }
             }
         }
+    }
+
+    /// Browses nodes on the OPC UA server using value-based node identifiers.
+    /// - Parameter nodeValues: Array of node values to browse
+    /// - Returns: An EventLoopFuture containing an array of browse results
+    public func browse(nodeValues: [NodeValue]) -> EventLoopFuture<[BrowseResult]> {
+        browse(nodes: nodeValues.map { BrowseDescription(nodeValue: $0) })
     }
 
     /// Reads values from one or more nodes on the OPC UA server.
@@ -449,44 +581,61 @@ public final class ZenOPCUA: @unchecked Sendable {
     /// - Parameter nodes: Array of nodes to read with their attributes
     /// - Returns: An EventLoopFuture containing an array of data values read from the server
     public func read(nodes: [ReadValue]) -> EventLoopFuture<[DataValue]> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
 
         return eventLoop.flatSubmit {
-            guard let authenticationToken = self.handler.authenticationToken else {
+            guard let authenticationTokenValue = self.handler.authenticationTokenValue else {
                 return eventLoop.makeFailedFuture(OPCUAError.sessionError)
             }
 
             let requestId = self.handler.nextMessageID()
             let promise = eventLoop.makePromise(of: Promisable.self)
-            self.handler.promises[requestId] = promise
-            let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
-                self.handler.promises[requestId]?.fail(OPCUAError.timeout)
-            }
-
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = ReadRequest(
-                secureChannelId: self.handler.secureChannelId,
-                tokenId: self.handler.tokenId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: authenticationToken,
-                nodesToRead: nodes
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-
-            self.writeSyncronized(frame, eventLoop: eventLoop)
-
-            return promise.futureResult.flatMapThrowing { value -> [DataValue] in
-                timeout.cancel()
-                guard let results = value as? [DataValue] else {
-                    throw OPCUAError.generic("Invalid ReadResponse payload type")
+            return self.handler.registerPromise(promise, for: requestId, on: eventLoop).flatMap {
+                let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
+                    self.handler.failPromiseIfPending(requestId, error: OPCUAError.timeout)
                 }
-                return results
+
+                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+                let body = ReadRequest(
+                    secureChannelId: self.handler.secureChannelId,
+                    tokenId: self.handler.tokenId,
+                    requestId: requestId,
+                    requestHandle: requestId,
+                    authenticationTokenValue: authenticationTokenValue,
+                    nodesToRead: nodes
+                )
+                let frame = OPCUAFrame(head: head, body: body.bytes)
+
+                self.writeSyncronized(frame, eventLoop: eventLoop)
+
+                return promise.futureResult.flatMapThrowing { value -> [DataValue] in
+                    timeout.cancel()
+                    guard let results = value as? [DataValue] else {
+                        throw OPCUAError.generic("Invalid ReadResponse payload type")
+                    }
+                    return results
+                }
             }
         }
+    }
+
+    /// Reads values from nodes on the OPC UA server using value-based node identifiers.
+    /// - Parameters:
+    ///   - nodeValues: Array of node values to read
+    ///   - attributeId: OPC UA attribute to read (defaults to Value)
+    ///   - dataEncoding: Optional data encoding descriptor
+    /// - Returns: An EventLoopFuture containing an array of data values
+    public func read(
+        nodeValues: [NodeValue],
+        attributeId: UInt32 = 0x0000000d,
+        dataEncoding: QualifiedName = QualifiedName()
+    ) -> EventLoopFuture<[DataValue]> {
+        read(nodes: nodeValues.map {
+            ReadValue(nodeValue: $0, attributeId: attributeId, dataEncoding: dataEncoding)
+        })
     }
 
     /// Writes values to one or more nodes on the OPC UA server.
@@ -494,44 +643,68 @@ public final class ZenOPCUA: @unchecked Sendable {
     /// - Parameter nodes: Array of nodes to write with their new values
     /// - Returns: An EventLoopFuture containing an array of status codes indicating success or failure for each write operation
     public func write(nodes: [WriteValue]) -> EventLoopFuture<[StatusCodes]> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
 
         return eventLoop.flatSubmit {
-            guard let authenticationToken = self.handler.authenticationToken else {
+            guard let authenticationTokenValue = self.handler.authenticationTokenValue else {
                 return eventLoop.makeFailedFuture(OPCUAError.sessionError)
             }
 
             let requestId = self.handler.nextMessageID()
             let promise = eventLoop.makePromise(of: Promisable.self)
-            self.handler.promises[requestId] = promise
-            let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
-                self.handler.promises[requestId]?.fail(OPCUAError.timeout)
-            }
-
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = WriteRequest(
-                secureChannelId: self.handler.secureChannelId,
-                tokenId: self.handler.tokenId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: authenticationToken,
-                nodesToWrite: nodes
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-            
-            self.writeSyncronized(frame, eventLoop: eventLoop)
-            
-            return promise.futureResult.flatMapThrowing { value -> [StatusCodes] in
-                timeout.cancel()
-                guard let results = value as? [StatusCodes] else {
-                    throw OPCUAError.generic("Invalid WriteResponse payload type")
+            return self.handler.registerPromise(promise, for: requestId, on: eventLoop).flatMap {
+                let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
+                    self.handler.failPromiseIfPending(requestId, error: OPCUAError.timeout)
                 }
-                return results
+
+                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+                let body = WriteRequest(
+                    secureChannelId: self.handler.secureChannelId,
+                    tokenId: self.handler.tokenId,
+                    requestId: requestId,
+                    requestHandle: requestId,
+                    authenticationTokenValue: authenticationTokenValue,
+                    nodesToWrite: nodes
+                )
+                let frame = OPCUAFrame(head: head, body: body.bytes)
+                
+                self.writeSyncronized(frame, eventLoop: eventLoop)
+                
+                return promise.futureResult.flatMapThrowing { value -> [StatusCodes] in
+                    timeout.cancel()
+                    guard let results = value as? [StatusCodes] else {
+                        throw OPCUAError.generic("Invalid WriteResponse payload type")
+                    }
+                    return results
+                }
             }
         }
+    }
+
+    /// Writes values to nodes on the OPC UA server using value-based node identifiers.
+    /// - Parameters:
+    ///   - nodeValues: Array of node values to write to
+    ///   - values: Array of payloads matching `nodeValues` by index
+    ///   - attributeId: OPC UA attribute to write (defaults to Value)
+    /// - Returns: An EventLoopFuture containing an array of status codes
+    public func write(
+        nodeValues: [NodeValue],
+        values: [DataValue],
+        attributeId: UInt32 = 0x0000000d
+    ) -> EventLoopFuture<[StatusCodes]> {
+        guard nodeValues.count == values.count else {
+            return eventLoopGroup.next().makeFailedFuture(
+                OPCUAError.generic("NodeValue and DataValue counts must match")
+            )
+        }
+
+        let writes = zip(nodeValues, values).map {
+            WriteValue(nodeValue: $0.0, attributeId: attributeId, value: $0.1)
+        }
+        return write(nodes: writes)
     }
 
     /// Creates a subscription on the OPC UA server for monitoring data changes.
@@ -541,45 +714,46 @@ public final class ZenOPCUA: @unchecked Sendable {
     ///   - startPublishing: Whether to automatically start publishing after creation (default: true)
     /// - Returns: An EventLoopFuture containing the subscription ID assigned by the server
     public func createSubscription(subscription: Subscription, startPublishing: Bool = true) -> EventLoopFuture<UInt32> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
 
         return eventLoop.flatSubmit {
-            guard let authenticationToken = self.handler.authenticationToken else {
+            guard let authenticationTokenValue = self.handler.authenticationTokenValue else {
                 return eventLoop.makeFailedFuture(OPCUAError.sessionError)
             }
 
             let requestId = self.handler.nextMessageID()
             let promise = eventLoop.makePromise(of: Promisable.self)
-            self.handler.promises[requestId] = promise
-            let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
-                self.handler.promises[requestId]?.fail(OPCUAError.timeout)
-            }
+            return self.handler.registerPromise(promise, for: requestId, on: eventLoop).flatMap {
+                let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
+                    self.handler.failPromiseIfPending(requestId, error: OPCUAError.timeout)
+                }
 
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = CreateSubscriptionRequest(
-                secureChannelId: self.handler.secureChannelId,
-                tokenId: self.handler.tokenId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: authenticationToken,
-                subscription: subscription
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-            
-            self.writeSyncronized(frame, eventLoop: eventLoop)
-            
-            return promise.futureResult.flatMapThrowing { value -> UInt32 in
-                timeout.cancel()
-                guard let sub = value as? CreateSubscriptionResponse else {
-                    throw OPCUAError.generic("Invalid CreateSubscriptionResponse payload type")
+                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+                let body = CreateSubscriptionRequest(
+                    secureChannelId: self.handler.secureChannelId,
+                    tokenId: self.handler.tokenId,
+                    requestId: requestId,
+                    requestHandle: requestId,
+                    authenticationTokenValue: authenticationTokenValue,
+                    subscription: subscription
+                )
+                let frame = OPCUAFrame(head: head, body: body.bytes)
+                
+                self.writeSyncronized(frame, eventLoop: eventLoop)
+                
+                return promise.futureResult.flatMapThrowing { value -> UInt32 in
+                    timeout.cancel()
+                    guard let sub = value as? CreateSubscriptionResponse else {
+                        throw OPCUAError.generic("Invalid CreateSubscriptionResponse payload type")
+                    }
+                    if startPublishing {
+                        self.startPublishing(milliseconds: Int64(sub.revisedPubliscingInterval)).whenComplete { _ in }
+                    }
+                    return sub.subscriptionId
                 }
-                if startPublishing {
-                    self.startPublishing(milliseconds: Int64(sub.revisedPubliscingInterval)).whenComplete { _ in }
-                }
-                return sub.subscriptionId
             }
         }
     }
@@ -591,43 +765,44 @@ public final class ZenOPCUA: @unchecked Sendable {
     ///   - itemsToCreate: Array of monitored item configurations specifying nodes to monitor
     /// - Returns: An EventLoopFuture containing an array of creation results with assigned item IDs and status
     public func createMonitoredItems(subscriptionId: UInt32, itemsToCreate: [MonitoredItemCreateRequest]) -> EventLoopFuture<[MonitoredItemCreateResult]> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
 
         return eventLoop.flatSubmit {
-            guard let authenticationToken = self.handler.authenticationToken else {
+            guard let authenticationTokenValue = self.handler.authenticationTokenValue else {
                 return eventLoop.makeFailedFuture(OPCUAError.sessionError)
             }
 
             let requestId = self.handler.nextMessageID()
             let promise = eventLoop.makePromise(of: Promisable.self)
-            self.handler.promises[requestId] = promise
-            let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
-                self.handler.promises[requestId]?.fail(OPCUAError.timeout)
-            }
-
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = CreateMonitoredItemsRequest(
-                secureChannelId: self.handler.secureChannelId,
-                tokenId: self.handler.tokenId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: authenticationToken,
-                subscriptionId: subscriptionId,
-                itemsToCreate: itemsToCreate
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-            
-            self.writeSyncronized(frame, eventLoop: eventLoop)
-            
-            return promise.futureResult.flatMapThrowing { value -> [MonitoredItemCreateResult] in
-                timeout.cancel()
-                guard let results = value as? [MonitoredItemCreateResult] else {
-                    throw OPCUAError.generic("Invalid CreateMonitoredItemsResponse payload type")
+            return self.handler.registerPromise(promise, for: requestId, on: eventLoop).flatMap {
+                let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
+                    self.handler.failPromiseIfPending(requestId, error: OPCUAError.timeout)
                 }
-                return results
+
+                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+                let body = CreateMonitoredItemsRequest(
+                    secureChannelId: self.handler.secureChannelId,
+                    tokenId: self.handler.tokenId,
+                    requestId: requestId,
+                    requestHandle: requestId,
+                    authenticationTokenValue: authenticationTokenValue,
+                    subscriptionId: subscriptionId,
+                    itemsToCreate: itemsToCreate
+                )
+                let frame = OPCUAFrame(head: head, body: body.bytes)
+                
+                self.writeSyncronized(frame, eventLoop: eventLoop)
+                
+                return promise.futureResult.flatMapThrowing { value -> [MonitoredItemCreateResult] in
+                    timeout.cancel()
+                    guard let results = value as? [MonitoredItemCreateResult] else {
+                        throw OPCUAError.generic("Invalid CreateMonitoredItemsResponse payload type")
+                    }
+                    return results
+                }
             }
         }
     }
@@ -639,44 +814,45 @@ public final class ZenOPCUA: @unchecked Sendable {
     ///   - stopPubliscing: Whether to stop publishing before deletion (default: true)
     /// - Returns: An EventLoopFuture containing an array of status codes indicating success or failure for each deletion
     public func deleteSubscriptions(subscriptionIds: [UInt32], stopPubliscing: Bool = true) -> EventLoopFuture<[StatusCodes]> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
 
         if stopPubliscing { stopPublishing().whenComplete { _ in } }
 
         return eventLoop.flatSubmit {
-            guard let authenticationToken = self.handler.authenticationToken else {
+            guard let authenticationTokenValue = self.handler.authenticationTokenValue else {
                 return eventLoop.makeFailedFuture(OPCUAError.sessionError)
             }
 
             let requestId = self.handler.nextMessageID()
             let promise = eventLoop.makePromise(of: Promisable.self)
-            self.handler.promises[requestId] = promise
-            let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
-                self.handler.promises[requestId]?.fail(OPCUAError.timeout)
-            }
-
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = DeleteSubscriptionsRequest(
-                secureChannelId: self.handler.secureChannelId,
-                tokenId: self.handler.tokenId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: authenticationToken,
-                subscriptionIds: subscriptionIds
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
-            
-            self.writeSyncronized(frame, eventLoop: eventLoop)
-            
-            return promise.futureResult.flatMapThrowing { value -> [StatusCodes] in
-                timeout.cancel()
-                guard let results = value as? [StatusCodes] else {
-                    throw OPCUAError.generic("Invalid DeleteSubscriptionsResponse payload type")
+            return self.handler.registerPromise(promise, for: requestId, on: eventLoop).flatMap {
+                let timeout = eventLoop.scheduleTask(in: .seconds(2)) {
+                    self.handler.failPromiseIfPending(requestId, error: OPCUAError.timeout)
                 }
-                return results
+
+                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+                let body = DeleteSubscriptionsRequest(
+                    secureChannelId: self.handler.secureChannelId,
+                    tokenId: self.handler.tokenId,
+                    requestId: requestId,
+                    requestHandle: requestId,
+                    authenticationTokenValue: authenticationTokenValue,
+                    subscriptionIds: subscriptionIds
+                )
+                let frame = OPCUAFrame(head: head, body: body.bytes)
+                
+                self.writeSyncronized(frame, eventLoop: eventLoop)
+                
+                return promise.futureResult.flatMapThrowing { value -> [StatusCodes] in
+                    timeout.cancel()
+                    guard let results = value as? [StatusCodes] else {
+                        throw OPCUAError.generic("Invalid DeleteSubscriptionsResponse payload type")
+                    }
+                    return results
+                }
             }
         }
     }
@@ -686,58 +862,75 @@ public final class ZenOPCUA: @unchecked Sendable {
     /// - Parameter subscriptionIds: Array of subscription IDs to acknowledge (default: empty for all subscriptions)
     /// - Returns: An EventLoopFuture that succeeds when the publish request completes
     public func publish(subscriptionIds: [UInt32] = []) -> EventLoopFuture<Void> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
 
         return eventLoop.flatSubmit {
-            guard let authenticationToken = self.handler.authenticationToken else {
+            guard let authenticationTokenValue = self.handler.authenticationTokenValue else {
                 return eventLoop.makeFailedFuture(OPCUAError.sessionError)
             }
 
             let requestId = self.handler.nextMessageID()
             let promise = eventLoop.makePromise(of: Promisable.self)
-            self.handler.promises[requestId] = promise
-            
-            let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
-            let body = PublishRequest(
-                secureChannelId: self.handler.secureChannelId,
-                tokenId: self.handler.tokenId,
-                requestId: requestId,
-                requestHandle: requestId,
-                authenticationToken: authenticationToken,
-                subscriptionAcknowledgements: subscriptionIds
-            )
-            let frame = OPCUAFrame(head: head, body: body.bytes)
+            return self.handler.registerPromise(promise, for: requestId, on: eventLoop).flatMap {
+                let head = OPCUAFrameHead(messageType: .message, chunkType: .frame)
+                let body = PublishRequest(
+                    secureChannelId: self.handler.secureChannelId,
+                    tokenId: self.handler.tokenId,
+                    requestId: requestId,
+                    requestHandle: requestId,
+                    authenticationTokenValue: authenticationTokenValue,
+                    subscriptionAcknowledgements: subscriptionIds
+                )
+                let frame = OPCUAFrame(head: head, body: body.bytes)
 
-            self.writeSyncronized(frame, eventLoop: eventLoop)
+                self.writeSyncronized(frame, eventLoop: eventLoop)
 
-            return promise.futureResult.map { _ -> () in
-                ()
+                return promise.futureResult.map { _ -> () in
+                    ()
+                }
             }
         }
     }
     
     private func writeSyncronized(_ frame: OPCUAFrame, eventLoop: EventLoop, promise: EventLoopPromise<Void>? = nil) {
         eventLoop.execute { [weak self] in
-            guard let self = self, let continuation = self.outboundContinuation else {
+            guard let self = self else {
                 promise?.fail(OPCUAError.connectionError)
                 return
             }
-            continuation.yield(frame)
-            promise?.succeed(())
+
+            Task { [weak self] in
+                guard let self = self else {
+                    eventLoop.execute {
+                        promise?.fail(OPCUAError.connectionError)
+                    }
+                    return
+                }
+
+                let didWrite = await self.asyncChannelRuntime.write(frame)
+                eventLoop.execute {
+                    if didWrite {
+                        promise?.succeed(())
+                    } else {
+                        promise?.fail(OPCUAError.connectionError)
+                    }
+                }
+            }
         }
     }
-    
-    private var publisher: RepeatedTask? = nil
-    private var milliseconds: Int64 = 0
     
     /// Starts the automatic publishing mechanism using the previously configured interval.
     ///
     /// This method resumes publishing with the last interval set by `startPublishing(milliseconds:)`.
     public func startPublishing() {
-        self.startPublishing(milliseconds: milliseconds).whenComplete { _ in }
+        Task { [weak self] in
+            guard let self = self else { return }
+            let milliseconds = await self.publishingRuntime.currentMilliseconds()
+            self.startPublishing(milliseconds: milliseconds).whenComplete { _ in }
+        }
     }
 
     /// Starts automatic publishing to receive periodic data change notifications from subscriptions.
@@ -748,22 +941,31 @@ public final class ZenOPCUA: @unchecked Sendable {
     /// - Parameter milliseconds: Publishing interval in milliseconds
     /// - Returns: An EventLoopFuture that succeeds when the publishing mechanism is started
     public func startPublishing(milliseconds: Int64) -> EventLoopFuture<Void> {
-        self.milliseconds = milliseconds
+        let connectionSnapshot = coordinatorSnapshot
+        guard connectionSnapshot.currentPhase == .connected || connectionSnapshot.currentPhase == .reconnecting else {
+            return eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
+        }
+        Task {
+            await self.publishingRuntime.setMilliseconds(milliseconds)
+        }
         
         return stopPublishing().map { [weak self] () -> () in
             guard let self = self else { return }
-            guard let channel = self.channel else { return }
+            guard let transport = self.currentTransport else { return }
 
             let time = TimeAmount.milliseconds(milliseconds)
-            self.publisher = channel.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time * 3, delay: time, { [weak self] task -> EventLoopFuture<Void> in
+            let publisher = transport.eventLoop.scheduleRepeatedAsyncTask(initialDelay: time * 3, delay: time, { [weak self] task -> EventLoopFuture<Void> in
                 guard let self = self else {
-                    return channel.eventLoop.makeSucceededVoidFuture()
+                    return transport.eventLoop.makeSucceededVoidFuture()
                 }
-                if self.handler.authenticationToken == nil {
+                if self.handler.authenticationTokenValue == nil {
                     return self.stopPublishing()
                 }
                 return self.publish()
             })
+            Task {
+                await self.publishingRuntime.storePublisher(publisher)
+            }
         }
     }
 
@@ -773,17 +975,27 @@ public final class ZenOPCUA: @unchecked Sendable {
     ///
     /// - Returns: An EventLoopFuture that succeeds when the publishing mechanism is stopped
     public func stopPublishing() -> EventLoopFuture<Void> {
-        guard let channel = channel else {
+        guard let transport = currentTransport else {
             return eventLoopGroup.next().makeSucceededVoidFuture()
         }
-        let eventLoop = channel.eventLoop
+        let eventLoop = transport.eventLoop
         return eventLoop.flatSubmit {
             let promise = eventLoop.makePromise(of: Void.self)
-            if let pub = self.publisher {
-                pub.cancel(promise: promise)
-                self.publisher = nil
-            } else {
-                promise.succeed(())
+            Task { [weak self] in
+                guard let self = self else {
+                    eventLoop.execute {
+                        promise.succeed(())
+                    }
+                    return
+                }
+                let publisher = await self.publishingRuntime.takePublisher()
+                eventLoop.execute {
+                    if let publisher = publisher {
+                        publisher.cancel(promise: promise)
+                    } else {
+                        promise.succeed(())
+                    }
+                }
             }
             return promise.futureResult
         }
@@ -839,8 +1051,16 @@ extension ZenOPCUA {
     /// - Parameter nodes: Array of nodes to browse (defaults to root node)
     /// - Returns: Array of browse results
     /// - Throws: OPCUAError if browse operation fails
-    public func browse(nodes: [BrowseDescription] = [BrowseDescription()]) async throws -> [BrowseResult] {
+    public func browse(nodes: [BrowseDescription] = [BrowseDescription(nodeValue: .base(identifier: 0x55))]) async throws -> [BrowseResult] {
         try await browse(nodes: nodes).get()
+    }
+
+    /// Browses nodes on the OPC UA server using value-based node identifiers.
+    /// - Parameter nodeValues: Array of node values to browse
+    /// - Returns: Array of browse results
+    /// - Throws: OPCUAError if browse operation fails
+    public func browse(nodeValues: [NodeValue]) async throws -> [BrowseResult] {
+        try await browse(nodeValues: nodeValues).get()
     }
     
     /// Reads values from nodes on the OPC UA server using async/await.
@@ -850,6 +1070,21 @@ extension ZenOPCUA {
     public func read(nodes: [ReadValue]) async throws -> [DataValue] {
         try await read(nodes: nodes).get()
     }
+
+    /// Reads values from nodes on the OPC UA server using value-based node identifiers.
+    /// - Parameters:
+    ///   - nodeValues: Array of node values to read
+    ///   - attributeId: OPC UA attribute to read (defaults to Value)
+    ///   - dataEncoding: Optional data encoding descriptor
+    /// - Returns: Array of data values
+    /// - Throws: OPCUAError if read operation fails
+    public func read(
+        nodeValues: [NodeValue],
+        attributeId: UInt32 = 0x0000000d,
+        dataEncoding: QualifiedName = QualifiedName()
+    ) async throws -> [DataValue] {
+        try await read(nodeValues: nodeValues, attributeId: attributeId, dataEncoding: dataEncoding).get()
+    }
     
     /// Writes values to nodes on the OPC UA server using async/await.
     /// - Parameter nodes: Array of write values
@@ -857,6 +1092,21 @@ extension ZenOPCUA {
     /// - Throws: OPCUAError if write operation fails
     public func write(nodes: [WriteValue]) async throws -> [StatusCodes] {
         try await write(nodes: nodes).get()
+    }
+
+    /// Writes values to nodes on the OPC UA server using value-based node identifiers.
+    /// - Parameters:
+    ///   - nodeValues: Array of node values to write to
+    ///   - values: Array of payloads matching `nodeValues` by index
+    ///   - attributeId: OPC UA attribute to write (defaults to Value)
+    /// - Returns: Array of status codes indicating success/failure for each write
+    /// - Throws: OPCUAError if write operation fails
+    public func write(
+        nodeValues: [NodeValue],
+        values: [DataValue],
+        attributeId: UInt32 = 0x0000000d
+    ) async throws -> [StatusCodes] {
+        try await write(nodeValues: nodeValues, values: values, attributeId: attributeId).get()
     }
     
     /// Creates a subscription on the OPC UA server using async/await.
@@ -932,12 +1182,15 @@ extension ZenOPCUA {
     /// ```
     public func dataChanges() -> AsyncStream<[DataChange]> {
         AsyncStream { continuation in
-            self.onDataChanged = { changes in
-                continuation.yield(changes)
+            let registration = Task {
+                await self.asyncObservers.addDataChangeContinuation(continuation)
             }
-            
+
             continuation.onTermination = { @Sendable _ in
-                // Cleanup when stream is cancelled
+                Task {
+                    let id = await registration.value
+                    await self.asyncObservers.removeDataChangeContinuation(id)
+                }
             }
         }
     }
@@ -954,12 +1207,15 @@ extension ZenOPCUA {
     /// ```
     public func errors() -> AsyncStream<Error> {
         AsyncStream { continuation in
-            self.onErrorCaught = { error in
-                continuation.yield(error)
+            let registration = Task {
+                await self.asyncObservers.addErrorContinuation(continuation)
             }
-            
+
             continuation.onTermination = { @Sendable _ in
-                // Cleanup when stream is cancelled
+                Task {
+                    let id = await registration.value
+                    await self.asyncObservers.removeErrorContinuation(id)
+                }
             }
         }
     }

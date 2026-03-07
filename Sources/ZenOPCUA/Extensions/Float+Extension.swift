@@ -10,8 +10,8 @@ import Foundation
 extension Float: OPCUAEncodable, OPCUADecodable {
 	
 	init(bytes: [UInt8]) {
-		precondition(bytes.count == 8)
-		self = bytes.withUnsafeBytes{ $0.load(as: Float.self) }
+		precondition(bytes.count == MemoryLayout<Float>.size)
+		self = bytes.withUnsafeBytes { $0.loadUnaligned(as: Float.self) }
 	}
 
 	internal var bytes: [UInt8] {

@@ -8,8 +8,8 @@
 extension Double: OPCUAEncodable, OPCUADecodable {
     
     init(bytes: [UInt8]) {
-        precondition(bytes.count == 8)
-        self = bytes.withUnsafeBytes{ $0.load(as: Double.self) }
+        precondition(bytes.count == MemoryLayout<Double>.size)
+        self = bytes.withUnsafeBytes { $0.loadUnaligned(as: Double.self) }
     }
 
     internal var bytes: [UInt8] {
