@@ -10,7 +10,7 @@ struct CreateSubscriptionResponse: OPCUADecodable, Promisable, Sendable {
     let typeId: NodeValue
     let responseHeader: ResponseHeader
     let subscriptionId: UInt32
-    let revisedPubliscingInterval: Double
+    let revisedPublishingInterval: Double
     let revisedLifetimeCount: UInt32
     let revisedMaxKeepAliveCount: UInt32
     
@@ -22,11 +22,17 @@ struct CreateSubscriptionResponse: OPCUADecodable, Promisable, Sendable {
         var index = 44
         subscriptionId = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
-        revisedPubliscingInterval = Double(bytes: bytes[index..<(index+8)].map { $0 })
+        revisedPublishingInterval = Double(bytes: bytes[index..<(index+8)].map { $0 })
         index += 8
         revisedLifetimeCount = UInt32(bytes: bytes[index..<(index+4)])
         index += 4
         revisedMaxKeepAliveCount = UInt32(bytes: bytes[index..<(index+4)])
         header = MessageHeader(bytes: bytes[0...15].map { $0 })
+    }
+
+    /// Deprecated alias of `revisedPublishingInterval`.
+    @available(*, deprecated, renamed: "revisedPublishingInterval")
+    var revisedPubliscingInterval: Double {
+        revisedPublishingInterval
     }
 }

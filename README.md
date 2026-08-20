@@ -49,45 +49,63 @@ client.onErrorCaught = { error in
 }
 ```
 
+L'init accetta anche opzioni di timeout configurabili:
+
+```swift
+let client = ZenOPCUA(
+    eventLoopGroup: eventLoopGroup,
+    endpointUrl: "opc.tcp://localhost:4840",
+    connectTimeout: .seconds(20),      // default: 20 s (connessione TCP + handshake sessione)
+    requestTimeout: .seconds(2),       // default: 2 s per ogni servizio (read, write, browse, subscription)
+    verifyReceivedSignatures: false    // default: false (verifica delle firme in ingresso opt-in)
+)
+```
+
+`verifyReceivedSignatures` e' disattivato per impostazione predefinita per ragioni di interoperabilita': alcuni server firmano i messaggi in modo che questo client non puo' validare, quindi la verifica in ingresso e' esplicitamente opzionale.
+
 ### Connessione
 
 ```swift
 try client.connect(reconnect: false).wait()
 ```
 
+`connect` accetta anche credenziali (`username:password:`) e la durata della sessione (`sessionLifetime`, in millisecondi).
+
 ### Browse
 
 ```swift
-let root = [BrowseDescription(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2253))]
-let results = try client.browse(nodes: root).wait()
+let results = try client.browse(
+    nodeValues: [.numeric(nameSpace: 0, identifier: 2253)]
+).wait()
 for result in results {
     result.references.forEach { ref in
-        print("\(ref.displayName.text): \(ref.nodeId)")
+        print("\(ref.displayName.text): \(ref.nodeValue)")
     }
 }
 ```
+
+Chiamato senza argomenti, `browse()` parte dal nodo radice.
 
 ### Read
 
 ```swift
 let reads = [
-    ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))
+    ReadValue(nodeValue: .numeric(nameSpace: 0, identifier: 2258))
 ]
 let values = try client.read(nodes: reads).wait()
 values.forEach { value in
-    print(value.variant.value)
+    print("\(value.statusCode): \(value.variant.value)")
 }
 ```
 
-Nota: i read con status diverso da `UA_STATUSCODE_GOOD` non vengono restituiti.
-In console viene stampato l'errore con il NodeId corrispondente.
+Nota: ogni nodo richiesto produce un risultato, anche in caso di errore per singolo nodo. Lo status code e' riportato in `value.statusCode` (vedi "Note su errori di Read").
 
 ### Write
 
 ```swift
 let writes: [WriteValue] = [
     WriteValue(
-        nodeId: NodeIdString(nameSpace: 5, identifier: "MyLevel"),
+        nodeValue: .string(nameSpace: 5, identifier: "MyLevel"),
         value: DataValue(variant: Variant(value: Double(21.0)))
     )
 ]
@@ -95,13 +113,15 @@ let statuses = try client.write(nodes: writes).wait()
 print(statuses)
 ```
 
+E' disponibile anche l'overload `write(nodeValues:values:)` che costruisce i `WriteValue` automaticamente.
+
 ### Subscription + MonitoredItems
 
 ```swift
 let subscription = Subscription(
-    requestedPubliscingInterval: 1000,
+    requestedPublishingInterval: 1000,
     requestedLifetimeCount: 1000,
-    requesteMaxKeepAliveCount: 12,
+    requestedMaxKeepAliveCount: 12,
     maxNotificationsPerPublish: 0,
     publishingEnabled: true
 )
@@ -117,11 +137,12 @@ client.onDataChanged = { dataChanges in
 let subscriptionId = try client.createSubscription(subscription: subscription, startPublishing: true).wait()
 let itemsToCreate: [MonitoredItemCreateRequest] = [
     MonitoredItemCreateRequest(
-        itemToMonitor: ReadValue(nodeId: NodeIdString(nameSpace: 3, identifier: "Counter")),
-        requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250)
+        itemToMonitor: ReadValue(nodeValue: .string(nameSpace: 3, identifier: "Counter")),
+        requestedParameters: MonitoringParameters(clientHandle: 1, samplingInterval: 250),
+        monitoringMode: .reporting
     ),
     MonitoredItemCreateRequest(
-        itemToMonitor: ReadValue(nodeId: NodeIdNumeric(nameSpace: 3, identifier: 1002)),
+        itemToMonitor: ReadValue(nodeValue: .numeric(nameSpace: 3, identifier: 1002)),
         requestedParameters: MonitoringParameters(clientHandle: 2, samplingInterval: 250)
     )
 ]
@@ -131,6 +152,8 @@ results.forEach { result in
     print("createMonitoredItem: \(result.monitoredItemId) = \(result.statusCode)")
 }
 ```
+
+`monitoringMode` ammette `.disabled`, `.sampling` e `.reporting` (default `.reporting`).
 
 ### Disconnect
 
@@ -156,7 +179,7 @@ let client = ZenOPCUA(
 
 try await client.connect()
 
-let nodes = [ReadValue(nodeId: NodeIdNumeric(nameSpace: 0, identifier: 2258))]
+let nodes = [ReadValue(nodeValue: .numeric(nameSpace: 0, identifier: 2258))]
 let results = try await client.read(nodes: nodes)
 print("Letti: \(results.count)")
 
@@ -180,12 +203,19 @@ let client = ZenOPCUA(
 
 ## Note su errori di Read
 
-- Se il server risponde con `BadNodeIdUnknown` o simili, il valore **non** viene restituito.
-- In console viene stampato: `Read error: <StatusCode> for node <NodeId>`.
-- Le diagnostiche del server vengono stampate come `Read diagnostic: ...` quando disponibili.
+- La read **non** fallisce se il server risponde con `BadNodeIdUnknown` o simili: tutti i risultati vengono restituiti e lo status code per singolo nodo e' disponibile in `value.statusCode`.
+- Per distinguere i valori validi verificare `value.statusCode == .UA_STATUSCODE_GOOD`.
+- In console viene stampato `Warning: ReadResponse status code: <StatusCode>` per ogni risultato con status non GOOD.
+- Gli errori di trasporto/sessione (timeout, canale chiuso) falliscono invece il future o il `try await`.
 
 ## Test
 
 ```bash
 swift test
+```
+
+Gli integration test richiedono un server OPC UA raggiungibile. Per la sola suite offline:
+
+```bash
+swift test --skip ZenOPCUAIntegrationTests
 ```

@@ -8,8 +8,8 @@ final class ZenOPCUAIntegrationTests: XCTestCase {
     }
 
     private let endpointUrl = "opc.tcp://Gerardos-MacBook-Pro.local:53530/OPCUA/SimulationServer"
-    private let certificatePath = "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-cert.pem"
-    private let privateKeyPath = "/Users/gerardo/Projects/ZenOPCUA/certificates/opcua-client-key-rsa.pem"
+    private let certificatePath = "/Users/gerardo/Projects/biesse/ZenOPCUA/certificates/opcua-client-cert.pem"
+    private let privateKeyPath = "/Users/gerardo/Projects/biesse/ZenOPCUA/certificates/opcua-client-key-rsa.pem"
     private let rootNodeValue = NodeValue.numeric(nameSpace: 0, identifier: 2253)
     private let monitoredNodeValues: [NodeValue] = [
         .numeric(nameSpace: 3, identifier: 1001),
@@ -44,9 +44,9 @@ final class ZenOPCUAIntegrationTests: XCTestCase {
 
     private func makeSubscription(startPublishing: Bool = false) -> Subscription {
         Subscription(
-            requestedPubliscingInterval: 300,
+            requestedPublishingInterval: 300,
             requestedLifetimeCount: 1000,
-            requesteMaxKeepAliveCount: 12,
+            requestedMaxKeepAliveCount: 12,
             maxNotificationsPerPublish: 0,
             publishingEnabled: startPublishing
         )
@@ -291,6 +291,7 @@ final class ZenOPCUAIntegrationTests: XCTestCase {
 
         await disconnectAsync(opcua, deleteSubscriptions: false)
     }
+
 
     func testConnectionWithUsernamePassword() async throws {
         let opcua = try await connectUsernamePasswordAsync()

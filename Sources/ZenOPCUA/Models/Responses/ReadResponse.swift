@@ -13,7 +13,7 @@ struct ReadResponse: OPCUADecodable, Sendable {
     let diagnosticInfos: [DiagnosticInfo]
 
     init(bytes: [UInt8]) {
-        typeId = NodeValue(method: .browseResponse)
+        typeId = NodeValue(method: .readResponse)
         let part = bytes[20...43].map { $0 }
         responseHeader = ResponseHeader(bytes: part)
         header = MessageHeader(bytes: bytes[0...15].map { $0 })

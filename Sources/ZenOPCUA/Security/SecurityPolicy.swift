@@ -365,10 +365,14 @@ final class SecurityPolicy: Sendable {
         }
     }
 
+    /// Replaces the stored remote (server) certificate with the complete DER data
+    /// received from the server. The append semantics is intentionally a replace:
+    /// OPC UA servers always send the FULL certificate in every message that
+    /// carries it (CreateSessionResponse / GetEndpoints), so concatenating would
+    /// corrupt both `remoteCertificate` and its thumbprint on repeated calls.
     func loadRemoteCertificate(data: [UInt8]) {
-        let updatedRemoteCertificate = remoteCertificate + Data(data)
-        remoteCertificate = updatedRemoteCertificate
-        remoteCertificateThumbprint = RSACrypto.sha1(data: updatedRemoteCertificate)
+        remoteCertificate = Data(data)
+        remoteCertificateThumbprint = RSACrypto.sha1(data: remoteCertificate)
     }
 
     func updateConnectionSettings(messageSecurityMode: MessageSecurityMode, includeServerThumbprintInOpn: Bool) {

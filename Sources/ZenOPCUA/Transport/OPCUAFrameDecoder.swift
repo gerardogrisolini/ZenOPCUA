@@ -182,11 +182,12 @@ final class OPCUAFrameDecoder: Sendable {
             && type != .error
         
         if shouldRemoveSignature {
-            //try verifyChunk(chunkBuffer: &buffer)
+            if state.verifyReceivedSignatures {
+                try verifyChunk(chunkBuffer: &buffer)
+            }
             // Ensure we don't move writerIndex to a negative value
             if buffer.writerIndex >= signatureSize {
                 buffer.moveWriterIndex(to: buffer.writerIndex - signatureSize)
-            } else {
             }
         }
 
@@ -318,7 +319,9 @@ final class OPCUAFrameDecoder: Sendable {
     }
     
     public func verifyChunk(chunkBuffer: inout ByteBuffer) throws {
-        let signatureSize = state.currentRemoteAsymmetricSignatureSize
+        // Mirror the signature-removal path: use the symmetric signature size
+        // once the secure channel has switched to symmetric security.
+        let signatureSize = self.signatureSize
         
         // Ensure we have enough data for signature verification
         guard chunkBuffer.writerIndex >= signatureSize else {

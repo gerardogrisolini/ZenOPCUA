@@ -59,6 +59,8 @@ struct UserIdentityInfoAnonymous: UserIdentityInfo {
 struct UserIdentityInfoUserName: UserIdentityInfo {
     let policyId: String
     let username: String
+    // Password cifrata lato client: se la cifratura fallisce il campo resta
+    // vuoto (fail-safe) per non trasmettere mai la password in chiaro sul wire.
     var password: [UInt8] = []
     var encryptionAlgorithm: String?
     var userTokenSignature: SignatureData = SignatureData()
@@ -93,6 +95,10 @@ struct UserIdentityInfoUserName: UserIdentityInfo {
             let dataToEncrypt = payloadLength + passwordBytes + serverNonce
             self.password = try securityPolicy.cryptAsymmetric(data: dataToEncrypt)
         } catch {
+            // Fail-safe: la cifratura è fallita, lasciare self.password = []
+            // (valore di default del campo) anziché inviare la password in chiaro.
+            // Il token inviato sarà rifiutato dal server, ma nessun segreto va sul wire.
+            self.password = []
             print("UserIdentityInfoUserName: failed to encrypt password: \(error)")
         }
     }
@@ -131,6 +137,9 @@ struct UserIdentityInfoX509: UserIdentityInfo {
                 )
             }
         } catch {
+            // Fail-safe: la firma del token non è stata prodotta, quindi si
+            // invia una SignatureData() vuota. Il server rifiuterà il token
+            // ActivateSession, ma non viene mai inviata una firma parziale/invalida.
             self.certificateData = [UInt8](certificate)
             self.userTokenSignature = SignatureData()
             print("UserIdentityInfoX509: failed to build user token signature: \(error)")

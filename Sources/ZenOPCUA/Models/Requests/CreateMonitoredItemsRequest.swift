@@ -51,27 +51,43 @@ struct CreateMonitoredItemsRequest: OPCUAEncodable, Sendable {
  *  reporting: The item being monitored is sampled and evaluated, and Notifications are generated and queued. Notification reporting is enabled.
  */
 
-public enum MonitorigMode: UInt32, Sendable {
+public enum MonitoringMode: UInt32, Sendable {
     case disabled = 0
     case sampling = 1
     case reporting = 2
 }
 
+/// Deprecated alias of `MonitoringMode`.
+@available(*, deprecated, renamed: "MonitoringMode")
+public typealias MonitorigMode = MonitoringMode
+
 public struct MonitoredItemCreateRequest: OPCUAEncodable, Sendable {
     public let itemToMonitor: ReadValue
-    public let monitorigMode: MonitorigMode
+    public let monitoringMode: MonitoringMode
     public let requestedParameters: MonitoringParameters
 
-    public init(itemToMonitor: ReadValue, requestedParameters: MonitoringParameters, monitorigMode: MonitorigMode = .reporting) {
+    public init(itemToMonitor: ReadValue, requestedParameters: MonitoringParameters, monitoringMode: MonitoringMode = .reporting) {
         self.itemToMonitor = itemToMonitor
-        self.monitorigMode = monitorigMode
+        self.monitoringMode = monitoringMode
         self.requestedParameters = requestedParameters
     }
     
     internal var bytes: [UInt8] {
         return itemToMonitor.bytes +
-            monitorigMode.rawValue.bytes +
+            monitoringMode.rawValue.bytes +
             requestedParameters.bytes
+    }
+
+    /// Deprecated alias of `monitoringMode`.
+    @available(*, deprecated, renamed: "monitoringMode")
+    public var monitorigMode: MonitoringMode {
+        monitoringMode
+    }
+
+    /// Deprecated initializer using the legacy misspelled argument label.
+    @available(*, deprecated, renamed: "init(itemToMonitor:requestedParameters:monitoringMode:)")
+    public init(itemToMonitor: ReadValue, requestedParameters: MonitoringParameters, monitorigMode: MonitoringMode) {
+        self.init(itemToMonitor: itemToMonitor, requestedParameters: requestedParameters, monitoringMode: monitorigMode)
     }
 }
 

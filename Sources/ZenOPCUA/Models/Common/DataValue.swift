@@ -94,7 +94,7 @@ public struct DataValue: Promisable, OPCUAEncodable, Sendable {
                 let len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
                 if len < UInt32.max {
-                    variant.bytes = bytes[index..<(index+len.int)].map { $0 }
+                    variant.bytes = len.bytes + bytes[index..<(index+len.int)].map { $0 }
                     index += len.int
                 }
             case .guid:
@@ -110,7 +110,7 @@ public struct DataValue: Promisable, OPCUAEncodable, Sendable {
                 let len = UInt32(bytes: bytes[index..<(index+4)])
                 index += 4
                 if len < UInt32.max {
-                    variant.bytes += bytes[index..<(index+len.int)].map { $0 }
+                    variant.bytes += len.bytes + bytes[index..<(index+len.int)].map { $0 }
                     index += len.int
                 }
             case .localizedText, .xmlElement:
@@ -118,7 +118,7 @@ public struct DataValue: Promisable, OPCUAEncodable, Sendable {
                 let len = UInt32(bytes: bytes[index+1..<(index+5)])
                 index += 5
                 if len < UInt32.max {
-                    variant.bytes += bytes[index..<(index+len.int)].map { $0 }
+                    variant.bytes += len.bytes + bytes[index..<(index+len.int)].map { $0 }
                     index += len.int
                 }
             case .arrayOfDouble:
@@ -126,8 +126,7 @@ public struct DataValue: Promisable, OPCUAEncodable, Sendable {
                 index += 4
                 if len < UInt32.max {
                     let arrayLenght = 8 * len.int
-                    variant.bytes = [1, 139]
-                    variant.bytes += bytes[index..<(index+arrayLenght)].map { $0 }
+                    variant.bytes = len.bytes + bytes[index..<(index+arrayLenght)].map { $0 }
                     index += arrayLenght
                 }
             }
@@ -244,7 +243,8 @@ public struct Variant: Sendable {
 
     public init(value: String) {
         type = DataType.string.rawValue
-        bytes.append(contentsOf: value.utf8)
+        // String wire format: length (4 bytes, little-endian) + UTF-8 data.
+        bytes = UInt32(value.utf8.count).bytes + Array(value.utf8)
     }
 
     public init(value: Date) {
@@ -254,8 +254,11 @@ public struct Variant: Sendable {
 
     public init(value: [Double]) {
         type = DataType.arrayOfDouble.rawValue
-        bytes.append(contentsOf: [0x01, DataType.arrayOfDouble.rawValue])
-        bytes.append(contentsOf: value.bytes)
+        // Internal representation symmetric with the decoder: bytes =
+        // arrayLength(element count, 4 bytes) + Double elements.
+        // DataValue.bytes emits [encodingMask, typeId(0x80|11)] before these.
+        bytes = UInt32(value.count).bytes
+        bytes += value.map { $0.bytes }.reduce([], +)
     }
 
     public var value: Any {
@@ -277,12 +280,19 @@ public struct Variant: Sendable {
         case .double:
             return bytes.load() as Double
         case .string:
-            return bytes.withUnsafeBytes { String(bytes: $0, encoding: .utf8) ?? "" }
+            // Symmetric with the decoder: bytes = length(4) + utf8 data.
+            guard bytes.count >= 4 else { return "" }
+            let len = Int(UInt32(bytes: bytes[0..<4]))
+            guard len >= 0, bytes.count >= 4 + len else { return "" }
+            return String(bytes: bytes[4..<(4+len)], encoding: .utf8) ?? ""
         case .datetime:
             return (bytes.load() as Int64).dateUtc
         case .arrayOfDouble:
-            let data = bytes.suffix(from: 2)
-            let chunks = Array(data).chunked(into: 8)
+            // Symmetric with the decoder: bytes = arrayLength(4) + elements.
+            guard bytes.count >= 4 else { return [Double]() }
+            let count = Int(UInt32(bytes: bytes[0..<4]))
+            guard count >= 0, bytes.count >= 4 + count * 8 else { return [Double]() }
+            let chunks = Array(bytes[4..<(4 + count * 8)]).chunked(into: 8)
             return chunks.map { $0.load() as Double }
         default:
             return bytes

@@ -6,33 +6,65 @@
 //
 
 public struct Subscription: OPCUAEncodable, Sendable {
-    public let requestedPubliscingInterval: Double
+    public let requestedPublishingInterval: Double
     public var requestedLifetimeCount: UInt32
-    public var requesteMaxKeepAliveCount: UInt32
+    public var requestedMaxKeepAliveCount: UInt32
     public var maxNotificationsPerPublish: UInt32
     public var publishingEnabled: Bool
     public var priority: UInt8
 
     public init(
-        requestedPubliscingInterval: Double = 250,
+        requestedPublishingInterval: Double = 250,
+        requestedLifetimeCount: UInt32 = 1000,
+        requestedMaxKeepAliveCount: UInt32 = 12,
+        maxNotificationsPerPublish: UInt32 = 10,
+        publishingEnabled: Bool = true,
+        priority: UInt8 = 10
+    ) {
+        self.requestedPublishingInterval = requestedPublishingInterval
+        self.requestedLifetimeCount = requestedLifetimeCount
+        self.requestedMaxKeepAliveCount = requestedMaxKeepAliveCount
+        self.maxNotificationsPerPublish = maxNotificationsPerPublish
+        self.publishingEnabled = publishingEnabled
+        self.priority = priority
+    }
+
+    /// Deprecated alias of `requestedPublishingInterval`.
+    @available(*, deprecated, renamed: "requestedPublishingInterval")
+    public var requestedPubliscingInterval: Double {
+        requestedPublishingInterval
+    }
+
+    /// Deprecated alias of `requestedMaxKeepAliveCount`.
+    @available(*, deprecated, renamed: "requestedMaxKeepAliveCount")
+    public var requesteMaxKeepAliveCount: UInt32 {
+        requestedMaxKeepAliveCount
+    }
+
+    /// Deprecated initializer using the legacy misspelled argument labels.
+    @available(*, deprecated, renamed: "init(requestedPublishingInterval:requestedLifetimeCount:requestedMaxKeepAliveCount:maxNotificationsPerPublish:publishingEnabled:priority:)")
+    public init(
+        requestedPubliscingInterval: Double,
         requestedLifetimeCount: UInt32 = 1000,
         requesteMaxKeepAliveCount: UInt32 = 12,
         maxNotificationsPerPublish: UInt32 = 10,
         publishingEnabled: Bool = true,
         priority: UInt8 = 10
     ) {
-        self.requestedPubliscingInterval = requestedPubliscingInterval
-        self.requestedLifetimeCount = requestedLifetimeCount
-        self.requesteMaxKeepAliveCount = requesteMaxKeepAliveCount
-        self.maxNotificationsPerPublish = maxNotificationsPerPublish
-        self.publishingEnabled = publishingEnabled
-        self.priority = priority
+        self.init(
+            requestedPublishingInterval: requestedPubliscingInterval,
+            requestedLifetimeCount: requestedLifetimeCount,
+            requestedMaxKeepAliveCount: requesteMaxKeepAliveCount,
+            maxNotificationsPerPublish: maxNotificationsPerPublish,
+            publishingEnabled: publishingEnabled,
+            priority: priority
+        )
     }
     
     internal var bytes: [UInt8] {
-        return requestedPubliscingInterval.bytes +
+        return requestedPublishingInterval.bytes +
             requestedLifetimeCount.bytes +
-            requesteMaxKeepAliveCount.bytes +
+            requestedMaxKeepAliveCount.bytes +
             maxNotificationsPerPublish.bytes +
             publishingEnabled.bytes +
             priority.bytes

@@ -26,6 +26,30 @@ final class ZenOPCUAPrimitiveExtensionsUnitTests: XCTestCase {
         XCTAssertEqual("not-a-policy".securityPolicy, .none)
     }
 
+    func testDateTimeEpochConversion() {
+        // POSIX epoch (1970-01-01T00:00:00Z) in OPC UA ticks: 11_644_473_600s * 10_000_000.
+        let posixEpoch = Date(timeIntervalSince1970: 0)
+        XCTAssertEqual(posixEpoch.ticks, 116_444_736_000_000_000)
+
+        // Known instant: 2024-01-01T00:00:00Z = 1_704_067_200 POSIX seconds.
+        let known = Date(timeIntervalSince1970: 1_704_067_200)
+        XCTAssertEqual(known.ticks, (1_704_067_200 + 116_444_736_00) * 10_000_000)
+    }
+
+    func testDateTimeRoundTrip() {
+        let original = Date(timeIntervalSince1970: 1_704_067_200.123)
+        let decoded = original.ticks.date
+        // Ticks have 100ns resolution: allow sub-microsecond drift.
+        XCTAssertEqual(decoded.timeIntervalSince1970, original.timeIntervalSince1970, accuracy: 0.000_001)
+        XCTAssertEqual(original.ticks.dateUtc.timeIntervalSince1970, original.timeIntervalSince1970, accuracy: 0.000_001)
+    }
+
+    func testDateTimeDecodingOfKnownTicks() {
+        // 116_444_736_000_000_000 ticks == 1970-01-01T00:00:00Z.
+        XCTAssertEqual(Int64(116_444_736_000_000_000).date.timeIntervalSince1970, 0, accuracy: 0.000_001)
+        XCTAssertEqual(Int64(116_444_736_000_000_000).dateUtc.timeIntervalSince1970, 0, accuracy: 0.000_001)
+    }
+
     func testStringOptionalAndEmptyEncoding() {
         XCTAssertEqual("abc".bytes, UInt32(3).bytes + [97, 98, 99])
         XCTAssertEqual("".bytes, UInt32.max.bytes)
@@ -50,18 +74,19 @@ final class ZenOPCUAPrimitiveExtensionsUnitTests: XCTestCase {
     }
 
     func testDateTicksAndBytesForEpoch() {
-        let calendar = Calendar(identifier: .gregorian)
-        let epoch = calendar.date(from: DateComponents(year: 1601, month: 1, day: 1))!
+        // OPC UA epoch: 1601-01-01T00:00:00Z == 11_644_473_600 seconds before
+        // the POSIX epoch. Pure UTC arithmetic, locale-independent.
+        let opcuaEpoch = Date(timeIntervalSince1970: -11_644_473_600)
 
-        XCTAssertEqual(epoch.ticks, 0)
-        XCTAssertEqual(epoch.bytes, Int64(0).bytes)
+        XCTAssertEqual(opcuaEpoch.ticks, 0)
+        XCTAssertEqual(opcuaEpoch.bytes, Int64(0).bytes)
     }
 
     func testInt64DateUtcUsesExpectedOffset() {
+        // 0 ticks decodes to the OPC UA epoch itself (no spurious +3000s and
+        // no local timezone offset).
         let date = Int64(0).dateUtc
-        let calendar = Calendar(identifier: .gregorian)
-        let epoch = calendar.date(from: DateComponents(year: 1601, month: 1, day: 1))!
-        let expected = Date(timeInterval: 3000, since: epoch)
+        let expected = Date(timeIntervalSince1970: -11_644_473_600)
 
         XCTAssertEqual(date.timeIntervalSince1970, expected.timeIntervalSince1970, accuracy: 0.001)
     }

@@ -1,161 +1,6 @@
 import Foundation
 import NIOConcurrencyHelpers
 
-private actor SequenceNumberRuntime {
-    private struct SequenceCache: Sendable {
-        private let box = NIOLockedValueBox<UInt32>(1)
-
-        func reset() {
-            box.withLockedValue { $0 = 0 }
-        }
-
-        func next() -> UInt32 {
-            box.withLockedValue {
-                $0 += 1
-                return $0
-            }
-        }
-    }
-
-    nonisolated private let cache = SequenceCache()
-
-    nonisolated func reset() {
-        cache.reset()
-    }
-
-    nonisolated func next() -> UInt32 {
-        cache.next()
-    }
-}
-
-private actor BufferSizeRuntime {
-    private struct BufferSizeCache: Sendable {
-        private let box: NIOLockedValueBox<Int>
-
-        init(bufferSize: Int) {
-            self.box = NIOLockedValueBox(bufferSize)
-        }
-
-        var currentBufferSize: Int {
-            box.withLockedValue { $0 }
-        }
-
-        func update(_ bufferSize: Int) {
-            box.withLockedValue { $0 = bufferSize }
-        }
-    }
-
-    nonisolated private let cache: BufferSizeCache
-
-    init(initialBufferSize: Int) {
-        self.cache = BufferSizeCache(bufferSize: initialBufferSize)
-    }
-
-    nonisolated var currentBufferSize: Int {
-        cache.currentBufferSize
-    }
-
-    nonisolated func update(_ bufferSize: Int) {
-        cache.update(bufferSize)
-    }
-}
-
-private actor ExpectedThumbprintRuntime {
-    private struct ExpectedThumbprintCache: Sendable {
-        private let box: NIOLockedValueBox<Data?>
-
-        init(expectedServerThumbprint: Data?) {
-            self.box = NIOLockedValueBox(expectedServerThumbprint)
-        }
-
-        var currentExpectedServerThumbprint: Data? {
-            box.withLockedValue { $0 }
-        }
-
-        func update(_ expectedServerThumbprint: Data?) {
-            box.withLockedValue { $0 = expectedServerThumbprint }
-        }
-    }
-
-    nonisolated private let cache: ExpectedThumbprintCache
-
-    init(initialExpectedServerThumbprint: Data?) {
-        self.cache = ExpectedThumbprintCache(expectedServerThumbprint: initialExpectedServerThumbprint)
-    }
-
-    nonisolated var currentExpectedServerThumbprint: Data? {
-        cache.currentExpectedServerThumbprint
-    }
-
-    nonisolated func update(_ expectedServerThumbprint: Data?) {
-        cache.update(expectedServerThumbprint)
-    }
-}
-
-private actor MessageSecurityModeRuntime {
-    private struct MessageSecurityModeCache: Sendable {
-        private let box: NIOLockedValueBox<MessageSecurityMode>
-
-        init(messageSecurityMode: MessageSecurityMode) {
-            self.box = NIOLockedValueBox(messageSecurityMode)
-        }
-
-        var currentMessageSecurityMode: MessageSecurityMode {
-            box.withLockedValue { $0 }
-        }
-
-        func update(_ messageSecurityMode: MessageSecurityMode) {
-            box.withLockedValue { $0 = messageSecurityMode }
-        }
-    }
-
-    nonisolated private let cache: MessageSecurityModeCache
-
-    init(initialMessageSecurityMode: MessageSecurityMode) {
-        self.cache = MessageSecurityModeCache(messageSecurityMode: initialMessageSecurityMode)
-    }
-
-    nonisolated var currentMessageSecurityMode: MessageSecurityMode {
-        cache.currentMessageSecurityMode
-    }
-
-    nonisolated func update(_ messageSecurityMode: MessageSecurityMode) {
-        cache.update(messageSecurityMode)
-    }
-}
-
-private actor OpenChannelThumbprintPolicyRuntime {
-    private struct ThumbprintPolicyCache: Sendable {
-        private let box: NIOLockedValueBox<Bool>
-
-        init(includeServerThumbprintInOpn: Bool) {
-            self.box = NIOLockedValueBox(includeServerThumbprintInOpn)
-        }
-
-        var currentIncludeServerThumbprintInOpn: Bool {
-            box.withLockedValue { $0 }
-        }
-
-        func update(_ includeServerThumbprintInOpn: Bool) {
-            box.withLockedValue { $0 = includeServerThumbprintInOpn }
-        }
-    }
-
-    nonisolated private let cache: ThumbprintPolicyCache
-
-    init(initialIncludeServerThumbprintInOpn: Bool) {
-        self.cache = ThumbprintPolicyCache(includeServerThumbprintInOpn: initialIncludeServerThumbprintInOpn)
-    }
-
-    nonisolated var currentIncludeServerThumbprintInOpn: Bool {
-        cache.currentIncludeServerThumbprintInOpn
-    }
-
-    nonisolated func update(_ includeServerThumbprintInOpn: Bool) {
-        cache.update(includeServerThumbprintInOpn)
-    }
-}
-
 private struct SecurityPolicyBox: Sendable {
     private let box: NIOLockedValueBox<SecurityPolicy>
 
@@ -361,6 +206,11 @@ private actor ProtocolSessionState {
 final class OPCUAConnectionState: Sendable {
     private let securitySessionState: SecuritySessionState
     private let protocolSessionState: ProtocolSessionState
+    private let verifyReceivedSignaturesBox: NIOLockedValueBox<Bool>
+    var verifyReceivedSignatures: Bool {
+        get { verifyReceivedSignaturesBox.withLockedValue { $0 } }
+        set { verifyReceivedSignaturesBox.withLockedValue { $0 = newValue } }
+    }
     var messageSecurityMode: MessageSecurityMode {
         get { protocolSessionState.messageSecurityMode }
         set {
@@ -504,7 +354,8 @@ final class OPCUAConnectionState: Sendable {
         messageSecurityMode: MessageSecurityMode = .none,
         bufferSize: Int = 8196,
         includeServerThumbprintInOpn: Bool = false,
-        expectedServerThumbprint: Data? = nil
+        expectedServerThumbprint: Data? = nil,
+        verifyReceivedSignatures: Bool = false
     ) {
         self.securitySessionState = SecuritySessionState(
             cryptoContext: cryptoContext,
@@ -518,6 +369,7 @@ final class OPCUAConnectionState: Sendable {
             includeServerThumbprintInOpn: includeServerThumbprintInOpn,
             expectedServerThumbprint: expectedServerThumbprint
         )
+        self.verifyReceivedSignaturesBox = NIOLockedValueBox(verifyReceivedSignatures)
     }
     
     func resetSequenceNumber() {

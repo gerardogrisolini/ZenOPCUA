@@ -13,17 +13,13 @@ import Foundation
 
 extension Date : OPCUAEncodable {
     
+    /// Pure epoch arithmetic: seconds between 1601-01-01T00:00:00Z (OPC UA
+    /// DateTime origin) and 1970-01-01T00:00:00Z (POSIX epoch).
+    /// No Calendar/TimeZone involved, so the conversion is DST- and locale-independent.
+    private static let secondsBetween1601And1970: TimeInterval = 11_644_473_600
+
     var ticks: Int64 {
-        let calendar = Calendar.current
-        let dstComponents = DateComponents(year: 1601,
-            month: 1,
-            day: 1)
-        if #available(OSX 10.12, *) {
-            let interval = DateInterval(start: calendar.date(from: dstComponents)!, end: self).duration
-            return Int64(TimeInterval(interval * 10000000))
-        } else {
-            return 0
-        }
+        Int64(((timeIntervalSince1970 + Self.secondsBetween1601And1970) * 10_000_000).rounded())
     }
 
     internal var bytes: [UInt8] {

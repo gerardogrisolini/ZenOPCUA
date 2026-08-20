@@ -464,6 +464,7 @@ final class OPCUAHandler: Sendable {
     private let secureChannelRenewRuntime = SecureChannelRenewRuntime()
     private let messageIDRuntime = MessageIDRuntime()
     private let channelSessionRuntime = ChannelSessionRuntime()
+    private let subscriptionAckRuntime = SubscriptionAckRuntime()
     private let configurationRuntime = HandlerConfigurationRuntime()
     
     private(set) var tokenId: UInt32 {
@@ -598,6 +599,10 @@ final class OPCUAHandler: Sendable {
                     )
                     state.setSecurityKeys(securityKeys)
                 } else {
+                    // Intentionally empty: serverNonce è vuoto o di lunghezza 1,
+                    // quindi non ci sono nonce sufficienti per derivare le chiavi
+                    // di sessione. Il canale prosegue con le chiavi correnti
+                    // (bootstrap non firmato) e il flusso continua con GetEndpoints.
                 }
                 getEndpoints(response: response)
             }
@@ -686,19 +691,37 @@ final class OPCUAHandler: Sendable {
                 closeSecureChannel(response: CloseSessionResponse(bytes: frame.body))
             case .browseResponse:
                 let response = BrowseResponse(bytes: frame.body)
-                succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                } else {
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    failPromiseIfPending(response.responseHeader.requestHandle, error: error)
+                    onErrorCaught(error: error)
+                }
             case .readResponse:
                 let response = ReadResponse(bytes: frame.body)
-                succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                } else {
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    failPromiseIfPending(response.responseHeader.requestHandle, error: error)
+                    onErrorCaught(error: error)
+                }
             case .writeResponse:
                 let response = WriteResponse(bytes: frame.body)
-                succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                } else {
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    failPromiseIfPending(response.responseHeader.requestHandle, error: error)
+                    onErrorCaught(error: error)
+                }
             case .createSubscriptionResponse:
                 let response = CreateSubscriptionResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
 //                    print("revisedLifetimeCount: \(response.revisedLifetimeCount)")
 //                    print("revisedMaxKeepAliveCount: \(response.revisedMaxKeepAliveCount)")
-//                    print("revisedPubliscingInterval: \(response.revisedPubliscingInterval)")
+//                    print("revisedPublishingInterval: \(response.revisedPublishingInterval)")
                     succeedPromiseIfPending(response.responseHeader.requestHandle, with: response)
                 } else {
                     let error = OPCUAError.code(response.responseHeader.serviceResult)
@@ -707,13 +730,29 @@ final class OPCUAHandler: Sendable {
                 }
             case .createMonitoredItemsResponse:
                 let response = CreateMonitoredItemsResponse(bytes: frame.body)
-                succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                } else {
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    failPromiseIfPending(response.responseHeader.requestHandle, error: error)
+                    onErrorCaught(error: error)
+                }
             case .deleteSubscriptionsResponse:
                 let response = DeleteSubscriptionsResponse(bytes: frame.body)
-                succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.results)
+                } else {
+                    let error = OPCUAError.code(response.responseHeader.serviceResult)
+                    failPromiseIfPending(response.responseHeader.requestHandle, error: error)
+                    onErrorCaught(error: error)
+                }
             case .publishResponse:
                 let response = PublishResponse(bytes: frame.body)
                 if response.responseHeader.serviceResult == .UA_STATUSCODE_GOOD {
+                    subscriptionAckRuntime.record(
+                        response.notificationMessage.sequenceNumber,
+                        for: response.subscriptionId
+                    )
                     succeedPromiseIfPending(response.responseHeader.requestHandle, with: response.subscriptionId)
                     guard let dataChanged = callbackRuntime.currentDataChanged else { return }
                     dataChanged(response.notificationMessage.notificationData)
@@ -987,6 +1026,12 @@ final class OPCUAHandler: Sendable {
 
     public func nextMessageID() -> UInt32 {
         messageIDRuntime.next()
+    }
+
+    /// Acknowledgement pairs to send with the next PublishRequest: the last
+    /// notificationMessage.sequenceNumber tracked for each subscription.
+    func subscriptionAcknowledgements(forSubscriptionIds subscriptionIds: [UInt32]) -> [SubscriptionAcknowledgement] {
+        subscriptionAckRuntime.acknowledgements(forSubscriptionIds: subscriptionIds)
     }
 
     public func registerPromise(_ promise: EventLoopPromise<Promisable>, for requestId: UInt32, on eventLoop: EventLoop) -> EventLoopFuture<Void> {
