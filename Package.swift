@@ -1,4 +1,4 @@
-// swift-tools-version:6.2
+// swift-tools-version:6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -29,7 +29,6 @@ let package = Package(
                 .product(name: "X509", package: "swift-certificates")
             ],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency=complete"),
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault")
             ]
         ),
@@ -37,7 +36,6 @@ let package = Package(
             name: "ZenOPCUATests",
             dependencies: ["ZenOPCUA"],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency=complete"),
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault")
             ]
         )

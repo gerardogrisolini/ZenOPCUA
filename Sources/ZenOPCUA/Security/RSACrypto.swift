@@ -29,7 +29,24 @@ enum RSACrypto {
     }
     
     // MARK: - Cached Keys
-    
+    //
+    // The encryption boxes below are `@unchecked Sendable` because the wrapped
+    // swift-crypto types (`_RSA.Encryption.PublicKey`, `_RSA.Encryption.PrivateKey`)
+    // are backed by BoringSSL handles and, as of swift-crypto 3.15.1, are not
+    // declared `Sendable`. The `_RSA.Signing.*` types *are* Sendable, so the
+    // signing keys are stored as plain stored properties and checked by the
+    // compiler.
+    //
+    // Safety invariants (must hold for every box and for `KeyPair` itself):
+    // 1. `value` is `var` but is only mutated from inside `RuntimeContext`
+    //    through `NIOLockedValueBox.withLockedValue`, so all reads and writes
+    //    happen while holding the box's internal lock (no unsynchronized access).
+    // 2. `KeyPair` is only ever shared between threads as a value copied out of
+    //    or into a locked box; it is never handed to two threads for concurrent
+    //    mutation.
+    // 3. The wrapped keys themselves are treated as immutable while stored:
+    //    swift-crypto key types expose no mutating API used here.
+
     private struct EncryptionPublicKeyBox: @unchecked Sendable {
         var value: _RSA.Encryption.PublicKey?
     }
@@ -38,19 +55,14 @@ enum RSACrypto {
         var value: _RSA.Encryption.PrivateKey?
     }
 
-    private struct SigningPrivateKeyBox: @unchecked Sendable {
-        var value: _RSA.Signing.PrivateKey?
-    }
-
-    private struct SigningPublicKeyBox: @unchecked Sendable {
-        var value: _RSA.Signing.PublicKey?
-    }
-
     struct KeyPair: Sendable {
         private var publicKeyBox = EncryptionPublicKeyBox()
         private var privateKeyBox = EncryptionPrivateKeyBox()
-        private var signingPrivateKeyBox = SigningPrivateKeyBox()
-        private var signingPublicKeyBox = SigningPublicKeyBox()
+        // `_RSA.Signing.PublicKey`/`PrivateKey` are Sendable (swift-crypto 3.15.1),
+        // so these need no box: the struct stays checked by the compiler and the
+        // lazy cache-fill still happens on the copy held inside the locked box.
+        var signingPrivateKey: _RSA.Signing.PrivateKey?
+        var signingPublicKey: _RSA.Signing.PublicKey?
 
         var publicKey: _RSA.Encryption.PublicKey? {
             get { publicKeyBox.value }
@@ -60,16 +72,6 @@ enum RSACrypto {
         var privateKey: _RSA.Encryption.PrivateKey? {
             get { privateKeyBox.value }
             set { privateKeyBox.value = newValue }
-        }
-
-        var signingPrivateKey: _RSA.Signing.PrivateKey? {
-            get { signingPrivateKeyBox.value }
-            set { signingPrivateKeyBox.value = newValue }
-        }
-
-        var signingPublicKey: _RSA.Signing.PublicKey? {
-            get { signingPublicKeyBox.value }
-            set { signingPublicKeyBox.value = newValue }
         }
     }
     

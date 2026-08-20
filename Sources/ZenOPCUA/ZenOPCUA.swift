@@ -6,7 +6,7 @@
 //
 
 import Foundation
-@preconcurrency import NIOCore
+import NIOCore
 import NIO
 import NIOConcurrencyHelpers
 
@@ -181,7 +181,6 @@ public final class ZenOPCUA: Sendable {
         return ("", 0)
     }
     
-    @preconcurrency
     private func start() -> EventLoopFuture<Void> {
         let connectionSnapshot = coordinatorSnapshot
         guard connectionSnapshot.canStartTransport else {
@@ -260,7 +259,6 @@ public final class ZenOPCUA: Sendable {
         }
     }
 
-    @preconcurrency
     private func initializeChannel(_ channel: Channel) -> EventLoopFuture<Void> {
         channel.pipeline.addHandler(
             OPCUAFrameCodecHandler(
@@ -290,8 +288,11 @@ public final class ZenOPCUA: Sendable {
                     }
 
                     try await withThrowingTaskGroup(of: Void.self) { group in
-                        group.addTask {
+                        group.addTask { [self] in
                             for try await frame in inbound {
+                                // Short-lived closure executed synchronously on the
+                                // event loop: the weak capture keeps the inbound pump
+                                // from extending the client's lifetime.
                                 eventLoop.execute { [weak self] in
                                     self?.handler.handleInbound(frame: frame)
                                 }
@@ -422,7 +423,7 @@ public final class ZenOPCUA: Sendable {
             await coordinator.setReconnectEnabled(reconnect)
         }
             .flatMap { self.start() }
-            .flatMap { () -> EventLoopFuture<Void> in
+            .flatMap { [self] () -> EventLoopFuture<Void> in
                 let connectionSnapshot = self.coordinatorSnapshot
                 guard let eventLoop = connectionSnapshot.currentEventLoop else {
                     return self.eventLoopGroup.next().makeFailedFuture(OPCUAError.connectionError)
@@ -979,7 +980,7 @@ public final class ZenOPCUA: Sendable {
             return eventLoopGroup.next().makeSucceededVoidFuture()
         }
         let eventLoop = transport.eventLoop
-        return eventLoop.flatSubmit {
+        return eventLoop.flatSubmit { [self] in
             let promise = eventLoop.makePromise(of: Void.self)
             Task { [weak self] in
                 guard let self = self else {
